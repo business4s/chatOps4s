@@ -1,8 +1,39 @@
 package api
 
-import models.Interaction._
+import enums.{InputType, InteractionType}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
+import models._
+import sttp.shared.Identity
+import sttp.tapir.server.netty.sync.NettySyncServer
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
+import utilities.{Chat4Ops, DiscordBot, EnvLoader}
+import sttp.tapir.*
+import sttp.tapir.generic.auto.*
+import sttp.model.StatusCode
+import sttp.tapir.json.circe.jsonBody
+import sttp.tapir.server.netty.NettyConfig
+import io.circe.parser.*
+import scala.concurrent.duration.*
 
 class InboundGateway(val interactions: Interactions) {
+  private sealed trait ErrorInfo
+  private case class NotFound() extends ErrorInfo
+  private object NotFound {
+    implicit val decoder: Decoder[NotFound] = deriveDecoder
+    implicit val encoder: Encoder[NotFound] = deriveEncoder
+  }
+  private case class Unauthorized() extends ErrorInfo
+  private object Unauthorized {
+    implicit val decoder: Decoder[Unauthorized] = deriveDecoder
+    implicit val encoder: Encoder[Unauthorized] = deriveEncoder
+  }
+  private case class BadRequest() extends ErrorInfo
+  private object BadRequest {
+    implicit val decoder: Decoder[BadRequest] = deriveDecoder
+    implicit val encoder: Encoder[BadRequest] = deriveEncoder
+  }
+
   private val baseEndpoint = endpoint.errorOut(
     oneOf[ErrorInfo](
       oneOfVariant(StatusCode.NotFound, jsonBody[NotFound].description("not found")),
@@ -42,9 +73,9 @@ class InboundGateway(val interactions: Interactions) {
   // Add shutdown hook to clean up server
   def start(): Unit = {
     val config = NettyConfig.default.withGracefulShutdownTimeout(2.seconds)
-    val endpoints = List(this.acceptDeclineEndpoint, this.interactionsEndpoint, this.formEndpoint)
+    val endpoints = List(this.interactionsEndpoint)
     val swaggerEndpoints = SwaggerInterpreter()
-      .fromServerEndpoints[Identity](endpoints, "Chat4OpsServer", "1.0")
+      .fromServerEndpoints[Identity](endpoints, "ChatOps4s", "1.0")
     NettySyncServer(config)
       .port(8080)
       .addEndpoints(endpoints)
