@@ -4,7 +4,7 @@ ThisBuild / scalaVersion := "3.3.6"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "chatops4s-scala",
+    name := "chatops4s-discord",
     libraryDependencies ++= Seq(
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.36.5",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.34",
