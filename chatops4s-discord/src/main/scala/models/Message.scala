@@ -1,6 +1,6 @@
 package models
 
-import interactions.Button
+import io.circe.generic.auto._
 
 case class Message(
   text: String,
