@@ -18,6 +18,14 @@ class DiscordRegistry {
     id
   }
 
+  def getInteraction(id: String): (Message, (String, Message) => IO[MessageResponse]) = {
+    val maybeInteraction = interactions.get(id)
+    maybeInteraction match {
+      case Some(interaction) => interaction
+      case None => throw RuntimeException(s"Interaction with id $id not found")
+    }
+  }
+
   def removeInteraction(id: String): Boolean = {
     val maybeInteraction = interactions.get(id)
     maybeInteraction match {
