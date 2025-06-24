@@ -16,6 +16,7 @@ lazy val root = (project in file("."))
       "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
       "io.circe" %% "circe-core" % "0.14.14",
       "io.circe" %% "circe-generic" % "0.14.14",
-      "io.circe" %% "circe-parser" % "0.14.14"
+      "io.circe" %% "circe-parser" % "0.14.14",
+      "org.typelevel" %% "cats-effect" % "3.6.1"
     )
   )

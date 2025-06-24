@@ -1,22 +1,32 @@
 package api
 
+import cats.effect.IO
 import enums.{InputType, InteractionType}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
-import models._
+import models.*
+import interactions.*
 import sttp.shared.Identity
 import sttp.tapir.server.netty.sync.NettySyncServer
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
-import utilities.{Chat4Ops, DiscordBot, EnvLoader}
+import utilities.{DiscordBot, EnvLoader}
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.model.StatusCode
 import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.server.netty.NettyConfig
 import io.circe.parser.*
+
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
-class InboundGateway(val interactions: Interactions) {
+case class InteractionContext(
+   userId: String,
+   channelId: String,
+   messageId: String,
+ )
+
+class InboundGateway(interactionContext: InteractionContext) {
   private sealed trait ErrorInfo
   private case class NotFound() extends ErrorInfo
   private object NotFound {
@@ -33,6 +43,7 @@ class InboundGateway(val interactions: Interactions) {
     implicit val decoder: Decoder[BadRequest] = deriveDecoder
     implicit val encoder: Encoder[BadRequest] = deriveEncoder
   }
+  private val interactions: collection.mutable.ArrayBuffer[InteractionContext => IO[Unit]] = ArrayBuffer()
 
   private val baseEndpoint = endpoint.errorOut(
     oneOf[ErrorInfo](
@@ -47,7 +58,7 @@ class InboundGateway(val interactions: Interactions) {
     .in(header[String]("X-Signature-Ed25519"))
     .in(header[String]("X-Signature-Timestamp"))
     .in(stringBody)
-    .out(jsonBody[InteractionResponse])
+    .out(jsonBody[MessageResponse])
     .handle { case (signature, timestamp, body) =>
       val isValid = DiscordBot.verifySignature(
         signature,
@@ -60,16 +71,30 @@ class InboundGateway(val interactions: Interactions) {
         val decoded = decode[InteractionRequest](body)
         decoded match {
           case Right(interactionRequest) =>
-            val interactionResponse = Chat4Ops.executeInteraction(
-              interactionRequest = interactionRequest,
-              interactions = interactions
-            )
-            if interactionResponse.isDefined then Right(interactionResponse.get) else Left(BadRequest())
+            Right(MessageResponse(
+              messageId = "test"
+            ))
           case Left(error) =>
             Left(BadRequest())
         }
       }
     }
+
+  def registerAction(handler: (ctx: InteractionContext) => IO[Unit]): IO[ButtonInteraction] = {
+    class ButtonInteractionTest extends ButtonInteraction {
+      override def render(label: String): IO[Button] = {
+        handler(interactionContext)
+        for {
+          _ <- handler(interactionContext)
+          button = Button(
+            label = label,
+            value = label.toUpperCase().replace(' ', '_')
+          )
+        } yield button
+      }
+    }
+    IO(ButtonInteractionTest())
+  }
   // Add shutdown hook to clean up server
   def start(): Unit = {
     val config = NettyConfig.default.withGracefulShutdownTimeout(2.seconds)
