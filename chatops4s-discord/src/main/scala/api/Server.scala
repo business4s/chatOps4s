@@ -88,7 +88,6 @@ object Server extends IOApp:
     .in("send")
     .out(jsonBody[MessageResponse])
 
-
   private val sendRoutes: HttpRoutes[IO] =
     Http4sServerInterpreter[IO]().toRoutes(
       sendEndpoint.serverLogicSuccess[IO](_ => {
