@@ -56,6 +56,7 @@ object Server extends IOApp:
         (customId, userId, channelId, messageId) match {
           case (Some(id), Some(uid), Some(cid), Some(mid)) =>
             val ctx = InteractionContext(uid, cid, mid)
+            println(discordInbound.handlers)
             discordInbound.handlers.get(id) match {
               case Some(handler) =>
                 handler(ctx).map(_ => Right(DiscordResponse(`type` = 6))) // ACK with update
@@ -98,21 +99,23 @@ object Server extends IOApp:
         )
         val acceptButton = discordInbound.registerAction((ctx) => IO {
           discordOutbound.sendToChannel(
-            "1381992880834351184",
+            ctx.channelId,
             Message(
               text = "You pressed accept!"
             )
-          )
-          println("Accept button pressed")
+          ).flatMap { response =>
+            IO.println(s"Accepted. Sent message ${response.messageId}")
+          }
         })
         val declineButton = discordInbound.registerAction((ctx) => IO {
           discordOutbound.sendToChannel(
-            "1381992880834351184",
+            ctx.channelId,
             Message(
               text = "You pressed decline!"
             )
-          )
-          println("Decline button pressed")
+          ).flatMap { response =>
+            IO.println(s"Declined. Sent message ${response.messageId}")
+          }
         })
         val message = Message(
           text = "Deploy to production?",

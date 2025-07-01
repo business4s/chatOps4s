@@ -18,21 +18,27 @@ class DiscordOutbound(token: String, url: String, applicationId: String) extends
     .header("Content-Type", "application/json")
 
   override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
-    val json = Json.obj(
-      "type" := 1,
-      "content" := message.text,
-      "components" := Json.arr(Json.obj(
-        "type" := 1,
-        "components" := message.interactions.map { b =>
-          Json.obj(
-            "type" := 2,
-            "style" := 1,
-            "label" := b.label,
-            "custom_id" := b.value
-          )
-       }
-      ))
-    )
+    val json = if (message.interactions.nonEmpty) {
+      Json.obj(
+        "content" := message.text,
+        "components" := Json.arr(Json.obj(
+          "type" := 1,
+          "components" := message.interactions.map { b =>
+            Json.obj(
+              "type" := 2,
+              "style" := 1,
+              "label" := b.label,
+              "custom_id" := b.value
+            )
+          }
+        ))
+      )
+    } else {
+      Json.obj(
+        "content" := message.text,
+      )
+    }
+
     val request = baseRequest
       .post(uri"$rootUrl/channels/$channelId/messages")
       .body(json.noSpaces)
