@@ -10,6 +10,7 @@ lazy val root = (project in file("."))
       "com.softwaremill.sttp.tapir" %% "tapir-cats"             % "1.11.34",
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.11.34",
       "org.http4s" %% "http4s-blaze-server"    % "0.23.17",
+      "org.bouncycastle" % "bcpkix-jdk15on" % "1.70",
       "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle" % "1.11.34",
       "com.softwaremill.sttp.tapir" %% "tapir-netty-server"     % "1.11.34",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe"       % "1.11.34",
