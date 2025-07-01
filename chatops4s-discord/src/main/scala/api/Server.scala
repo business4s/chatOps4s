@@ -97,7 +97,7 @@ object Server extends IOApp:
           url = EnvLoader.get("DISCORD_BOT_URL"),
           applicationId = EnvLoader.get("DISCORD_BOT_APPLICATION_ID")
         )
-        val acceptButton = discordInbound.registerAction((ctx) => IO {
+        val acceptButton = discordInbound.registerAction((ctx) =>
           discordOutbound.sendToChannel(
             ctx.channelId,
             Message(
@@ -106,8 +106,8 @@ object Server extends IOApp:
           ).flatMap { response =>
             IO.println(s"Accepted. Sent message ${response.messageId}")
           }
-        })
-        val declineButton = discordInbound.registerAction((ctx) => IO {
+        )
+        val declineButton = discordInbound.registerAction((ctx) =>
           discordOutbound.sendToChannel(
             ctx.channelId,
             Message(
@@ -116,7 +116,7 @@ object Server extends IOApp:
           ).flatMap { response =>
             IO.println(s"Declined. Sent message ${response.messageId}")
           }
-        })
+        )
         val message = Message(
           text = "Deploy to production?",
           interactions = Seq(
