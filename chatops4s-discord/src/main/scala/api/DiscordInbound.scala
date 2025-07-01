@@ -21,14 +21,18 @@ import scala.concurrent.Future
 class DiscordInbound extends InboundGateway {
   val handlers: TrieMap[String, InteractionContext => IO[Unit]] = TrieMap.empty[String, InteractionContext => IO[Unit]]
 
-  override def registerAction(handler: InteractionContext => IO[Unit]): IO[ButtonInteraction] = {
+  override def registerAction(handler: InteractionContext => IO[Unit]): ButtonInteraction = {
     val id = java.util.UUID.randomUUID().toString.take(n = 8)
     handlers += id -> handler
-    IO((label: String) => {
-      Button(
-        label = label,
-        value = id
-      )
-    })
+    
+    class ButtonInteractionImpl extends ButtonInteraction {
+      override def render(label: String): Button = {
+        Button(
+          label = label,
+          value = id
+        )
+      }
+    }
+    new ButtonInteractionImpl()
   }
 }

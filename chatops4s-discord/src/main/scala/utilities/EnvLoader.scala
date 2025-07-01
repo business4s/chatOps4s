@@ -3,10 +3,9 @@ package utilities
 import scala.io.Source
 
 object EnvLoader {
-  def loadEnv(path: String = ".env"): Unit = {
+  def loadEnv(path: String = "./src/.env"): Unit = {
     val source = Source.fromFile(path)
     for (line <- source.getLines()) {
-      println(line)
       val trimmed = line.trim
       if (!trimmed.startsWith("#") && trimmed.contains("=")) {
         val Array(key, value) = trimmed.split("=", 2)

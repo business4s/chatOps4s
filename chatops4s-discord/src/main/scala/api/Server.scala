@@ -1,8 +1,9 @@
 package api
 
 import cats.effect.{ExitCode, IO, IOApp}
+import cats.implicits.toSemigroupKOps
 import io.circe.Json
-import models.{DiscordResponse, InteractionContext}
+import models.{Button, DiscordResponse, InteractionContext, Message, MessageResponse}
 import org.http4s.HttpRoutes
 import org.http4s.blaze.server.BlazeServerBuilder
 import org.http4s.server.Router
@@ -14,18 +15,17 @@ import io.circe.generic.auto.*
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.bouncycastle.util.encoders.Hex
-import utilities.EnvLoader
 import sttp.tapir.EndpointOutput.OneOfVariant
 import sttp.model.StatusCode
 import io.circe.parser.*
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
+import utilities.EnvLoader
 
 object Server extends IOApp:
-  private val discordInbound = new DiscordInbound()
-
   private sealed trait ErrorInfo
   private case class BadRequest(what: String) extends ErrorInfo
   private case class Unauthorized() extends ErrorInfo
+  private val discordInbound = new DiscordInbound()
 
   private def verifySignature(
    publicKey: String,
@@ -35,7 +35,6 @@ object Server extends IOApp:
  ): Boolean = {
     val publicKeyBytes = Hex.decode(publicKey.strip())
     val signatureBytes = Hex.decode(signature.strip())
-    println("ran")
     val message = (timestamp.strip() + body.strip()).getBytes("UTF-8")
     val verifier = new Ed25519Signer()
     verifier.init(false, new Ed25519PublicKeyParameters(publicKeyBytes, 0))
@@ -43,28 +42,30 @@ object Server extends IOApp:
     verifier.verifySignature(signatureBytes)
   }
 
+  private val logic: (String, String, Json) => IO[Either[ErrorInfo, DiscordResponse]] = (_, _, json) => {
+    val cursor = json.hcursor
+    val _type = cursor.get[Int]("type").toOption
 
-
-  private val logic: (String, String, Json) => IO[Either[ErrorInfo, DiscordResponse]] = (signature: String, timestamp: String, json: Json) => {
-    val maybeContext = for {
-      customId <- json.hcursor.downField("data").get[String]("custom_id").toOption
-      userId <- json.hcursor.downField("member").downField("user").get[String]("id").toOption
-      channelId <- json.hcursor.get[String]("channel_id").toOption
-      messageId <- json.hcursor.downField("message").get[String]("id").toOption
-      _type     <- json.hcursor.get[Int]("type").toOption
-    } yield (customId, _type, InteractionContext(userId, channelId, messageId))
-    maybeContext match {
-      case Some((id, _type, ctx)) =>
-        if (_type == 1) {
-          IO.println("ping")
-          IO.pure(Right(DiscordResponse(`type` = 1)))
-        } else {
-          discordInbound.handlers.get(id) match {
-            case Some(f) => f(ctx).map(Right(_)).as(Right(DiscordResponse(`type` = 1)))
-            case None => IO.pure(Right(DiscordResponse(`type` = 1)))
-          }
+    _type match {
+      case Some(1) => IO.pure(Right(DiscordResponse(`type` = 1))) // PING
+      case Some(_) =>
+        val customId = cursor.downField("data").get[String]("custom_id").toOption
+        val userId = cursor.downField("member").downField("user").get[String]("id").toOption
+        val channelId = cursor.get[String]("channel_id").toOption
+        val messageId = cursor.downField("message").get[String]("id").toOption
+        (customId, userId, channelId, messageId) match {
+          case (Some(id), Some(uid), Some(cid), Some(mid)) =>
+            val ctx = InteractionContext(uid, cid, mid)
+            discordInbound.handlers.get(id) match {
+              case Some(handler) =>
+                handler(ctx).map(_ => Right(DiscordResponse(`type` = 6))) // ACK with update
+              case None =>
+                IO.pure(Right(DiscordResponse(`type` = 6)))
+            }
+          case _ =>
+            IO.pure(Left(BadRequest("Missing interaction fields")))
         }
-      case None => IO.pure(Left(BadRequest(what = "Invalid Type")))
+      case None => IO.pure(Left(BadRequest("Missing type field")))
     }
   }
 
@@ -81,29 +82,58 @@ object Server extends IOApp:
     )
     .out(jsonBody[DiscordResponse])
 
+
+  private val sendEndpoint = endpoint.get
+    .in("send")
+    .out(jsonBody[MessageResponse])
+
+
+  private val sendRoutes: HttpRoutes[IO] =
+    Http4sServerInterpreter[IO]().toRoutes(
+      sendEndpoint.serverLogicSuccess[IO](_ => {
+        val discordOutbound = new DiscordOutbound(
+          token = EnvLoader.get("DISCORD_BOT_TOKEN"),
+          url = EnvLoader.get("DISCORD_BOT_URL"),
+          applicationId = EnvLoader.get("DISCORD_BOT_APPLICATION_ID")
+        )
+        val acceptButton = discordInbound.registerAction((ctx) => IO.println("Accept button pressed"))
+        val declineButton = discordInbound.registerAction((ctx) => IO.println("Decline button pressed"))
+        val message = Message(
+          text = "Deploy to production?",
+          interactions = Seq(
+            acceptButton.render("Accept"),
+            declineButton.render("Decline")
+          )
+        )
+        val response = discordOutbound.sendToChannel("1381992880834351184", message)
+        response
+      })
+    )
+
+
   private val swaggerRoutes: HttpRoutes[IO] =
     Http4sServerInterpreter[IO]().toRoutes(
       SwaggerInterpreter().fromEndpoints[IO](
-        List(interactionEndpoint),
+        List(interactionEndpoint, sendEndpoint),
         "Discord Interaction API",
         "1.0"
       )
     )
 
   override def run(args: List[String]): IO[ExitCode] = {
+    EnvLoader.loadEnv()
+    
     val routes: HttpRoutes[IO] =
       Http4sServerInterpreter[IO]()
-        .toRoutes(interactionEndpoint.serverLogic {
+        .toRoutes(interactionEndpoint.serverLogic[IO] {
           case (signature, timestamp, json) =>
-            val body = json
-            IO.println("getting public key")
-            val discordPublicKey = EnvLoader.get("DISCORD_BOT_PUBLIC_KEY")
-            if (!verifySignature(discordPublicKey, signature, timestamp, body)) {
+            val discordPublicKey = "cec2f053ddcba6bb67570ac176afc730df3325a729ccb32edbed9dbe4d1741ca"
+            if (!verifySignature(discordPublicKey, signature, timestamp, json)) {
               IO.pure(Left(Unauthorized()))
             } else {
               parse(json) match {
-                case Right(body) => logic(signature, timestamp, body)
-                case Left(err) => IO.pure(Left(BadRequest(what = "Parsing error")))
+                case Right(json) => logic(signature, timestamp, json)
+                case Left(err) => IO.pure(Left(BadRequest(what = s"Parsing error: ${err.message}")))
               }
             }
         })
@@ -111,8 +141,7 @@ object Server extends IOApp:
     BlazeServerBuilder[IO]
       .bindHttp(8080, "localhost")
       .withHttpApp(Router(
-        "/" -> routes,
-        "/" -> swaggerRoutes
+        "/" -> (routes <+> swaggerRoutes <+> sendRoutes) // Combine all routes here
       ).orNotFound)
       .resource
       .use(_ => IO.never)
