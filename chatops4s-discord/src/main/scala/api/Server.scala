@@ -96,8 +96,24 @@ object Server extends IOApp:
           url = EnvLoader.get("DISCORD_BOT_URL"),
           applicationId = EnvLoader.get("DISCORD_BOT_APPLICATION_ID")
         )
-        val acceptButton = discordInbound.registerAction((ctx) => IO.println("Accept button pressed"))
-        val declineButton = discordInbound.registerAction((ctx) => IO.println("Decline button pressed"))
+        val acceptButton = discordInbound.registerAction((ctx) => IO {
+          discordOutbound.sendToChannel(
+            "1381992880834351184",
+            Message(
+              text = "You pressed accept!"
+            )
+          )
+          println("Accept button pressed")
+        })
+        val declineButton = discordInbound.registerAction((ctx) => IO {
+          discordOutbound.sendToChannel(
+            "1381992880834351184",
+            Message(
+              text = "You pressed decline!"
+            )
+          )
+          println("Decline button pressed")
+        })
         val message = Message(
           text = "Deploy to production?",
           interactions = Seq(
@@ -122,7 +138,7 @@ object Server extends IOApp:
 
   override def run(args: List[String]): IO[ExitCode] = {
     EnvLoader.loadEnv()
-    
+
     val routes: HttpRoutes[IO] =
       Http4sServerInterpreter[IO]()
         .toRoutes(interactionEndpoint.serverLogic[IO] {
