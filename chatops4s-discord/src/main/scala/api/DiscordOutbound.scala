@@ -12,7 +12,6 @@ import sttp.client4.*
 class DiscordOutbound(
   token: String,
   url: String,
-  applicationId: String,
   backend: Backend[IO]
 ) extends OutboundGateway, StrictLogging {
   private final val rootUrl = "https://discord.com/api/v10"
