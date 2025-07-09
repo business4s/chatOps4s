@@ -48,16 +48,11 @@ class DiscordOutbound(token: String, url: String, applicationId: String) extends
       request.send(backend).flatMap { response =>
         response.body match {
           case Right(json) =>
-            IO.println("success")
             val messageId = json.hcursor.get[String]("id").getOrElse("")
             IO.pure(MessageResponse(messageId = messageId))
           case Left(error) =>
-            IO.println(s"failed: $error")
             IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
         }
-      }.handleErrorWith { ex =>
-        IO.println(s"Unexpected failure: ${ex.getMessage}") *>
-          IO.raiseError(ex)
       }
     }
   }
