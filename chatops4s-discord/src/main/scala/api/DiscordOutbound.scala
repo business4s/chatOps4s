@@ -3,14 +3,16 @@ package api
 import io.circe.*
 import io.circe.syntax.*
 import cats.effect.IO
+import com.typesafe.scalalogging.Logger
 import models.*
 import sttp.client4.circe.asJson
-import sttp.client4._
+import sttp.client4.*
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 
-class DiscordOutbound(token: String, url: String, applicationId: String) extends OutboundGateway {
+class DiscordOutbound(token: String, url: String, applicationId: String, verbose: Boolean = false) extends OutboundGateway {
   private final val rootUrl = "https://discord.com/api/v10"
   private final val versionNumber = 1.0
+  private final val logger = Logger(getClass.getName)
 
   private def baseRequest = basicRequest
     .header("Authorization", s"Bot $token")
@@ -49,8 +51,10 @@ class DiscordOutbound(token: String, url: String, applicationId: String) extends
         response.body match {
           case Right(json) =>
             val messageId = json.hcursor.get[String]("id").getOrElse("")
+            if (verbose) logger.info("Message sent to Discord")
             IO.pure(MessageResponse(messageId = messageId))
           case Left(error) =>
+            if (verbose) logger.warn(s"Failed to send message: $error")
             IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
         }
       }

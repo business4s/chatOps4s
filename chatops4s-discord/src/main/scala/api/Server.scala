@@ -1,23 +1,26 @@
 package api
 
 import cats.effect.IO
+import com.typesafe.scalalogging.Logger
 import io.circe.Json
-import io.circe.parser._
-import sttp.tapir._
-import sttp.tapir.json.circe._
-import sttp.tapir.generic.auto._
-import io.circe.generic.auto._
+import io.circe.parser.*
+import sttp.tapir.*
+import sttp.tapir.json.circe.*
+import sttp.tapir.generic.auto.*
+import io.circe.generic.auto.*
 import models.{DiscordResponse, InteractionContext}
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.bouncycastle.util.encoders.Hex
 import sttp.model.StatusCode
 
-object Server {
+class Server(verbose: Boolean = false) {
   sealed trait ErrorInfo
   private case class BadRequest(what: String) extends ErrorInfo
   private case class Unauthorized() extends ErrorInfo
   private val discordInbound = new DiscordInbound()
+  private final val logger = Logger(getClass.getName)
+
   val interactionEndpoint: Endpoint[Unit, (String, String, String), ErrorInfo, DiscordResponse, Any] =
     endpoint.post
       .in("api" / "interactions")
@@ -50,11 +53,14 @@ object Server {
   def logic(discordPublicKey: String): ((String, String, String)) => IO[Either[ErrorInfo, DiscordResponse]] = {
     case (signature, timestamp, body) =>
       if (!verifySignature(discordPublicKey, signature, timestamp, body)) {
+        if (verbose) logger.warn("Failed to authorize signature of request from Discord")
         IO.pure(Left(Unauthorized()))
       } else {
         parse(body) match {
           case Right(json) => processRequest(json)
-          case Left(err)   => IO.pure(Left(BadRequest(s"Parsing error: ${err.message}")))
+          case Left(err)   =>
+            if (verbose) logger.warn("Failed to parse body send from Discord")
+            IO.pure(Left(BadRequest(s"Parsing error: ${err.message}")))
         }
       }
   }
@@ -80,9 +86,12 @@ object Server {
                 IO.pure(Right(DiscordResponse(`type` = 6)))
             }
           case _ =>
+            if (verbose) logger.warn("Missing properties to handle interaction")
             IO.pure(Left(BadRequest("Missing interaction fields")))
         }
-      case None => IO.pure(Left(BadRequest("Missing type field")))
+      case None =>
+        if (verbose) logger.warn("Missing the type property to handle interaction")
+        IO.pure(Left(BadRequest("Missing type property")))
     }
   }
 }
