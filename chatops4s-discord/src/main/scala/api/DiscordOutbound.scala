@@ -4,6 +4,7 @@ import io.circe.*
 import io.circe.syntax.*
 import cats.effect.IO
 import com.typesafe.scalalogging.Logger
+import enums.ContentType
 import models.*
 import sttp.client4.circe.asJson
 import sttp.client4.*
@@ -24,10 +25,10 @@ class DiscordOutbound(token: String, url: String, applicationId: String, verbose
       Json.obj(
         "content" := message.text,
         "components" := Json.arr(Json.obj(
-          "type" := 1,
+          "type" := ContentType.ActionRow.value,
           "components" := message.interactions.map { b =>
             Json.obj(
-              "type" := 2,
+              "type" := ContentType.Button.value,
               "style" := 1,
               "label" := b.label,
               "custom_id" := b.value
