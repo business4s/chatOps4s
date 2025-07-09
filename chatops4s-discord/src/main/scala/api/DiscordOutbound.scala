@@ -4,7 +4,7 @@ import io.circe.*
 import io.circe.syntax.*
 import cats.effect.IO
 import com.typesafe.scalalogging.Logger
-import enums.ContentType
+import enums.{ButtonStyle, ContentType}
 import models.*
 import sttp.client4.circe.asJson
 import sttp.client4.*
@@ -34,7 +34,7 @@ class DiscordOutbound(
           "components" := message.interactions.map { b =>
             Json.obj(
               "type" := ContentType.Button.value,
-              "style" := 1,
+              "style" := ButtonStyle.Primary.value,
               "label" := b.label,
               "custom_id" := b.value
             )
