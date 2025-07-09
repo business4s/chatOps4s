@@ -2,6 +2,7 @@ package api
 
 import cats.effect.IO
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import enums.InteractionType
 import io.circe.Json
 import io.circe.parser.*
 import sttp.tapir.*
@@ -19,7 +20,7 @@ class Server extends StrictLogging {
   private case class BadRequest(what: String) extends ErrorInfo
   private case class Unauthorized() extends ErrorInfo
   private val discordInbound = new DiscordInbound()
-  
+
   val interactionEndpoint: Endpoint[Unit, (String, String, String), ErrorInfo, DiscordResponse, Any] =
     endpoint.post
       .in("api" / "interactions")
@@ -73,7 +74,7 @@ class Server extends StrictLogging {
     val _type = cursor.get[Int]("type").toOption
 
     _type match {
-      case Some(1) => IO.pure(Right(DiscordResponse(`type` = 1))) // PING
+      case Some(1) => IO.pure(Right(DiscordResponse(`type` = InteractionType.Ping.value))) // PING
       case Some(_) =>
         val customId = cursor.downField("data").get[String]("custom_id").toOption
         val userId = cursor.downField("member").downField("user").get[String]("id").toOption
@@ -84,9 +85,9 @@ class Server extends StrictLogging {
             val ctx = InteractionContext(uid, cid, mid)
             discordInbound.handlers.get(id) match {
               case Some(handler) =>
-                handler(ctx).map(_ => Right(DiscordResponse(`type` = 6)))
+                handler(ctx).map(_ => Right(DiscordResponse(`type` = InteractionType.DeferredMessageUpdate.value)))
               case None =>
-                IO.pure(Right(DiscordResponse(`type` = 6)))
+                IO.pure(Right(DiscordResponse(`type` = InteractionType.DeferredMessageUpdate.value)))
             }
           case _ =>
             logger.whenWarnEnabled {

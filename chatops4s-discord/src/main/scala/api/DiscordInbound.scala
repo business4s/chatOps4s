@@ -7,7 +7,6 @@ import models.{Button, ButtonInteraction, InboundGateway, InteractionContext}
 import scala.collection.concurrent.TrieMap
 
 class DiscordInbound extends InboundGateway, StrictLogging {
-  private final val logger = Logger(getClass.getName)
   val handlers: TrieMap[String, InteractionContext => IO[Unit]] = TrieMap.empty[String, InteractionContext => IO[Unit]]
 
   override def registerAction(handler: InteractionContext => IO[Unit]): ButtonInteraction = {
