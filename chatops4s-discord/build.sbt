@@ -12,7 +12,6 @@ lazy val root = (project in file("."))
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe"       % "1.11.35",
       "com.softwaremill.sttp.client4" %% "core"                 % "4.0.9",
       "com.softwaremill.sttp.client4" %% "circe"                % "4.0.9",
-      "com.softwaremill.sttp.client4" %% "cats"                 % "4.0.9",
       "io.circe" %% "circe-parser"                              % "0.14.14",
       "org.typelevel" %% "cats-effect"                          % "3.6.2",
       "com.typesafe.scala-logging" %% "scala-logging"           % "3.9.5"
