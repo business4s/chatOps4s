@@ -6,10 +6,9 @@ import chatops4s.{Button, ButtonInteraction, InboundGateway, InteractionContext}
 import chatops4s.slack.models.*
 import java.util.UUID
 
-class SlackInboundGateway extends InboundGateway {
-
-  private val actionHandlers: Ref[IO, Map[String, InteractionContext => IO[Unit]]] =
-    Ref.unsafe(Map.empty)
+class SlackInboundGateway private (
+                                    actionHandlers: Ref[IO, Map[String, InteractionContext => IO[Unit]]]
+                                  ) extends InboundGateway {
 
   override def registerAction(handler: InteractionContext => IO[Unit]): IO[ButtonInteraction] = {
     for {
@@ -37,6 +36,13 @@ class SlackInboundGateway extends InboundGateway {
         }
       case None => IO.unit
     }
+  }
+}
+
+object SlackInboundGateway {
+  def create: IO[SlackInboundGateway] = {
+    Ref.of[IO, Map[String, InteractionContext => IO[Unit]]](Map.empty)
+      .map(new SlackInboundGateway(_))
   }
 }
 

@@ -1,10 +1,13 @@
 package chatops4s.slack
 
-import cats.effect.IO
+import cats.effect.{IO, Ref}
 import chatops4s.{Button, Message, MessageResponse, OutboundGateway}
 import chatops4s.slack.models.*
 
-class SlackOutboundGateway(slackClient: SlackClient) extends OutboundGateway {
+class SlackOutboundGateway(
+                            slackClient: SlackClient,
+                            messageStore: Ref[IO, Map[String, String]] // messageId -> channelId mapping
+                          ) extends OutboundGateway {
 
   override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
     val slackRequest = convertToSlackRequest(channelId, message)
@@ -12,7 +15,11 @@ class SlackOutboundGateway(slackClient: SlackClient) extends OutboundGateway {
     slackClient.postMessage(slackRequest).flatMap { response =>
       if (response.ok) {
         response.ts match {
-          case Some(timestamp) => IO.pure(MessageResponse(timestamp))
+          case Some(timestamp) =>
+            for {
+              _ <- messageStore.update(_ + (timestamp -> channelId))
+              messageId = s"$channelId-$timestamp" // Store channel info in messageId
+            } yield MessageResponse(messageId)
           case None => IO.raiseError(new RuntimeException("No message timestamp returned"))
         }
       } else {
@@ -22,14 +29,17 @@ class SlackOutboundGateway(slackClient: SlackClient) extends OutboundGateway {
   }
 
   override def sendToThread(messageId: String, message: Message): IO[MessageResponse] = {
-    // For thread replies,actually i need a way to store message ID i will do that here itself(for developer only)
-    val channelId = extractChannelFromMessageId(messageId)
-    val slackRequest = convertToSlackRequest(channelId, message, Some(messageId))
+    val (channelId, threadTs) = extractChannelAndTimestamp(messageId)
+    val slackRequest = convertToSlackRequest(channelId, message, Some(threadTs))
 
     slackClient.postMessage(slackRequest).flatMap { response =>
       if (response.ok) {
         response.ts match {
-          case Some(timestamp) => IO.pure(MessageResponse(timestamp))
+          case Some(timestamp) =>
+            for {
+              _ <- messageStore.update(_ + (timestamp -> channelId))
+              newMessageId = s"$channelId-$timestamp"
+            } yield MessageResponse(newMessageId)
           case None => IO.raiseError(new RuntimeException("No message timestamp returned"))
         }
       } else {
@@ -74,8 +84,17 @@ class SlackOutboundGateway(slackClient: SlackClient) extends OutboundGateway {
     )
   }
 
-  private def extractChannelFromMessageId(messageId: String): String = {
-    
-    messageId.split("-").headOption.getOrElse(messageId)
+  private def extractChannelAndTimestamp(messageId: String): (String, String) = {
+    messageId.split("-", 2) match {
+      case Array(channelId, timestamp) => (channelId, timestamp)
+      case _ => throw new IllegalArgumentException(s"Invalid message ID format: $messageId")
+    }
+  }
+}
+
+object SlackOutboundGateway {
+  def create(slackClient: SlackClient): IO[SlackOutboundGateway] = {
+    Ref.of[IO, Map[String, String]](Map.empty)
+      .map(new SlackOutboundGateway(slackClient, _))
   }
 }

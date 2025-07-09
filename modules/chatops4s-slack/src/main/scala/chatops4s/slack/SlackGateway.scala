@@ -13,16 +13,16 @@ object SlackGateway {
     for {
       backend <- HttpClientCatsBackend.resource[IO]()
       slackClient = new SlackClient(config, backend)
-      outboundGateway = new SlackOutboundGateway(slackClient)
-      inboundGateway = new SlackInboundGateway()
+      outboundGateway <- Resource.eval(SlackOutboundGateway.create(slackClient))
+      inboundGateway <- Resource.eval(SlackInboundGateway.create)
       server <- new SlackServer(config, inboundGateway).start
     } yield (outboundGateway, inboundGateway, server)
   }
 
   def createOutboundOnly(config: SlackConfig): Resource[IO, OutboundGateway] = {
-    HttpClientCatsBackend.resource[IO]().map { backend =>
+    HttpClientCatsBackend.resource[IO]().evalMap { backend =>
       val slackClient = new SlackClient(config, backend)
-      new SlackOutboundGateway(slackClient)
+      SlackOutboundGateway.create(slackClient)
     }
   }
 }
