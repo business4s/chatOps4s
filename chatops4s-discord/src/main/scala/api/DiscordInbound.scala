@@ -15,15 +15,12 @@ class DiscordInbound(verbose: Boolean = false) extends InboundGateway {
     if (verbose) logger.info("Registered action")
     val id = java.util.UUID.randomUUID().toString.take(n = 8)
     handlers += id -> handler
-    
-    class ButtonInteractionImpl extends ButtonInteraction {
-      override def render(label: String): Button = {
-        Button(
-          label = label,
-          value = id
-        )
-      }
+
+    (label: String) => {
+      Button(
+        label = label,
+        value = id
+      )
     }
-    new ButtonInteractionImpl()
   }
 }
