@@ -13,6 +13,8 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import sttp.tapir.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.server.http4s.Http4sServerInterpreter
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
+import sttp.tapir.openapi.circe.yaml.*
 
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -29,6 +31,9 @@ class SlackServer(
     .in("slack" / "interactions")
     .in(formBody[String])
     .out(stringBody)
+    .name("slack-interactions")
+    .description("Handle Slack interactive button clicks")
+    .tag("Slack")
     .serverLogicSuccess[IO] { payload =>
       handleInteraction(payload).as("OK")
     }
@@ -37,10 +42,19 @@ class SlackServer(
     .get
     .in("health")
     .out(stringBody)
+    .name("health-check")
+    .description("Health check endpoint")
+    .tag("System")
     .serverLogicSuccess[IO](_ => IO.pure("OK"))
 
+  private val apiEndpoints = List(interactionsEndpoint, healthEndpoint)
+
+  // Generate OpenAPI docs
+  private val openApiDocs = SwaggerInterpreter()
+    .fromServerEndpoints[IO](apiEndpoints, "ChatOps4s Slack API", "1.0.0")
+
   private val routes = Http4sServerInterpreter[IO]().toRoutes(
-    List(interactionsEndpoint, healthEndpoint)
+    apiEndpoints ++ openApiDocs
   )
 
   def start: Resource[IO, Server] = {
@@ -50,11 +64,13 @@ class SlackServer(
       .withPort(Port.fromInt(config.port).get)
       .withHttpApp(routes.orNotFound)
       .build
+      .evalTap(_ => logger.info(s"Slack server started on port ${config.port}"))
+      .evalTap(_ => logger.info(s"Swagger UI available at: http://localhost:${config.port}/docs"))
   }
 
   private def handleInteraction(formData: String): IO[Unit] = {
     for {
-      _ <- logger.info(s"Received interaction: $formData")
+      _ <- logger.debug(s"Received interaction: $formData")
       payload <- parsePayload(formData)
       _ <- inboundGateway.handleInteraction(payload)
     } yield ()

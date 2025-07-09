@@ -10,7 +10,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object Main extends IOApp {
 
-  implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   override def run(args: List[String]): IO[ExitCode] = {
     val config = SlackConfig(
@@ -23,12 +23,12 @@ object Main extends IOApp {
       for {
         _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
         _ <- logger.info("Server started! Send a test message...")
+        _ <- logger.info(s"Swagger UI available at: http://localhost:${config.port}/docs")
 
-    
         _ <- runChatOpsExample(outbound, inbound)
 
         _ <- logger.info("ChatOps example completed. Server will keep running...")
-        _ <- IO.never // Actually it help in keep my server runnning
+        _ <- IO.never // Keep server running
       } yield ExitCode.Success
     }
   }
@@ -55,7 +55,6 @@ object Main extends IOApp {
       response <- outbound.sendToChannel(channelId, msg)
       _ <- logger.info(s"Message sent with ID: ${response.messageId}")
 
-    
       _ <- outbound.sendToThread(
         response.messageId,
         Message("👆 Please click one of the buttons above to proceed")

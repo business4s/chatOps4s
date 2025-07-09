@@ -12,6 +12,7 @@ ThisBuild / libraryDependencies ++= Seq(
   "com.softwaremill.sttp.tapir" %% "tapir-cats" % "1.11.35",
   "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.35",
   "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.35",
+  "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle" % "1.11.35",
   "org.http4s" %% "http4s-ember-server" % "0.23.30",
   "org.http4s" %% "http4s-ember-client" % "0.23.30",
   // JSON handling
