@@ -15,5 +15,4 @@ lazy val root = (project in file("."))
       "io.circe" %% "circe-parser"                              % "0.14.14",
       "org.typelevel" %% "cats-effect"                          % "3.6.2",
       "com.typesafe.scala-logging" %% "scala-logging"           % "3.9.5"
-    )
-  )
+  ))
