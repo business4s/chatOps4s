@@ -4,15 +4,6 @@ import cats.effect.{ExitCode, IO}
 import cats.effect.unsafe.IORuntime
 import io.circe.Json
 import models.{Button, ButtonInteraction, InboundGateway, InteractionContext}
-import org.http4s.HttpRoutes
-import org.http4s.blaze.server.BlazeServerBuilder
-import org.http4s.server.Router
-import sttp.tapir.json.circe.*
-import sttp.tapir.*
-import sttp.tapir.server.ServerEndpoint
-import sttp.tapir.server.http4s.Http4sServerInterpreter
-import sttp.tapir.server.netty.NettyFutureServer
-import sttp.tapir.swagger.bundle.SwaggerInterpreter
 
 import scala.collection.concurrent.TrieMap
 
