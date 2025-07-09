@@ -15,8 +15,6 @@ import sttp.tapir.server.netty.NettyFutureServer
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 
 class DiscordInbound extends InboundGateway {
   val handlers: TrieMap[String, InteractionContext => IO[Unit]] = TrieMap.empty[String, InteractionContext => IO[Unit]]
