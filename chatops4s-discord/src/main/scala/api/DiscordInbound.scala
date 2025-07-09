@@ -1,8 +1,6 @@
 package api
 
-import cats.effect.{ExitCode, IO}
-import cats.effect.unsafe.IORuntime
-import io.circe.Json
+import cats.effect.IO
 import models.{Button, ButtonInteraction, InboundGateway, InteractionContext}
 
 import scala.collection.concurrent.TrieMap
