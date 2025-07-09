@@ -41,18 +41,19 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 
       val slackClient = new SlackClient(config, backend)
-      val outboundGateway = new SlackOutboundGateway(slackClient)
 
-      val message = Message(
-        text = "Deploy to production?",
-        interactions = Seq(
-          Button("Approve", "approve_action"),
-          Button("Decline", "decline_action")
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(
+          text = "Deploy to production?",
+          interactions = Seq(
+            Button("Approve", "approve_action"),
+            Button("Decline", "decline_action")
+          )
         )
-      )
 
-      outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
-        response.messageId shouldBe "1234567890.123456"
+        outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567890.123456"
+        }
       }
     }
 
@@ -74,12 +75,12 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 
       val slackClient = new SlackClient(config, backend)
-      val outboundGateway = new SlackOutboundGateway(slackClient)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(text = "Simple message")
 
-      val message = Message(text = "Simple message")
-
-      outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
-        response.messageId shouldBe "1234567890.123456"
+        outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567890.123456"
+        }
       }
     }
 
@@ -91,7 +92,6 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         channel = Some("C1234567890"),
         ts = Some("1234567891.123456")
       )
-
       val backend = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
@@ -99,14 +99,13 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
             req.body.toString.contains("1234567890.123456")
         }
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
-
       val slackClient = new SlackClient(config, backend)
-      val outboundGateway = new SlackOutboundGateway(slackClient)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(text = "Thanks for your feedback")
 
-      val message = Message(text = "Thanks for your feedback")
-
-      outboundGateway.sendToThread("C1234567890-1234567890.123456", message).asserting { response =>
-        response.messageId shouldBe "1234567891.123456"
+        outboundGateway.sendToThread("C1234567890-1234567890.123456", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567891.123456"
+        }
       }
     }
   }
@@ -114,44 +113,45 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
   "SlackInboundGateway" - {
 
     "should register actions and handle interactions correctly" in {
-      val inboundGateway = new SlackInboundGateway()
-      var capturedContext: Option[chatops4s.InteractionContext] = None
 
-      val handler: chatops4s.InteractionContext => IO[Unit] = { ctx =>
-        IO {
-          capturedContext = Some(ctx)
+      SlackInboundGateway.create.flatMap { inboundGateway =>
+        var capturedContext: Option[chatops4s.InteractionContext] = None
+
+        val handler: chatops4s.InteractionContext => IO[Unit] = { ctx =>
+          IO {
+            capturedContext = Some(ctx)
+          }
         }
-      }
 
-      for {
-        buttonInteraction <- inboundGateway.registerAction(handler)
-        button = buttonInteraction.render("Test Button")
+        for {
+          buttonInteraction <- inboundGateway.registerAction(handler)
+          button = buttonInteraction.render("Test Button")
 
-        // Simulate Slack interaction payload
-        payload = SlackInteractionPayload(
-          `type` = "block_actions",
-          user = SlackUser(id = "U123456", name = "testuser"),
-          container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
-          trigger_id = "trigger123",
-          team = SlackTeam(id = "T123456", domain = "testteam"),
-          channel = SlackChannel(id = "C123456", name = "general"),
-          actions = Some(List(
-            SlackAction(
-              action_id = button.value,
-              text = SlackText(`type` = "plain_text", text = button.label),
-              value = Some(button.value),
-              `type` = "button",
-              action_ts = "1234567890"
-            )
-          ))
-        )
+          payload = SlackInteractionPayload(
+            `type` = "block_actions",
+            user = SlackUser(id = "U123456", name = "testuser"),
+            container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
+            trigger_id = "trigger123",
+            team = SlackTeam(id = "T123456", domain = "testteam"),
+            channel = SlackChannel(id = "C123456", name = "general"),
+            actions = Some(List(
+              SlackAction(
+                action_id = button.value,
+                text = SlackText(`type` = "plain_text", text = button.label),
+                value = Some(button.value),
+                `type` = "button",
+                action_ts = "1234567890"
+              )
+            ))
+          )
 
-        _ <- inboundGateway.handleInteraction(payload)
-      } yield {
-        capturedContext shouldBe defined
-        capturedContext.get.userId shouldBe "U123456"
-        capturedContext.get.channelId shouldBe "C123456"
-        capturedContext.get.messageId shouldBe "1234567890.123456"
+          _ <- inboundGateway.handleInteraction(payload)
+        } yield {
+          capturedContext shouldBe defined
+          capturedContext.get.userId shouldBe "U123456"
+          capturedContext.get.channelId shouldBe "C123456"
+          capturedContext.get.messageId shouldBe "1234567890.123456"
+        }
       }
     }
   }
