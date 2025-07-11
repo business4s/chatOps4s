@@ -6,11 +6,11 @@
         </encoder>
     </appender>
 
-    <logger name="chatops4s" level="INFO"/>
-    <logger name="sttp.client4" level="INFO"/>
-    <logger name="org.http4s" level="INFO"/>
+    <logger name="chatops4s" level="${LOG_LEVEL:-INFO}"/>
+    <logger name="sttp.client4" level="${LOG_LEVEL:-INFO}"/>
+    <logger name="org.http4s" level="${LOG_LEVEL:-INFO}"/>
 
-    <root level="INFO">
+    <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

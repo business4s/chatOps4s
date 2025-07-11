@@ -1,3 +1,4 @@
+
 package chatops4s.examples.slack
 
 import cats.effect.{ExitCode, IO, IOApp}
@@ -28,7 +29,7 @@ object Main extends IOApp {
         _ <- runChatOpsExample(outbound, inbound)
 
         _ <- logger.info("ChatOps example completed. Server will keep running...")
-        _ <- IO.never // Keep server running
+        _ <- IO.never // Keep server running with this messages!!
       } yield ExitCode.Success
     }
   }
