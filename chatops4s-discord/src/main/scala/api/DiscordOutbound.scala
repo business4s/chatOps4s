@@ -53,14 +53,10 @@ class DiscordOutbound(
         response.body match {
           case Right(json) =>
             val messageId = json.hcursor.get[String]("id").getOrElse("")
-            logger.whenInfoEnabled {
-              println("Message sent to Discord")
-            }
+            logger.info("Message sent to Discord")
             IO.pure(MessageResponse(messageId = messageId))
           case Left(error) =>
-            logger.whenWarnEnabled {
-              println(s"Failed to send message: $error")
-            }
+            logger.info(s"Failed to send message: $error")
             IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
         }
     }

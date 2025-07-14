@@ -53,17 +53,13 @@ class Server extends StrictLogging {
   def logic(discordPublicKey: String): ((String, String, String)) => IO[Either[ErrorInfo, DiscordResponse]] = {
     case (signature, timestamp, body) =>
       if (!verifySignature(discordPublicKey, signature, timestamp, body)) {
-        logger.whenWarnEnabled {
-          println("Failed to authorize signature of request from Discord")
-        }
+        logger.info("Failed to authorize signature of request from Discord")
         IO.pure(Left(Unauthorized()))
       } else {
         parse(body) match {
           case Right(json) => processRequest(json)
           case Left(err)   =>
-            logger.whenWarnEnabled {
-              println("Failed to parse body send from Discord")
-            }
+            logger.info("Failed to parse body send from Discord")
             IO.pure(Left(BadRequest(s"Parsing error: ${err.message}")))
         }
       }
@@ -90,15 +86,11 @@ class Server extends StrictLogging {
                 IO.pure(Right(DiscordResponse(`type` = InteractionType.DeferredMessageUpdate.value)))
             }
           case _ =>
-            logger.whenWarnEnabled {
-              println("Missing properties to handle interaction")
-            }
+            logger.info("Missing properties to handle interaction")
             IO.pure(Left(BadRequest("Missing interaction fields")))
         }
       case None =>
-        logger.whenWarnEnabled {
-          println("Missing the type property to handle interaction")
-        }
+        logger.info("Missing the type property to handle interaction")
         IO.pure(Left(BadRequest("Missing type property")))
     }
   }
