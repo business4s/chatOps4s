@@ -1,6 +1,8 @@
-import cats.effect.IOApp
+import cats.effect.{IO, IOApp}
+import org.http4s.HttpRoutes
 import sttp.tapir.endpoint
-
+import sttp.tapir.server.http4s.Http4sServerInterpreter
+import services.*
 
 object Main extends IOApp:
   private val discordInbound = new DiscordInbound()
@@ -17,25 +19,12 @@ object Main extends IOApp:
           url = EnvLoader.get("DISCORD_BOT_URL"),
           applicationId = EnvLoader.get("DISCORD_BOT_APPLICATION_ID")
         )
+        val acceptDecline = SendToProductionService();
         val acceptButton = discordInbound.registerAction((ctx) =>
-          discordOutbound.sendToChannel(
-            ctx.channelId,
-            Message(
-              text = "You pressed accept!"
-            )
-          ).flatMap { response =>
-            IO.println(s"Accepted. Sent message ${response.messageId}")
-          }
+          acceptDecline.onAccept(ctx.channelId)
         )
         val declineButton = discordInbound.registerAction((ctx) =>
-          discordOutbound.sendToChannel(
-            ctx.channelId,
-            Message(
-              text = "You pressed decline!"
-            )
-          ).flatMap { response =>
-            IO.println(s"Declined. Sent message ${response.messageId}")
-          }
+          acceptDecline.onDecline(ctx.channelId)
         )
         val message = Message(
           text = "Deploy to production?",
