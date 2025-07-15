@@ -9,10 +9,11 @@ lazy val root = (project in file("."))
   .settings(
     name := "chatops4s-discord",
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.tapir" %% "tapir-core"             % "1.11.34",
-      "com.softwaremill.sttp.tapir" %% "tapir-cats"             % "1.11.34",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.11.34",
+      "com.softwaremill.sttp.tapir" %% "tapir-core"             % "1.11.36",
+      "com.softwaremill.sttp.tapir" %% "tapir-cats"             % "1.11.36",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.11.36",
       "org.http4s" %% "http4s-blaze-server"                     % "0.23.17",
-      "org.typelevel" %% "cats-effect"                          % "3.6.1"
-    )
+      "org.typelevel" %% "cats-effect"                          % "3.6.2",
+      "com.typesafe.scala-logging" %% "scala-logging"           % "3.9.5"
+)
   )
