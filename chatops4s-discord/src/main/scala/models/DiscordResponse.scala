@@ -1,5 +1,5 @@
 package models
 
 case class DiscordResponse(
-  `type`: Int
+    `type`: Int,
 )

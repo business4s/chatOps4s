@@ -1,8 +1,7 @@
 package models
 
-
 case class InteractionContext(
-  userId: String,
-  channelId: String,
-  messageId: String
+    userId: String,
+    channelId: String,
+    messageId: String,
 )

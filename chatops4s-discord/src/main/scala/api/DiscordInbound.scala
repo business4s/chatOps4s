@@ -16,7 +16,7 @@ class DiscordInbound extends InboundGateway, StrictLogging {
     (label: String) => {
       Button(
         label = label,
-        value = id
+        value = id,
       )
     }
   }

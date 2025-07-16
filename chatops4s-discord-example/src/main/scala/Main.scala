@@ -14,7 +14,7 @@ import io.circe.generic.auto.*
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 
 object Main extends IOApp {
-  private val server = new Server(discordPublicKey = "cec2f053ddcba6bb67570ac176afc730df3325a729ccb32edbed9dbe4d1741ca")
+  private val server         = new Server(discordPublicKey = "cec2f053ddcba6bb67570ac176afc730df3325a729ccb32edbed9dbe4d1741ca")
   private val discordInbound = new DiscordInbound()
 
   private val sendEndpoint = endpoint.get
@@ -25,21 +25,17 @@ object Main extends IOApp {
         val discordOutbound = new DiscordOutbound(
           token = EnvLoader.get("DISCORD_BOT_TOKEN"),
           url = EnvLoader.get("DISCORD_BOT_URL"),
-          backend = backend
+          backend = backend,
         )
-        val acceptDecline = SendToProductionService(discordOutbound = discordOutbound)
-        val acceptButton = discordInbound.registerAction(ctx =>
-          acceptDecline.onAccept(ctx.channelId)
-        )
-        val declineButton = discordInbound.registerAction(ctx =>
-          acceptDecline.onDecline(ctx.channelId)
-        )
-        val message = Message(
+        val acceptDecline   = SendToProductionService(discordOutbound = discordOutbound)
+        val acceptButton    = discordInbound.registerAction(ctx => acceptDecline.onAccept(ctx.channelId))
+        val declineButton   = discordInbound.registerAction(ctx => acceptDecline.onDecline(ctx.channelId))
+        val message         = Message(
           text = "Deploy to production?",
           interactions = Seq(
             acceptButton.render("Accept"),
-            declineButton.render("Decline")
-          )
+            declineButton.render("Decline"),
+          ),
         )
         discordOutbound.sendToChannel("1381992880834351184", message)
       }
@@ -53,9 +49,11 @@ object Main extends IOApp {
 
     BlazeServerBuilder[IO]
       .bindHttp(8080, "localhost")
-      .withHttpApp(Router(
-        "/" -> routes
-      ).orNotFound)
+      .withHttpApp(
+        Router(
+          "/" -> routes,
+        ).orNotFound,
+      )
       .resource
       .use(_ => IO.never)
       .as(ExitCode.Success)

@@ -16,8 +16,10 @@ object EnvLoader {
   }
 
   def get(key: String): String = {
-    sys.props.get(key).getOrElse(
-      throw new RuntimeException(s"Environment variable $key not found")
-    )
+    sys.props
+      .get(key)
+      .getOrElse(
+        throw new RuntimeException(s"Environment variable $key not found"),
+      )
   }
 }
