@@ -55,6 +55,7 @@ lazy val `chatops4s-examples` = (project in file("modules/chatops4s-examples"))
 
       "com.github.pureconfig" %% "pureconfig-core" % "0.17.9",
       "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.9",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.36",
       "ch.qos.logback" % "logback-classic" % "1.5.18",
       "org.typelevel" %% "log4cats-slf4j" % "2.7.0"
     ),
