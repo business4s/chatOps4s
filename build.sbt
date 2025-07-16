@@ -10,7 +10,7 @@ lazy val `chatops4s-discord-example` = (project in file("chatops4s-discord-examp
   .settings(
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.11.36",
-      "org.http4s" %% "http4s-blaze-server"    % "0.23.17",
+      "org.http4s" %% "http4s-blaze-server"                     % "0.23.17",
       "com.softwaremill.sttp.client4" %% "cats"                 % "4.0.9",
     ),
     Test / parallelExecution := false,
@@ -57,5 +57,5 @@ lazy val commonSettings = Seq(
     ),
 
   ),
-  versionScheme     := Some("semver-spec"),
+  versionScheme := Some("semver-spec"),
 )
