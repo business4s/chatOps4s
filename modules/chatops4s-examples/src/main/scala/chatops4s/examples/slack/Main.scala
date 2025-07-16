@@ -10,7 +10,6 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import pureconfig.*
 import pureconfig.module.catseffect.syntax.*
 
-// Configuration case class that matches application.conf structure
 case class AppConfig(slack: SlackConfig) derives ConfigReader
 
 object Main extends IOApp {

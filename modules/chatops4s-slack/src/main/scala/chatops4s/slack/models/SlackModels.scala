@@ -11,7 +11,6 @@ case class SlackConfig(
                         port: Int = 3000
                       ) derives ConfigReader
 
-// Slack API request models
 case class SlackPostMessageRequest(
                                     channel: String,
                                     text: String,
@@ -38,8 +37,6 @@ case class SlackBlockElement(
                               value: Option[String] = None,
                               style: Option[String] = None
                             )
-
-// Slack API response models
 case class SlackPostMessageResponse(
                                      ok: Boolean,
                                      channel: Option[String] = None,
@@ -54,8 +51,6 @@ case class SlackMessage(
                          ts: String,
                          thread_ts: Option[String] = None
                        )
-
-// Slack interaction payload models
 case class SlackInteractionPayload(
                                     `type`: String,
                                     user: SlackUser,
@@ -97,7 +92,6 @@ case class SlackAction(
                         action_ts: String
                       )
 
-// JSON codecs
 object SlackModels {
   implicit val slackTextEncoder: Encoder[SlackText] = deriveEncoder
   implicit val slackTextDecoder: Decoder[SlackText] = deriveDecoder
