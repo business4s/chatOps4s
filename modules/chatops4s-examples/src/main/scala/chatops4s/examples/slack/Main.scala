@@ -1,4 +1,3 @@
-
 package chatops4s.examples.slack
 
 import cats.effect.{ExitCode, IO, IOApp}
@@ -8,29 +7,35 @@ import chatops4s.slack.*
 import chatops4s.slack.models.SlackConfig
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import pureconfig.*
+import pureconfig.module.catseffect.syntax.*
+
+// Configuration case class that matches application.conf structure
+case class AppConfig(slack: SlackConfig) derives ConfigReader
 
 object Main extends IOApp {
 
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val config = SlackConfig(
-      botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-bot-token-here"),
-      signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", "your-signing-secret-here"),
-      port = sys.env.get("PORT").flatMap(_.toIntOption).getOrElse(3000)
-    )
+    ConfigSource.default.loadF[IO, AppConfig]().flatMap { appConfig =>
+      val config = appConfig.slack
 
-    SlackGateway.create(config).use { case (outbound, inbound, server) =>
-      for {
-        _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
-        _ <- logger.info("Server started! Send a test message...")
-        _ <- logger.info(s"Swagger UI available at: http://localhost:${config.port}/docs")
+      SlackGateway.create(config).use { case (outbound, inbound, server) =>
+        for {
+          _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
+          _ <- logger.info("Server started! Send a test message...")
+          _ <- logger.info(s"Swagger UI available at: http://localhost:${config.port}/docs")
 
-        _ <- runChatOpsExample(outbound, inbound)
+          _ <- runChatOpsExample(outbound, inbound)
 
-        _ <- logger.info("ChatOps example completed. Server will keep running...")
-        _ <- IO.never // Keep server running with this messages!!
-      } yield ExitCode.Success
+          _ <- logger.info("ChatOps example completed. Server will keep running...")
+          _ <- IO.never // Keep server running with this messages!!
+        } yield ExitCode.Success
+      }
+    }.handleErrorWith { error =>
+      logger.error(error)("Failed to load configuration") *>
+        IO.pure(ExitCode.Error)
     }
   }
 
