@@ -1,14 +1,14 @@
 package services
 
+import api.DiscordOutbound
 import cats.effect.IO
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import models.Message
 
-class SendToProductionService extends StrictLogging {
-  private val discordOutbound = new DiscordOutbound()
-
+class SendToProductionService(discordOutbound: DiscordOutbound) extends StrictLogging {
   def onAccept(channelId: String): IO[Unit] = {
     discordOutbound.sendToChannel(
-      ctx.channelId,
+      channelId,
       Message(
         text = "Sending to production!"
       )
@@ -19,7 +19,7 @@ class SendToProductionService extends StrictLogging {
 
   def onDecline(channelId: String): IO[Unit] = {
     discordOutbound.sendToChannel(
-      ctx.channelId,
+      channelId,
       Message(
         text = "Not sending to production!"
       )

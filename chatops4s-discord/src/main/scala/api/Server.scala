@@ -14,14 +14,15 @@ import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.bouncycastle.util.encoders.Hex
 import sttp.model.StatusCode
+import sttp.tapir.server.ServerEndpoint.Full
 
-class Server extends StrictLogging {
+class Server(discordPublicKey: String) extends StrictLogging {
   sealed trait ErrorInfo
   private case class BadRequest(what: String) extends ErrorInfo
   private case class Unauthorized() extends ErrorInfo
   private val discordInbound = new DiscordInbound()
 
-  val interactionEndpoint: Endpoint[Unit, (String, String, String), ErrorInfo, DiscordResponse, Any] =
+  private val interactionEndpoint =
     endpoint.post
       .in("api" / "interactions")
       .in(header[String]("X-Signature-Ed25519"))
@@ -34,6 +35,8 @@ class Server extends StrictLogging {
         )
       )
       .out(jsonBody[DiscordResponse])
+
+  val interactionRoute: Full[Unit, Unit, (String, String, String), ErrorInfo, DiscordResponse, Any, IO] = interactionEndpoint.serverLogic(logic())
 
   private def verifySignature(
      publicKey: String,
@@ -50,7 +53,7 @@ class Server extends StrictLogging {
     verifier.verifySignature(signatureBytes)
   }
 
-  def logic(discordPublicKey: String): ((String, String, String)) => IO[Either[ErrorInfo, DiscordResponse]] = {
+  private def logic(): ((String, String, String)) => IO[Either[ErrorInfo, DiscordResponse]] = {
     case (signature, timestamp, body) =>
       if (!verifySignature(discordPublicKey, signature, timestamp, body)) {
         logger.info("Failed to authorize signature of request from Discord")

@@ -1,7 +1,7 @@
 package api
 
 import cats.effect.IO
-import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.typesafe.scalalogging.StrictLogging
 import models.{Button, ButtonInteraction, InboundGateway, InteractionContext}
 
 import scala.collection.concurrent.TrieMap
