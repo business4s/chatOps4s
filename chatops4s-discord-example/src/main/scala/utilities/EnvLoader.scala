@@ -3,7 +3,7 @@ package utilities
 import scala.io.Source
 
 object EnvLoader {
-  def loadEnv(path: String = "./src/.env"): Unit = {
+  def loadEnv(path: String = ".env"): Unit = {
     val source = Source.fromFile(path)
     for (line <- source.getLines()) {
       val trimmed = line.trim
