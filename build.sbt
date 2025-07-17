@@ -97,7 +97,6 @@ lazy val `chatops4s-discord-example` = (project in file("chatops4s-discord-examp
     Test / parallelExecution := false,
   ).dependsOn(`chatops4s-discord`)
 
-
 lazy val commonSettings = Seq(
   scalaVersion := "3.7.1",
   scalacOptions ++= Seq(
@@ -118,7 +117,6 @@ lazy val commonSettings = Seq(
   organization := "org.business4s",
   homepage := Some(url("https://business4s.github.io/chatop4s/")),
   licenses := List(License.MIT),
-
   developers := List(
     Developer(
       "Krever",
