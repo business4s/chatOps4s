@@ -8,7 +8,7 @@ lazy val `chatops4s` = (project in file("."))
     `chatops4s-slack`,
     `chatops4s-examples`,
     `chatops4s-discord`,
-    `chatops4s-discord-example`
+    `chatops4s-discord-example`,
   )
 
 lazy val `chatops4s-core` = (project in file("modules/chatops4s-core"))
@@ -34,6 +34,8 @@ lazy val `chatops4s-slack` = (project in file("modules/chatops4s-slack"))
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.36",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.36",
       "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle" % "1.11.36",
+      "org.http4s" %% "http4s-ember-server" % "0.23.30",
+      "org.http4s" %% "http4s-ember-client" % "0.23.30",
       "io.circe" %% "circe-core" % "0.14.14",
       "io.circe" %% "circe-generic" % "0.14.14",
       "io.circe" %% "circe-parser" % "0.14.14",
@@ -82,13 +84,14 @@ lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
     ),
     Test / parallelExecution := false
   )
+  .dependsOn(`chatops4s-core`)
 
 lazy val `chatops4s-discord-example` = (project in file("chatops4s-discord-example"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.36",
-      "org.http4s" %% "http4s-blaze-server" % "0.23.17",
+      "org.http4s" %% "http4s-ember-server" % "0.23.30",
       "com.softwaremill.sttp.client4" %% "cats" % "4.0.9",
     ),
     Test / parallelExecution := false,
@@ -112,9 +115,10 @@ lazy val commonSettings = Seq(
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0" % Test
   ),
-  organization := "com.chatops4s",
+  organization := "org.business4s",
   homepage := Some(url("https://business4s.github.io/chatop4s/")),
   licenses := List(License.MIT),
+
   developers := List(
     Developer(
       "Krever",
