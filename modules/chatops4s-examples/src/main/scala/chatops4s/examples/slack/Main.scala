@@ -24,7 +24,6 @@ object Main extends IOApp {
         for {
           _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
           _ <- logger.info("Server started! Send a test message...")
-          _ <- logger.info(s"Swagger UI available at: http://localhost:${config.port}/docs")
 
           _ <- runChatOpsExample(outbound, inbound)
 

@@ -34,7 +34,6 @@ lazy val `chatops4s-slack` = (project in file("modules/chatops4s-slack"))
       "com.softwaremill.sttp.tapir" %% "tapir-cats" % "1.11.36",
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.36",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.36",
-      "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle" % "1.11.36",
       "org.http4s" %% "http4s-ember-server" % "0.23.30",
       "org.http4s" %% "http4s-ember-client" % "0.23.30",
       "io.circe" %% "circe-core" % "0.14.14",
