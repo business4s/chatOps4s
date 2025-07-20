@@ -4,7 +4,7 @@ import cats.effect.{IO, Resource}
 import chatops4s.{InboundGateway, OutboundGateway}
 import chatops4s.slack.models.SlackConfig
 import org.http4s.server.Server
-import sttp.client4.cats.CatsBackend
+import sttp.client4.Backend
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 
 object SlackGateway {

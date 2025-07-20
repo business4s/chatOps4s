@@ -6,10 +6,9 @@ import chatops4s.slack.models.*
 import chatops4s.slack.models.SlackModels.given
 import io.circe.syntax.*
 import sttp.client4.*
-import sttp.client4.cats.CatsBackend
 import sttp.client4.circe.*
 
-class SlackClient(config: SlackConfig, backend: CatsBackend[IO]) {
+class SlackClient(config: SlackConfig, backend: Backend[IO]) {
 
   private val baseUrl = "https://slack.com/api"
 

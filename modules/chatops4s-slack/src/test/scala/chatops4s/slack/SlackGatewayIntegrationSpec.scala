@@ -8,7 +8,7 @@ import chatops4s.slack.models.SlackModels.given
 import io.circe.syntax.*
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import sttp.client4.Response
+import sttp.client4.{Backend, Response}
 import sttp.client4.testing.SttpBackendStub
 import sttp.model.StatusCode
 
@@ -30,7 +30,7 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         ))
       )
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
             req.body.toString.contains("Deploy to production?") &&
@@ -66,7 +66,7 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         ts = Some("1234567890.123456")
       )
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
             req.body.toString.contains("Simple message") &&
@@ -92,7 +92,7 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         channel = Some("C1234567890"),
         ts = Some("1234567891.123456")
       )
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
             req.body.toString.contains("thread_ts") &&

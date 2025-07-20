@@ -7,7 +7,7 @@ import chatops4s.slack.models.SlackModels.given
 import io.circe.syntax.*
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import sttp.client4.Response
+import sttp.client4.{Backend, Response}
 import sttp.client4.testing.SttpBackendStub
 import sttp.model.{Method, StatusCode}
 
@@ -29,7 +29,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         ))
       )
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches(_.uri.path.startsWith(List("api", "chat.postMessage")))
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 
@@ -60,7 +60,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         ))
       )
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
             req.method == Method.POST &&
@@ -115,7 +115,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         error = Some("invalid_auth")
       )
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches(_.uri.path.startsWith(List("api", "chat.postMessage")))
         .thenRespond(Response.ok(errorResponse.asJson.noSpaces))
 
@@ -145,7 +145,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         ))
       )
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
             req.body.toString.contains("thread_ts")
@@ -165,7 +165,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     "should handle network errors" in {
       val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
 
-      val backend = SttpBackendStub[IO]
+      val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches(_.uri.path.startsWith(List("api", "chat.postMessage")))
         .thenRespond(Response("Network error", StatusCode.InternalServerError))
 
