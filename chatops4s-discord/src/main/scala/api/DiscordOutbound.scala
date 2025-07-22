@@ -3,7 +3,7 @@ package api
 import io.circe.*
 import io.circe.syntax.*
 import cats.effect.IO
-import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.typesafe.scalalogging.StrictLogging
 import enums.{ButtonStyle, ContentType}
 import models.*
 import sttp.client4.circe.asJson
