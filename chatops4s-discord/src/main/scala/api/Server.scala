@@ -1,7 +1,7 @@
 package api
 
 import cats.effect.IO
-import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.typesafe.scalalogging.StrictLogging
 import enums.InteractionType
 import io.circe.Json
 import io.circe.parser.*
