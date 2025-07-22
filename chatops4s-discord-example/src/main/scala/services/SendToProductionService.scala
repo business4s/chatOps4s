@@ -8,14 +8,15 @@ import models.Message
 class SendToProductionService(discordOutbound: DiscordOutbound) extends StrictLogging {
   def onAccept(channelId: String): IO[Unit] = {
     discordOutbound
-      .sendToChannel(
-        channelId,
-        Message(
+      .sendToThread(
+        channelId = channelId,
+        threadName = "Test Thread!",
+        message = Message(
           text = "Sending to production!",
         ),
       )
       .flatMap { response =>
-        IO.println(s"Accepted. Sent message ${response.messageId}")
+        IO.pure(logger.info(s"Accepted. Sent message ${response.messageId}"))
       }
   }
 
@@ -28,7 +29,7 @@ class SendToProductionService(discordOutbound: DiscordOutbound) extends StrictLo
         ),
       )
       .flatMap { response =>
-        IO.println(s"Declined. Sent message ${response.messageId}")
+        IO.pure(logger.info(s"Declined. Sent message ${response.messageId}"))
       }
   }
 }

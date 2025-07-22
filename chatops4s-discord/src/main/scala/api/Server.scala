@@ -1,7 +1,7 @@
 package api
 
 import cats.effect.IO
-import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.typesafe.scalalogging.StrictLogging
 import enums.InteractionType
 import io.circe.Json
 import io.circe.parser.*
@@ -16,11 +16,10 @@ import org.bouncycastle.util.encoders.Hex
 import sttp.model.StatusCode
 import sttp.tapir.server.ServerEndpoint.Full
 
-class Server(discordPublicKey: String) extends StrictLogging {
+class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends StrictLogging {
   sealed trait ErrorInfo
   private case class BadRequest(what: String) extends ErrorInfo
   private case class Unauthorized()           extends ErrorInfo
-  private val discordInbound = new DiscordInbound()
 
   private val interactionEndpoint =
     endpoint.post
