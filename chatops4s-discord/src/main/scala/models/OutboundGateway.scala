@@ -4,5 +4,5 @@ import cats.effect.IO
 
 trait OutboundGateway {
   def sendToChannel(channelId: String, message: Message): IO[MessageResponse]
-  def sendToThread(messageId: String, message: Message): IO[MessageResponse]
+  def replyToMessage(channelId: String, messageId: String, message: Message): IO[MessageResponse]
 }

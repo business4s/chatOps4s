@@ -24,6 +24,7 @@ class DiscordOutbound(
     .header("Content-Type", "application/json")
 
   override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
+    logger.info(s"Sending message to channel $channelId: $message")
     val json = if (message.interactions.nonEmpty) {
       Json.obj(
         "content"    := message.text,
@@ -65,7 +66,54 @@ class DiscordOutbound(
     }
   }
 
-  override def sendToThread(messageId: String, message: Message): IO[MessageResponse] = {
-    IO.raiseError(new NotImplementedError("Not yet implemented"))
+  override def replyToMessage(channelId: String, messageId: String, message: Message): IO[MessageResponse] = {
+    logger.info(s"Replying to message $messageId in channel $channelId: $message")
+
+    val baseJson = Json.obj(
+      "content" := message.text,
+      "message_reference" := Json.obj(
+        "message_id" := messageId,
+        "channel_id" := channelId,
+        "fail_if_not_exists" := false
+      )
+    )
+
+    val json =
+      if (message.interactions.nonEmpty) {
+        baseJson.deepMerge(
+          Json.obj(
+            "components" := Json.arr(
+              Json.obj(
+                "type" := ContentType.ActionRow.value,
+                "components" := message.interactions.map { b =>
+                  Json.obj(
+                    "type" := ContentType.Button.value,
+                    "style" := ButtonStyle.Primary.value,
+                    "label" := b.label,
+                    "custom_id" := b.value
+                  )
+                }
+              )
+            )
+          )
+        )
+      } else baseJson
+
+    val request = baseRequest
+      .post(uri"$rootUrl/channels/$channelId/messages")
+      .body(json.noSpaces)
+      .response(asJson[Json])
+
+    request.send(backend).flatMap { response =>
+      response.body match {
+        case Right(json) =>
+          val newMessageId = json.hcursor.get[String]("id").getOrElse("")
+          logger.info("Reply sent to Discord")
+          IO.pure(MessageResponse(messageId = newMessageId))
+        case Left(error) =>
+          logger.error(s"Failed to send reply: $error")
+          IO.raiseError(new RuntimeException(s"Failed to send reply: $error"))
+      }
+    }
   }
 }
