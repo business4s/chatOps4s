@@ -119,7 +119,7 @@ class DiscordOutbound(
 
   override def sendToThread(channelId: String, threadName: String, message: Message): IO[MessageResponse] = {
     val createThreadJson = Json.obj(
-      "name" := threadName
+      "name" := threadName,
     )
 
     val createThreadRequest = baseRequest
@@ -135,7 +135,7 @@ class DiscordOutbound(
             case Right(threadId) =>
               logger.info(s"Created thread $threadName with id $threadId")
               sendToChannel(threadId, message)
-            case Left(err) =>
+            case Left(err)       =>
               IO.raiseError(new RuntimeException(s"Could not extract 'id': $err"))
           }
         case Left(error) =>
