@@ -70,12 +70,12 @@ class DiscordOutbound(
     logger.info(s"Replying to message $messageId in channel $channelId: $message")
 
     val baseJson = Json.obj(
-      "content" := message.text,
+      "content"           := message.text,
       "message_reference" := Json.obj(
-        "message_id" := messageId,
-        "channel_id" := channelId,
-        "fail_if_not_exists" := false
-      )
+        "message_id"         := messageId,
+        "channel_id"         := channelId,
+        "fail_if_not_exists" := false,
+      ),
     )
 
     val json =
@@ -84,18 +84,18 @@ class DiscordOutbound(
           Json.obj(
             "components" := Json.arr(
               Json.obj(
-                "type" := ContentType.ActionRow.value,
+                "type"       := ContentType.ActionRow.value,
                 "components" := message.interactions.map { b =>
                   Json.obj(
-                    "type" := ContentType.Button.value,
-                    "style" := ButtonStyle.Primary.value,
-                    "label" := b.label,
-                    "custom_id" := b.value
+                    "type"      := ContentType.Button.value,
+                    "style"     := ButtonStyle.Primary.value,
+                    "label"     := b.label,
+                    "custom_id" := b.value,
                   )
-                }
-              )
-            )
-          )
+                },
+              ),
+            ),
+          ),
         )
       } else baseJson
 
