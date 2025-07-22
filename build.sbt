@@ -30,12 +30,6 @@ lazy val `chatops4s-slack` = (project in file("modules/chatops4s-slack"))
       "com.softwaremill.sttp.client4" %% "cats" % "4.0.9",
       "com.softwaremill.sttp.client4" %% "circe" % "4.0.9",
       "com.softwaremill.sttp.client4" %% "httpclient-backend-cats" % "4.0.9",
-      "com.softwaremill.sttp.tapir" %% "tapir-core" % "1.11.36",
-      "com.softwaremill.sttp.tapir" %% "tapir-cats" % "1.11.36",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.36",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.36",
-      "org.http4s" %% "http4s-ember-server" % "0.23.30",
-      "org.http4s" %% "http4s-ember-client" % "0.23.30",
       "io.circe" %% "circe-core" % "0.14.14",
       "io.circe" %% "circe-generic" % "0.14.14",
       "io.circe" %% "circe-parser" % "0.14.14",
@@ -55,7 +49,11 @@ lazy val `chatops4s-examples` = (project in file("modules/chatops4s-examples"))
     libraryDependencies ++= Seq(
       "com.github.pureconfig" %% "pureconfig-core" % "0.17.9",
       "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.9",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.36",
+      "com.github.pureconfig" %% "pureconfig-generic-scala3" % "0.17.9",
+      "com.softwaremill.sttp.tapir" %% "tapir-core" % "1.11.38",
+      "com.softwaremill.sttp.tapir" %% "tapir-cats" % "1.11.38",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.38",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.38",
       "org.http4s" %% "http4s-ember-server" % "0.23.30",
       "org.http4s" %% "http4s-ember-client" % "0.23.30",
       "ch.qos.logback" % "logback-classic" % "1.5.18",
@@ -74,7 +72,7 @@ lazy val `chatops4s-discord-example` = (project in file("chatops4s-discord-examp
   .settings(
     libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % "1.5.18",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.11.37",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.11.38",
       "org.http4s" %% "http4s-blaze-server"                     % "0.23.17",
       "com.softwaremill.sttp.client4" %% "cats"                 % "4.0.9",
     ),
@@ -85,10 +83,10 @@ lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.tapir" %% "tapir-core"             % "1.11.37",
-      "com.softwaremill.sttp.tapir" %% "tapir-cats"             % "1.11.37",
+      "com.softwaremill.sttp.tapir" %% "tapir-core"             % "1.11.38",
+      "com.softwaremill.sttp.tapir" %% "tapir-cats"             % "1.11.38",
       "org.bouncycastle" % "bcpkix-jdk15on"                     % "1.70",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"       % "1.11.37",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"       % "1.11.38",
       "com.softwaremill.sttp.client4" %% "core"                 % "4.0.9",
       "com.softwaremill.sttp.client4" %% "circe"                % "4.0.9",
       "io.circe" %% "circe-parser"                              % "0.14.14",
