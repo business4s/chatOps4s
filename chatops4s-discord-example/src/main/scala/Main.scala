@@ -18,7 +18,7 @@ object Main extends IOApp {
   private val server         =
     new Server(discordPublicKey = "cec2f053ddcba6bb67570ac176afc730df3325a729ccb32edbed9dbe4d1741ca", discordInbound = discordInbound)
 
-  private val sendEndpoint = endpoint.get
+  private val sendEndpoint = endpoint.post
     .in("send")
     .out(jsonBody[MessageResponse])
     .serverLogicSuccess[IO](_ => {
