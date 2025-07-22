@@ -116,4 +116,31 @@ class DiscordOutbound(
       }
     }
   }
+
+  override def sendToThread(channelId: String, threadName: String, message: Message): IO[MessageResponse] = {
+    val createThreadJson = Json.obj(
+      "name" := threadName
+    )
+
+    val createThreadRequest = baseRequest
+      .post(uri"$rootUrl/channels/$channelId/threads")
+      .body(createThreadJson.noSpaces)
+      .response(asJson[Json])
+
+    createThreadRequest.send(backend).flatMap { response =>
+      response.body match {
+        case Right(json) =>
+          val cursor = json.hcursor
+          cursor.get[String]("id") match {
+            case Right(threadId) =>
+              logger.info(s"Created thread $threadName with id $threadId")
+              sendToChannel(threadId, message)
+            case Left(err) =>
+              IO.raiseError(new RuntimeException(s"Could not extract 'id': $err"))
+          }
+        case Left(error) =>
+          IO.raiseError(new RuntimeException(s"Request failed: $error"))
+      }
+    }
+  }
 }
