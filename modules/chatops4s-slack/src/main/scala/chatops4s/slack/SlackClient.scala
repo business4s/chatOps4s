@@ -23,7 +23,7 @@ class SlackClient(config: SlackConfig, backend: Backend[IO]) {
     backend.send(req).flatMap { response =>
       response.body match {
         case Right(slackResponse) => IO.pure(slackResponse)
-        case Left(error) => IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
+        case Left(error)          => IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
       }
     }
   }
@@ -32,7 +32,7 @@ class SlackClient(config: SlackConfig, backend: Backend[IO]) {
     val request = SlackPostMessageRequest(
       channel = channelId,
       text = text,
-      thread_ts = Some(threadTs)
+      thread_ts = Some(threadTs),
     )
     postMessage(request)
   }

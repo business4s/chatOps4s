@@ -2,7 +2,7 @@ package chatops4s.slack
 
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
-import chatops4s.{Message, Button}
+import chatops4s.{Button, Message}
 import chatops4s.slack.models.*
 import chatops4s.slack.models.SlackModels.given
 import io.circe.syntax.*
@@ -23,20 +23,22 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         ok = true,
         channel = Some("C1234567890"),
         ts = Some("1234567890.123456"),
-        message = Some(SlackMessage(
-          text = "Deploy to production?",
-          user = Some("U87654321"),
-          ts = "1234567890.123456"
-        ))
+        message = Some(
+          SlackMessage(
+            text = "Deploy to production?",
+            user = Some("U87654321"),
+            ts = "1234567890.123456",
+          ),
+        ),
       )
 
       val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-            req.body.toString.contains("Deploy to production?") &&
-            req.body.toString.contains("actions") &&
-            req.body.toString.contains("Approve") &&
-            req.body.toString.contains("Decline")
+          req.body.toString.contains("Deploy to production?") &&
+          req.body.toString.contains("actions") &&
+          req.body.toString.contains("Approve") &&
+          req.body.toString.contains("Decline")
         }
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 
@@ -47,8 +49,8 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
           text = "Deploy to production?",
           interactions = Seq(
             Button("Approve", "approve_action"),
-            Button("Decline", "decline_action")
-          )
+            Button("Decline", "decline_action"),
+          ),
         )
 
         outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
@@ -63,14 +65,14 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
       val mockResponse = SlackPostMessageResponse(
         ok = true,
         channel = Some("C1234567890"),
-        ts = Some("1234567890.123456")
+        ts = Some("1234567890.123456"),
       )
 
       val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-            req.body.toString.contains("Simple message") &&
-            !req.body.toString.contains("blocks")
+          req.body.toString.contains("Simple message") &&
+          !req.body.toString.contains("blocks")
         }
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 
@@ -87,19 +89,19 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
     "should send thread replies correctly" in {
       val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
 
-      val mockResponse = SlackPostMessageResponse(
+      val mockResponse         = SlackPostMessageResponse(
         ok = true,
         channel = Some("C1234567890"),
-        ts = Some("1234567891.123456")
+        ts = Some("1234567891.123456"),
       )
       val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-            req.body.toString.contains("thread_ts") &&
-            req.body.toString.contains("1234567890.123456")
+          req.body.toString.contains("thread_ts") &&
+          req.body.toString.contains("1234567890.123456")
         }
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
-      val slackClient = new SlackClient(config, backend)
+      val slackClient          = new SlackClient(config, backend)
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
         val message = Message(text = "Thanks for your feedback")
 
@@ -125,25 +127,27 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
 
         for {
           buttonInteraction <- inboundGateway.registerAction(handler)
-          button = buttonInteraction.render("Test Button")
+          button             = buttonInteraction.render("Test Button")
 
           payload = SlackInteractionPayload(
-            `type` = "block_actions",
-            user = SlackUser(id = "U123456", name = "testuser"),
-            container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
-            trigger_id = "trigger123",
-            team = SlackTeam(id = "T123456", domain = "testteam"),
-            channel = SlackChannel(id = "C123456", name = "general"),
-            actions = Some(List(
-              SlackAction(
-                action_id = button.value,
-                text = SlackText(`type` = "plain_text", text = button.label),
-                value = Some(button.value),
-                `type` = "button",
-                action_ts = "1234567890"
-              )
-            ))
-          )
+                      `type` = "block_actions",
+                      user = SlackUser(id = "U123456", name = "testuser"),
+                      container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
+                      trigger_id = "trigger123",
+                      team = SlackTeam(id = "T123456", domain = "testteam"),
+                      channel = SlackChannel(id = "C123456", name = "general"),
+                      actions = Some(
+                        List(
+                          SlackAction(
+                            action_id = button.value,
+                            text = SlackText(`type` = "plain_text", text = button.label),
+                            value = Some(button.value),
+                            `type` = "button",
+                            action_ts = "1234567890",
+                          ),
+                        ),
+                      ),
+                    )
 
           _ <- inboundGateway.handleInteraction(payload)
         } yield {

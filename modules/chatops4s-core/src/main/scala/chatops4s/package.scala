@@ -4,23 +4,23 @@ import cats.effect.IO
 import io.circe.Codec.AsObject
 
 case class Message(
-  text: String,
-  interactions: Seq[Button] = Seq.empty
+    text: String,
+    interactions: Seq[Button] = Seq.empty,
 ) derives AsObject
 
 case class MessageResponse(
-  messageId: String
+    messageId: String,
 ) derives AsObject
 
 case class Button(
-  label: String,
-  value: String
+    label: String,
+    value: String,
 ) derives AsObject
 
 case class InteractionContext(
-  userId: String,
-  channelId: String,
-  messageId: String
+    userId: String,
+    channelId: String,
+    messageId: String,
 ) derives AsObject
 
 trait OutboundGateway {

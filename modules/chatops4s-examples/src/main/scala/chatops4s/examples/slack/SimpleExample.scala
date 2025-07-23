@@ -14,22 +14,25 @@ object SimpleExample extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
     val config = SlackConfig(
       botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-bot-token-here"),
-      signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", "your-signing-secret-here")
+      signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", "your-signing-secret-here"),
     )
 
-    SlackGateway.createOutboundOnly(config).use { outbound =>
-      sendSimpleMessage(outbound)
-    }.as(ExitCode.Success)
+    SlackGateway
+      .createOutboundOnly(config)
+      .use { outbound =>
+        sendSimpleMessage(outbound)
+      }
+      .as(ExitCode.Success)
   }
 
   private def sendSimpleMessage(outbound: OutboundGateway): IO[Unit] = {
     val channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
-    val message = Message(text = "🤖 Hello from ChatOps4s! This is a test message.")
+    val message   = Message(text = "🤖 Hello from ChatOps4s! This is a test message.")
 
     for {
-      _ <- logger.info(s"Sending message to channel: $channelId")
+      _        <- logger.info(s"Sending message to channel: $channelId")
       response <- outbound.sendToChannel(channelId, message)
-      _ <- logger.info(s"✅ Message sent successfully! Message ID: ${response.messageId}")
+      _        <- logger.info(s"✅ Message sent successfully! Message ID: ${response.messageId}")
     } yield ()
   }
 }
