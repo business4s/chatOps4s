@@ -3,8 +3,8 @@ import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
-  title: "chatops4s",
-  tagline: "Automatically generated input forms for rapid development",
+  title: "ChatOps4s",
+  tagline: "Simplied Chat-ops for Scala",
   favicon: "img/favicon/favicon.ico",
 
   // GitHub pages deployment config.
@@ -55,7 +55,7 @@ const config: Config = {
     // Replace with your project's social card
     image: "img/docusaurus-social-card.jpg",
     navbar: {
-      title: "Chatops4s",
+      title: "ChatOps4s",
       logo: {
         alt: "Chatops4s Logo",
         src: "img/chatops4s-logo.drawio.svg",
@@ -67,7 +67,6 @@ const config: Config = {
           position: "left",
           label: "Docs",
         },
-        { to: "/demo", label: "Demo", position: "left" },
         {
           href: "https://github.com/business4s/chatops4s",
           label: "GitHub",
@@ -93,7 +92,7 @@ const config: Config = {
     // },
   } satisfies Preset.ThemeConfig,
   customFields: {
-    chatops4sVersion: process.env.chatops4s_VERSION,
+    chatops4sVersion: process.env.CHATOPS4S_VERSION,
   },
 };
 

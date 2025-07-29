@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 1.2
 ---
 
 import SbtDependency from '@site/src/components/SbtDependency';
