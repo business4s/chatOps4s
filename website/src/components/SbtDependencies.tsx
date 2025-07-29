@@ -4,7 +4,7 @@ import CodeBlock from "@theme/CodeBlock";
 
 const SbtDependencies: React.FC = () => {
   const { siteConfig } = useDocusaurusContext();
-  const version = siteConfig.customFields?.forms4sVersion;
+  const version = siteConfig.customFields?.chatops4sVersion;
   return (
     <CodeBlock className="language-scala">
       {`libraryDependencies ++= Seq(
