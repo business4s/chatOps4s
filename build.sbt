@@ -17,7 +17,10 @@ lazy val `chatops4s-core` = (project in file("modules/chatops4s-core"))
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-effect" % "3.6.2",
-      "org.typelevel" %% "cats-core" % "2.13.0"
+      "org.typelevel" %% "cats-core" % "2.13.0",
+      "io.circe" %% "circe-core" % "0.14.14",
+      "io.circe" %% "circe-generic" % "0.14.14",
+      "io.circe" %% "circe-parser" % "0.14.14"
     ),
     Test / parallelExecution := false
   )
@@ -36,7 +39,6 @@ lazy val `chatops4s-slack` = (project in file("modules/chatops4s-slack"))
       "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.9",
       "ch.qos.logback" % "logback-classic" % "1.5.18",
       "org.typelevel" %% "log4cats-slf4j" % "2.7.1",
-      "com.softwaremill.sttp.client4" %% "testing" % "4.0.9" % Test
     ),
     Test / parallelExecution := false
   )

@@ -3,7 +3,6 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import chatops4s.slack.models.*
-import chatops4s.slack.models.SlackModels.given
 import io.circe.syntax.*
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -67,8 +66,8 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-          req.method == Method.POST &&
-          req.headers.exists(h => h.name == "Authorization" && h.value == "Bearer xoxb-test-token")
+            req.method == Method.POST &&
+            req.headers.exists(h => h.name == "Authorization" && h.value == "Bearer xoxb-test-token")
         }
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 
@@ -158,7 +157,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val backend: Backend[IO] = SttpBackendStub[IO]
         .whenRequestMatches { req =>
           req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-          req.body.toString.contains("thread_ts")
+            req.body.toString.contains("thread_ts")
         }
         .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
 

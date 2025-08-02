@@ -3,7 +3,6 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.implicits.*
 import chatops4s.slack.models.*
-import chatops4s.slack.models.given
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*

@@ -5,7 +5,6 @@ import cats.implicits.*
 import chatops4s.*
 import chatops4s.slack.*
 import chatops4s.slack.models.{SlackConfig, SlackInteractionPayload}
-import chatops4s.slack.models.given
 import com.comcast.ip4s.*
 import io.circe.parser.*
 import org.http4s.ember.server.EmberServerBuilder
@@ -111,12 +110,12 @@ object Main extends IOApp {
       rejectAction  <- inbound.registerAction(ctx => logger.info(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}"))
 
       msg = Message(
-              text = "🚀 Deploy to production?",
-              interactions = Seq(
-                approveAction.render("✅ Approve"),
-                rejectAction.render("❌ Decline"),
-              ),
-            )
+        text = "🚀 Deploy to production?",
+        interactions = Seq(
+          approveAction.render("✅ Approve"),
+          rejectAction.render("❌ Decline"),
+        ),
+      )
 
       channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
 
@@ -124,9 +123,9 @@ object Main extends IOApp {
       _        <- logger.info(s"Message sent with ID: ${response.messageId}")
 
       _ <- outbound.sendToThread(
-             response.messageId,
-             Message("👆 Please click one of the buttons above to proceed"),
-           )
+        response.messageId,
+        Message("👆 Please click one of the buttons above to proceed"),
+      )
       _ <- logger.info("Follow-up thread message sent")
 
     } yield ()

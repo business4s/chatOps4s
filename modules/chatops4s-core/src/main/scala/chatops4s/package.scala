@@ -1,6 +1,8 @@
 package chatops4s
 
 import cats.effect.IO
+import io.circe.{Codec, Decoder, Encoder}
+import io.circe.generic.semiauto.*
 
 case class Message(
     text: String,
