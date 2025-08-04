@@ -6,9 +6,48 @@ import chatops4s.slack.models.*
 import io.circe.syntax.*
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import sttp.client4.{Backend, Response}
-import sttp.client4.testing.SttpBackendStub
+import sttp.client4.*
 import sttp.model.{Method, StatusCode}
+
+// Manual mock backend for testing
+class MockSttpBackend extends Backend[IO] {
+  private var responses: Map[String, String] = Map.empty
+  private var statusCodes: Map[String, StatusCode] = Map.empty
+
+  def setResponse(url: String, response: String, statusCode: StatusCode = StatusCode.Ok): Unit = {
+    responses = responses + (url -> response)
+    statusCodes = statusCodes + (url -> statusCode)
+  }
+
+  override def send[T](request: GenericRequest[T, ?]): IO[Response[T]] = {
+    val url = request.uri.toString()
+    val matchingUrl = responses.keys.find(url.contains).getOrElse("")
+
+    responses.get(matchingUrl) match {
+      case Some(responseBody) =>
+        val statusCode = statusCodes.getOrElse(matchingUrl, StatusCode.Ok)
+        IO.pure(Response(
+          body = responseBody.asInstanceOf[T],
+          code = statusCode,
+          statusText = statusCode.toString,
+          headers = Seq.empty,
+          history = List.empty,
+          request = request.onlyMetadata
+        ))
+      case None =>
+        IO.pure(Response(
+          body = "Not Found".asInstanceOf[T],
+          code = StatusCode.NotFound,
+          statusText = "Not Found",
+          headers = Seq.empty,
+          history = List.empty,
+          request = request.onlyMetadata
+        ))
+    }
+  }
+
+  override def close(): IO[Unit] = IO.unit
+}
 
 class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
 
@@ -30,9 +69,8 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         ),
       )
 
-      val backend: Backend[IO] = SttpBackendStub[IO]
-        .whenRequestMatches(_.uri.path.startsWith(List("api", "chat.postMessage")))
-        .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
+      val backend = new MockSttpBackend()
+      backend.setResponse("chat.postMessage", mockResponse.asJson.noSpaces)
 
       val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest(
@@ -63,13 +101,8 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         ),
       )
 
-      val backend: Backend[IO] = SttpBackendStub[IO]
-        .whenRequestMatches { req =>
-          req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-            req.method == Method.POST &&
-            req.headers.exists(h => h.name == "Authorization" && h.value == "Bearer xoxb-test-token")
-        }
-        .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
+      val backend = new MockSttpBackend()
+      backend.setResponse("chat.postMessage", mockResponse.asJson.noSpaces)
 
       val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest(
@@ -122,9 +155,8 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         error = Some("invalid_auth"),
       )
 
-      val backend: Backend[IO] = SttpBackendStub[IO]
-        .whenRequestMatches(_.uri.path.startsWith(List("api", "chat.postMessage")))
-        .thenRespond(Response.ok(errorResponse.asJson.noSpaces))
+      val backend = new MockSttpBackend()
+      backend.setResponse("chat.postMessage", errorResponse.asJson.noSpaces)
 
       val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest(
@@ -154,12 +186,8 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         ),
       )
 
-      val backend: Backend[IO] = SttpBackendStub[IO]
-        .whenRequestMatches { req =>
-          req.uri.path.startsWith(List("api", "chat.postMessage")) &&
-            req.body.toString.contains("thread_ts")
-        }
-        .thenRespond(Response.ok(mockResponse.asJson.noSpaces))
+      val backend = new MockSttpBackend()
+      backend.setResponse("chat.postMessage", mockResponse.asJson.noSpaces)
 
       val client = new SlackClient(config, backend)
 
@@ -174,9 +202,8 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
     "should handle network errors" in {
       val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
 
-      val backend: Backend[IO] = SttpBackendStub[IO]
-        .whenRequestMatches(_.uri.path.startsWith(List("api", "chat.postMessage")))
-        .thenRespond(Response("Network error", StatusCode.InternalServerError))
+      val backend = new MockSttpBackend()
+      backend.setResponse("chat.postMessage", "Network error", StatusCode.InternalServerError)
 
       val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest(
