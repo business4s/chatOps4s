@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import sttp.client4.*
 import sttp.model.{Method, StatusCode}
 
-// Manual mock backend for testing
+
 class MockSttpBackend extends Backend[IO] {
   private var responses: Map[String, String] = Map.empty
   private var statusCodes: Map[String, StatusCode] = Map.empty

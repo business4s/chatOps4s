@@ -10,7 +10,7 @@ import org.scalatest.matchers.should.Matchers
 import sttp.client4.*
 import sttp.model.StatusCode
 
-// Manual mock backend for testing - reusing similar structure
+
 class TestMockSttpBackend extends Backend[IO] {
   private var responses: Map[String, String] = Map.empty
   private var statusCodes: Map[String, StatusCode] = Map.empty
@@ -328,8 +328,6 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
           channel = SlackChannel(id = "C123456", name = "general"),
           actions = None,
         )
-
-        // Should not throw an exception
         inboundGateway.handleInteraction(payload).asserting(_ => succeed)
       }
     }
