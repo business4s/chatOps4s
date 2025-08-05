@@ -54,7 +54,7 @@ object Main extends IOApp {
   private def createServer(config: SlackConfig, inboundGateway: SlackInboundGateway): Resource[IO, Server] = {
     val interactionsEndpoint = endpoint.post
       .in("slack" / "interactions")
-      .in(formBody[String])
+      .in(stringBody)
       .out(stringBody)
       .serverLogicSuccess[IO] { payload =>
         handleInteraction(payload, inboundGateway).as("OK")
