@@ -6,6 +6,7 @@ import chatops4s.slack.SlackGateway
 import chatops4s.slack.models.SlackConfig
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import sttp.client4.httpclient.cats.HttpClientCatsBackend
 
 object SimpleExample extends IOApp {
 
@@ -17,12 +18,13 @@ object SimpleExample extends IOApp {
       signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", "your-signing-secret-here"),
     )
 
-    SlackGateway
-      .createOutboundOnly(config)
-      .use { outbound =>
-        sendSimpleMessage(outbound)
-      }
-      .as(ExitCode.Success)
+    HttpClientCatsBackend.resource[IO]().use { backend =>
+      SlackGateway
+        .createOutboundOnly(config, backend)
+        .use { outbound =>
+          sendSimpleMessage(outbound)
+        }
+    }.as(ExitCode.Success)
   }
 
   private def sendSimpleMessage(outbound: OutboundGateway): IO[Unit] = {

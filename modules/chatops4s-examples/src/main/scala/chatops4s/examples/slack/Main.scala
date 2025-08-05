@@ -13,6 +13,7 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import pureconfig.*
 import pureconfig.module.catseffect.syntax.*
+import sttp.client4.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.server.http4s.Http4sServerInterpreter
@@ -31,17 +32,19 @@ object Main extends IOApp {
       .flatMap { appConfig =>
         val config = appConfig.slack
 
-        SlackGateway.create(config).use { case (outbound, inbound) =>
-          createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { server =>
-            for {
-              _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
-              _ <- logger.info("Server started! Send a test message...")
+        HttpClientCatsBackend.resource[IO]().use { backend =>
+          SlackGateway.create(config, backend).use { case (outbound, inbound) =>
+            createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { server =>
+              for {
+                _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
+                _ <- logger.info("Server started! Send a test message...")
 
-              _ <- runChatOpsExample(outbound, inbound)
+                _ <- runChatOpsExample(outbound, inbound)
 
-              _ <- logger.info("ChatOps example completed. Server will keep running...")
-              _ <- IO.never // Keep server running
-            } yield ExitCode.Success
+                _ <- logger.info("ChatOps example completed. Server will keep running...")
+                _ <- IO.never // Keep server running
+              } yield ExitCode.Success
+            }
           }
         }
       }
