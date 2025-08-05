@@ -164,8 +164,10 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         text = "Test message",
       )
 
-      recoverToSucceededIf[RuntimeException] {
-        client.postMessage(request)
+      client.postMessage(request).attempt.asserting { result =>
+        result.isLeft shouldBe true
+        result.left.toOption.get shouldBe a[RuntimeException]
+        result.left.toOption.get.getMessage should include("Slack API error: invalid_auth")
       }
     }
 
@@ -211,8 +213,10 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
         text = "Test message",
       )
 
-      recoverToSucceededIf[RuntimeException] {
-        client.postMessage(request)
+      client.postMessage(request).attempt.asserting { result =>
+        result.isLeft shouldBe true
+        result.left.toOption.get shouldBe a[RuntimeException]
+        result.left.toOption.get.getMessage should include("Failed to send message")
       }
     }
   }

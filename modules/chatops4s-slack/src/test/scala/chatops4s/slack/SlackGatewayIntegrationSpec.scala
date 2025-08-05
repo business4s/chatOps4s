@@ -155,8 +155,10 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
         val message = Message(text = "Test message")
 
-        recoverToSucceededIf[RuntimeException] {
-          outboundGateway.sendToChannel("C1234567890", message)
+        outboundGateway.sendToChannel("C1234567890", message).attempt.asserting { result =>
+          result.isLeft shouldBe true
+          result.left.toOption.get shouldBe a[RuntimeException]
+          result.left.toOption.get.getMessage should include("Slack API error: invalid_auth")
         }
       }
     }
@@ -171,8 +173,10 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
         val message = Message(text = "Test message")
 
-        recoverToSucceededIf[RuntimeException] {
-          outboundGateway.sendToChannel("C1234567890", message)
+        outboundGateway.sendToChannel("C1234567890", message).attempt.asserting { result =>
+          result.isLeft shouldBe true
+          result.left.toOption.get shouldBe a[RuntimeException]
+          result.left.toOption.get.getMessage should include("Failed to send message")
         }
       }
     }
