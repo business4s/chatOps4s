@@ -13,17 +13,13 @@ class SlackOutboundGateway(
     val slackRequest = convertToSlackRequest(channelId, message)
 
     slackClient.postMessage(slackRequest).flatMap { response =>
-      if (response.ok) {
-        response.ts match {
-          case Some(timestamp) =>
-            for {
-              _        <- messageStore.update(_ + (timestamp -> channelId))
-              messageId = s"$channelId-$timestamp" // Store channel info in messageId
-            } yield MessageResponse(messageId)
-          case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
-        }
-      } else {
-        IO.raiseError(new RuntimeException(s"Slack API error: ${response.error.getOrElse("Unknown error")}"))
+      response.ts match {
+        case Some(timestamp) =>
+          for {
+            _        <- messageStore.update(_ + (timestamp -> channelId))
+            messageId = s"$channelId-$timestamp" // Store channel info in messageId
+          } yield MessageResponse(messageId)
+        case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
       }
     }
   }
@@ -33,17 +29,13 @@ class SlackOutboundGateway(
     val slackRequest          = convertToSlackRequest(channelId, message, Some(threadTs))
 
     slackClient.postMessage(slackRequest).flatMap { response =>
-      if (response.ok) {
-        response.ts match {
-          case Some(timestamp) =>
-            for {
-              _           <- messageStore.update(_ + (timestamp -> channelId))
-              newMessageId = s"$channelId-$timestamp"
-            } yield MessageResponse(newMessageId)
-          case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
-        }
-      } else {
-        IO.raiseError(new RuntimeException(s"Slack API error: ${response.error.getOrElse("Unknown error")}"))
+      response.ts match {
+        case Some(timestamp) =>
+          for {
+            _           <- messageStore.update(_ + (timestamp -> channelId))
+            newMessageId = s"$channelId-$timestamp"
+          } yield MessageResponse(newMessageId)
+        case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
       }
     }
   }

@@ -20,7 +20,12 @@ class SlackClient(config: SlackConfig, backend: Backend[IO]) {
 
     backend.send(req).flatMap { response =>
       response.body match {
-        case Right(slackResponse) => IO.pure(slackResponse)
+        case Right(slackResponse) =>
+          if (slackResponse.ok) {
+            IO.pure(slackResponse)
+          } else {
+            IO.raiseError(new RuntimeException(s"Slack API error: ${slackResponse.error.getOrElse("Unknown error")}"))
+          }
         case Left(error)          => IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
       }
     }
