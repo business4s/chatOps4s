@@ -6,36 +6,37 @@ import chatops4s.slack.models.*
 import cats.effect.unsafe.implicits.global
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import scala.concurrent.duration.*
 
 class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
 
   "SlackInboundGateway" - {
     "registerAction should create button interaction" in {
-      val gateway = SlackInboundGateway.create.unsafeRunSync()
+      val gateway                                     = SlackInboundGateway.create.unsafeRunSync()
       var capturedContext: Option[InteractionContext] = None
 
-      val handler = (ctx: InteractionContext) => IO {
-        capturedContext = Some(ctx)
-      }
+      val handler = (ctx: InteractionContext) =>
+        IO {
+          capturedContext = Some(ctx)
+        }
 
       val buttonInteraction = gateway.registerAction(handler).unsafeRunSync()
-      val button = buttonInteraction.render("Test Button")
+      val button            = buttonInteraction.render("Test Button")
 
       button.label shouldBe "Test Button"
       button.value should not be empty
     }
 
     "handleInteraction should execute registered action" in {
-      val gateway = SlackInboundGateway.create.unsafeRunSync()
+      val gateway                                     = SlackInboundGateway.create.unsafeRunSync()
       var capturedContext: Option[InteractionContext] = None
 
-      val handler = (ctx: InteractionContext) => IO {
-        capturedContext = Some(ctx)
-      }
+      val handler = (ctx: InteractionContext) =>
+        IO {
+          capturedContext = Some(ctx)
+        }
 
       val buttonInteraction = gateway.registerAction(handler).unsafeRunSync()
-      val button = buttonInteraction.render("Test Button")
+      val button            = buttonInteraction.render("Test Button")
 
       val payload = SlackInteractionPayload(
         `type` = "block_actions",
@@ -44,15 +45,17 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
         trigger_id = "trigger123",
         team = SlackTeam("T123", "testteam"),
         channel = SlackChannel("C123", "general"),
-        actions = Some(List(
-          SlackAction(
-            action_id = button.value,
-            text = SlackText("plain_text", button.label),
-            value = Some(button.value),
-            `type` = "button",
-            action_ts = "1234567890"
-          )
-        ))
+        actions = Some(
+          List(
+            SlackAction(
+              action_id = button.value,
+              text = SlackText("plain_text", button.label),
+              value = Some(button.value),
+              `type` = "button",
+              action_ts = "1234567890",
+            ),
+          ),
+        ),
       )
 
       gateway.handleInteraction(payload).unsafeRunSync()
@@ -64,12 +67,13 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "handleInteraction should ignore unknown actions" in {
-      val gateway = SlackInboundGateway.create.unsafeRunSync()
+      val gateway                                     = SlackInboundGateway.create.unsafeRunSync()
       var capturedContext: Option[InteractionContext] = None
 
-      val handler = (ctx: InteractionContext) => IO {
-        capturedContext = Some(ctx)
-      }
+      val handler = (ctx: InteractionContext) =>
+        IO {
+          capturedContext = Some(ctx)
+        }
 
       gateway.registerAction(handler).unsafeRunSync()
 
@@ -80,15 +84,17 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
         trigger_id = "trigger123",
         team = SlackTeam("T123", "testteam"),
         channel = SlackChannel("C123", "general"),
-        actions = Some(List(
-          SlackAction(
-            action_id = "unknown_action_id",
-            text = SlackText("plain_text", "Unknown"),
-            value = Some("unknown"),
-            `type` = "button",
-            action_ts = "1234567890"
-          )
-        ))
+        actions = Some(
+          List(
+            SlackAction(
+              action_id = "unknown_action_id",
+              text = SlackText("plain_text", "Unknown"),
+              value = Some("unknown"),
+              `type` = "button",
+              action_ts = "1234567890",
+            ),
+          ),
+        ),
       )
 
       gateway.handleInteraction(payload).unsafeRunSync()
@@ -106,15 +112,14 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
         trigger_id = "trigger123",
         team = SlackTeam("T123", "testteam"),
         channel = SlackChannel("C123", "general"),
-        actions = None
+        actions = None,
       )
 
-      
       gateway.handleInteraction(payload).unsafeRunSync()
     }
 
     "should handle multiple actions in one payload" in {
-      val gateway = SlackInboundGateway.create.unsafeRunSync()
+      val gateway        = SlackInboundGateway.create.unsafeRunSync()
       var executionCount = 0
 
       val handler1 = (ctx: InteractionContext) => IO { executionCount += 1 }
@@ -130,22 +135,24 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
         trigger_id = "trigger123",
         team = SlackTeam("T123", "testteam"),
         channel = SlackChannel("C123", "general"),
-        actions = Some(List(
-          SlackAction(
-            action_id = button1.value,
-            text = SlackText("plain_text", button1.label),
-            value = Some(button1.value),
-            `type` = "button",
-            action_ts = "1234567890"
+        actions = Some(
+          List(
+            SlackAction(
+              action_id = button1.value,
+              text = SlackText("plain_text", button1.label),
+              value = Some(button1.value),
+              `type` = "button",
+              action_ts = "1234567890",
+            ),
+            SlackAction(
+              action_id = button2.value,
+              text = SlackText("plain_text", button2.label),
+              value = Some(button2.value),
+              `type` = "button",
+              action_ts = "1234567891",
+            ),
           ),
-          SlackAction(
-            action_id = button2.value,
-            text = SlackText("plain_text", button2.label),
-            value = Some(button2.value),
-            `type` = "button",
-            action_ts = "1234567891"
-          )
-        ))
+        ),
       )
 
       gateway.handleInteraction(payload).unsafeRunSync()

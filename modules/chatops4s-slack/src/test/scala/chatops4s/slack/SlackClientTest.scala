@@ -1,34 +1,32 @@
 package chatops4s.slack
 
-import cats.effect.IO
 import chatops4s.slack.models.*
 import cats.effect.unsafe.implicits.global
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import sttp.client4.*
 import sttp.model.StatusCode
 
 class SlackClientTest extends AnyFreeSpec with Matchers {
 
   "SlackClient" - {
     "postMessage should work" in {
-      val config = SlackConfig("test-token", "test-secret")
+      val config   = SlackConfig("test-token", "test-secret")
       val response = SlackPostMessageResponse(
         ok = true,
         channel = Some("C123"),
-        ts = Some("1234567890.123")
+        ts = Some("1234567890.123"),
       )
 
       val backend = MockBackend.withResponse(
         MockBackend.create(),
         "chat.postMessage",
-        response.asJson.noSpaces
+        response.asJson.noSpaces,
       )
 
-      val client = new SlackClient(config, backend)
+      val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest("C123", "test message")
-      val result = client.postMessage(request).unsafeRunSync()
+      val result  = client.postMessage(request).unsafeRunSync()
 
       result.ok shouldBe true
       result.channel shouldBe Some("C123")
@@ -36,17 +34,17 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
     }
 
     "postMessageToThread should work" in {
-      val config = SlackConfig("test-token", "test-secret")
+      val config   = SlackConfig("test-token", "test-secret")
       val response = SlackPostMessageResponse(
         ok = true,
         channel = Some("C123"),
-        ts = Some("1234567891.456")
+        ts = Some("1234567891.456"),
       )
 
       val backend = MockBackend.withResponse(
         MockBackend.create(),
         "chat.postMessage",
-        response.asJson.noSpaces
+        response.asJson.noSpaces,
       )
 
       val client = new SlackClient(config, backend)
@@ -58,15 +56,15 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
     }
 
     "should handle API errors gracefully" in {
-      val config = SlackConfig("invalid-token", "test-secret")
+      val config  = SlackConfig("invalid-token", "test-secret")
       val backend = MockBackend.withResponse(
         MockBackend.create(),
         "chat.postMessage",
         "Internal Server Error",
-        StatusCode.InternalServerError
+        StatusCode.InternalServerError,
       )
 
-      val client = new SlackClient(config, backend)
+      val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest("C123", "test message")
 
       assertThrows[RuntimeException] {
@@ -75,19 +73,19 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
     }
 
     "should handle Slack API errors" in {
-      val config = SlackConfig("invalid-token", "test-secret")
+      val config        = SlackConfig("invalid-token", "test-secret")
       val errorResponse = SlackPostMessageResponse(
         ok = false,
-        error = Some("invalid_auth")
+        error = Some("invalid_auth"),
       )
 
       val backend = MockBackend.withResponse(
         MockBackend.create(),
         "chat.postMessage",
-        errorResponse.asJson.noSpaces
+        errorResponse.asJson.noSpaces,
       )
 
-      val client = new SlackClient(config, backend)
+      val client  = new SlackClient(config, backend)
       val request = SlackPostMessageRequest("C123", "test message")
 
       assertThrows[RuntimeException] {
