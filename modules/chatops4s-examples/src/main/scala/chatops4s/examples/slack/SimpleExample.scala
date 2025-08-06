@@ -18,13 +18,16 @@ object SimpleExample extends IOApp {
       signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", "your-signing-secret-here"),
     )
 
-    HttpClientCatsBackend.resource[IO]().use { backend =>
-      SlackGateway
-        .createOutboundOnly(config, backend)
-        .use { outbound =>
-          sendSimpleMessage(outbound)
-        }
-    }.as(ExitCode.Success)
+    HttpClientCatsBackend
+      .resource[IO]()
+      .use { backend =>
+        SlackGateway
+          .createOutboundOnly(config, backend)
+          .use { outbound =>
+            sendSimpleMessage(outbound)
+          }
+      }
+      .as(ExitCode.Success)
   }
 
   private def sendSimpleMessage(outbound: OutboundGateway): IO[Unit] = {

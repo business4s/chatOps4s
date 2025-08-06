@@ -9,7 +9,7 @@ object SlackGateway {
 
   def create(config: SlackConfig, backend: Backend[IO]): Resource[IO, (OutboundGateway, InboundGateway)] = {
     for {
-      slackClient      <- Resource.eval(IO.pure(new SlackClient(config, backend)))
+      slackClient     <- Resource.eval(IO.pure(new SlackClient(config, backend)))
       outboundGateway <- Resource.eval(SlackOutboundGateway.create(slackClient))
       inboundGateway  <- Resource.eval(SlackInboundGateway.create)
     } yield (outboundGateway, inboundGateway)

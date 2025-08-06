@@ -12,7 +12,8 @@ object MockBackend {
   }
 
   def withResponse(backend: BackendStub[IO], urlPart: String, responseBody: String, statusCode: StatusCode = StatusCode.Ok): BackendStub[IO] = {
-    backend.whenRequestMatches(_.uri.toString().contains(urlPart))
+    backend
+      .whenRequestMatches(_.uri.toString().contains(urlPart))
       .thenRespondAdjust(responseBody, statusCode)
   }
 }
