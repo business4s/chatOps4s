@@ -2,51 +2,18 @@ package chatops4s.slack
 
 import cats.effect.IO
 import sttp.client4.*
-import sttp.model.{Header, StatusCode}
+import sttp.client4.testing.*
+import sttp.model.StatusCode
+import sttp.monad.MonadAsyncError
 
-class MockBackend extends Backend[IO] {
-  private var responses: Map[String, (String, StatusCode)] = Map.empty
-
-  def setResponse(urlPart: String, responseBody: String, statusCode: StatusCode = StatusCode.Ok): Unit = {
-    responses = responses + (urlPart -> (responseBody, statusCode))
+object MockBackend {
+  def create(): BackendStub[IO] = {
+    given MonadAsyncError[IO] = cats.effect.IO.asyncForIO
+    BackendStub[IO]
   }
 
-  override def send[T](request: GenericRequest[T, ?]): IO[Response[T]] = {
-    val url = request.uri.toString()
-    val matchingKey = responses.keys.find(url.contains).getOrElse("")
-
-    responses.get(matchingKey) match {
-      case Some((body, code)) =>
-        
-        val responseBody = request.response match {
-          case ResponseAsString(_, _) => body.asInstanceOf[T]
-          case _ => body.asInstanceOf[T]
-        }
-
-        IO.pure(Response(
-          body = responseBody,
-          code = code,
-          statusText = code.toString,
-          headers = Seq.empty[Header],
-          history = List.empty,
-          request = request.onlyMetadata
-        ))
-      case None =>
-        val notFoundBody = request.response match {
-          case ResponseAsString(_, _) => "Not Found".asInstanceOf[T]
-          case _ => "Not Found".asInstanceOf[T]
-        }
-
-        IO.pure(Response(
-          body = notFoundBody,
-          code = StatusCode.NotFound,
-          statusText = "Not Found",
-          headers = Seq.empty[Header],
-          history = List.empty,
-          request = request.onlyMetadata
-        ))
-    }
+  def withResponse(backend: BackendStub[IO], urlPart: String, responseBody: String, statusCode: StatusCode = StatusCode.Ok): BackendStub[IO] = {
+    backend.whenRequestMatches(_.uri.toString().contains(urlPart))
+      .thenRespondAdjust(responseBody, statusCode)
   }
-
-  override def close(): IO[Unit] = IO.unit
 }
