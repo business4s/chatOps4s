@@ -6,7 +6,7 @@ import SbtDependency from "@site/src/components/SbtDependency";
 
 # Accept Decline
 
-A simple but useful action you can perform in ChatOps4s is accept/decline. This involves sending an "Accept" and "Decline" buttons. You can add custom logic that executes when a particular button is pressed.
+A simple but useful action you can perform in ChatOps4s is Accept/Decline. This involves sending "Accept" and "Decline" buttons. You can add custom logic that executes when a particular button is pressed.
 
 ## Example
 
@@ -14,6 +14,7 @@ A simple but useful action you can perform in ChatOps4s is accept/decline. This 
 
 ```scala
 HttpClientCatsBackend.resource[IO]().use { backend =>
+    val discordInbound = new DiscordInbound()
     val discordOutbound = new DiscordOutbound(
         token = "",
         url = "",
@@ -43,7 +44,7 @@ The `DiscordOutbound` trait provides APIs to send messages to Discord channels. 
 - A `url`. This is the URL you provide when creating a "New Application" on the [Discord developer portal](https://discord.com/developers/applications).
 - A `backend`. This is an `sttp` backend of your choice.
 
-In this example, we are sending a `Message` to a channel. For other examples on what you can do with `DiscordOutbound`, take a look at a [Sending a Reply](/chatops4s/docs/discord/sending-a-reply/) and [Starting a Thread](chatops4s/docs/discord/starting-a-thread/).
+In this example, we are sending a `Message` to a channel. For other examples on what you can do with `DiscordOutbound`, take a look at a [Sending a Reply](/chatops4s/docs/discord/sending-a-reply/) and [Starting a Thread](/chatops4s/docs/discord/starting-a-thread/).
 
 ## The `InteractionContext`
 

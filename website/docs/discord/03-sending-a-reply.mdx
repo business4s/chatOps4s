@@ -6,7 +6,7 @@ import SbtDependency from "@site/src/components/SbtDependency";
 
 # Sending a Reply
 
-You can use the `DiscordOutbound` trait to send a reply. This is espesically useful when registering an action, where `messageId` is a property available in an `InteractionContext` object.
+You can use the `DiscordOutbound` trait to send a reply. This is especially useful when registering an action, where `messageId` is available in the `InteractionContext`.
 
 ## Example
 
@@ -14,23 +14,27 @@ You can use the `DiscordOutbound` trait to send a reply. This is espesically use
 
 ```scala
 HttpClientCatsBackend.resource[IO]().use { backend =>
-    val discordInbound = new DiscordInbound()
-    val discordOutbound = new DiscordOutbound(
-        token =  "",
-        url = "",
-        backend = backend,
-    )
-    val acceptButton    = discordInbound.registerAction(ctx => discordOutbound.replyToMessage(ctx.messageId, "You Accepted!"))
-    val declineButton   = discordInbound.registerAction(ctx => discordOutbound.replyToMessage(ctx.messageId, "You Declined!"))
-    val message         = Message(
-        text = "Deploy to production?",
-        interactions = Seq(
-        acceptButton.render("Accept"),
-        declineButton.render("Decline"),
-        ),
-    )
-    discordOutbound.sendToChannel("", message)
+  val discordInbound = new DiscordInbound()
+  val discordOutbound = new DiscordOutbound(
+    token = "",
+    url = "",
+    backend = backend,
+  )
+  val acceptButton = discordInbound.registerAction(ctx =>
+    discordOutbound.replyToMessage(ctx.messageId, "You Accepted!")
+  )
+  val declineButton = discordInbound.registerAction(ctx =>
+    discordOutbound.replyToMessage(ctx.messageId, "You Declined!")
+  )
+  val message = Message(
+    text = "Deploy to production?",
+    interactions = Seq(
+      acceptButton.render("Accept"),
+      declineButton.render("Decline"),
+    ),
+  )
+  discordOutbound.sendToChannel("", message)
 }
 ```
 
-Now when the accept button is clicked, `ChatOps4s` will reply to the message where this action resides with "You Accepted!". Similarly, if the decline button is clicked, `ChatOps4s` will reply with "You Declined!".
+Now, when the Accept button is clicked, `ChatOps4s` will reply to the message where the interaction occurred with "You Accepted!". Similarly, if the Decline button is clicked, it will reply with "You Declined!".
