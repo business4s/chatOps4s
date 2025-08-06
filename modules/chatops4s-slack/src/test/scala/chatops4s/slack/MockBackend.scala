@@ -2,7 +2,7 @@ package chatops4s.slack
 
 import cats.effect.IO
 import sttp.client4.*
-import sttp.model.StatusCode
+import sttp.model.{Header, StatusCode}
 
 class MockBackend extends Backend[IO] {
   private var responses: Map[String, (String, StatusCode)] = Map.empty
@@ -17,20 +17,31 @@ class MockBackend extends Backend[IO] {
 
     responses.get(matchingKey) match {
       case Some((body, code)) =>
+        
+        val responseBody = request.response match {
+          case ResponseAsString(_, _) => body.asInstanceOf[T]
+          case _ => body.asInstanceOf[T]
+        }
+
         IO.pure(Response(
-          body = body.asInstanceOf[T],
+          body = responseBody,
           code = code,
           statusText = code.toString,
-          headers = Seq.empty,
+          headers = Seq.empty[Header],
           history = List.empty,
           request = request.onlyMetadata
         ))
       case None =>
+        val notFoundBody = request.response match {
+          case ResponseAsString(_, _) => "Not Found".asInstanceOf[T]
+          case _ => "Not Found".asInstanceOf[T]
+        }
+
         IO.pure(Response(
-          body = "Not Found".asInstanceOf[T],
+          body = notFoundBody,
           code = StatusCode.NotFound,
           statusText = "Not Found",
-          headers = Seq.empty,
+          headers = Seq.empty[Header],
           history = List.empty,
           request = request.onlyMetadata
         ))

@@ -6,6 +6,7 @@ import cats.effect.unsafe.implicits.global
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import sttp.model.StatusCode
 
 class SlackClientTest extends AnyFreeSpec with Matchers {
 
@@ -28,6 +29,7 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
 
       result.ok shouldBe true
       result.channel shouldBe Some("C123")
+      result.ts shouldBe Some("1234567890.123")
     }
 
     "postMessageToThread should work" in {
@@ -46,6 +48,35 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
       val result = client.postMessageToThread("C123", "1234567890.123", "thread reply").unsafeRunSync()
 
       result.ok shouldBe true
+      result.channel shouldBe Some("C123")
+      result.ts shouldBe Some("1234567891.456")
+    }
+
+    "should handle API errors gracefully" in {
+      val config = SlackConfig("invalid-token", "test-secret")
+      val backend = new MockBackend()
+      val client = new SlackClient(config, backend)
+
+      backend.setResponse("chat.postMessage", "Internal Server Error", StatusCode.InternalServerError)
+
+      val request = SlackPostMessageRequest("C123", "test message")
+
+      assertThrows[RuntimeException] {
+        client.postMessage(request).unsafeRunSync()
+      }
+    }
+
+    "should handle network errors" in {
+      val config = SlackConfig("test-token", "test-secret")
+      val backend = new MockBackend()
+      val client = new SlackClient(config, backend)
+
+      
+      val request = SlackPostMessageRequest("C123", "test message")
+
+      assertThrows[RuntimeException] {
+        client.postMessage(request).unsafeRunSync()
+      }
     }
   }
 }
