@@ -8,53 +8,8 @@ import io.circe.syntax.*
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.client4.*
+import sttp.client4.testing.*
 import sttp.model.StatusCode
-
-
-class TestMockSttpBackend extends Backend[IO] {
-  private var responses: Map[String, String] = Map.empty
-  private var statusCodes: Map[String, StatusCode] = Map.empty
-  private var requestBodies: List[String] = List.empty
-
-  def setResponse(url: String, response: String, statusCode: StatusCode = StatusCode.Ok): Unit = {
-    responses = responses + (url -> response)
-    statusCodes = statusCodes + (url -> statusCode)
-  }
-
-  def getLastRequestBody: Option[String] = requestBodies.headOption
-
-  override def send[T](request: GenericRequest[T, ?]): IO[Response[T]] = {
-    // Capture request body for validation
-    requestBodies = request.body.toString :: requestBodies
-
-    val url = request.uri.toString()
-    val matchingUrl = responses.keys.find(url.contains).getOrElse("")
-
-    responses.get(matchingUrl) match {
-      case Some(responseBody) =>
-        val statusCode = statusCodes.getOrElse(matchingUrl, StatusCode.Ok)
-        IO.pure(Response(
-          body = responseBody.asInstanceOf[T],
-          code = statusCode,
-          statusText = statusCode.toString,
-          headers = Seq.empty,
-          history = List.empty,
-          request = request.onlyMetadata
-        ))
-      case None =>
-        IO.pure(Response(
-          body = "Not Found".asInstanceOf[T],
-          code = StatusCode.NotFound,
-          statusText = "Not Found",
-          headers = Seq.empty,
-          history = List.empty,
-          request = request.onlyMetadata
-        ))
-    }
-  }
-
-  override def close(): IO[Unit] = IO.unit
-}
 
 class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
 
@@ -76,8 +31,9 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         ),
       )
 
-      val backend = new TestMockSttpBackend()
-      backend.setResponse("chat.postMessage", mockResponse.asJson.noSpaces)
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
 
       val slackClient = new SlackClient(config, backend)
 
@@ -105,8 +61,9 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         ts = Some("1234567890.123456"),
       )
 
-      val backend = new TestMockSttpBackend()
-      backend.setResponse("chat.postMessage", mockResponse.asJson.noSpaces)
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
 
       val slackClient = new SlackClient(config, backend)
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
@@ -127,8 +84,9 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         ts = Some("1234567891.123456"),
       )
 
-      val backend = new TestMockSttpBackend()
-      backend.setResponse("chat.postMessage", mockResponse.asJson.noSpaces)
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
 
       val slackClient = new SlackClient(config, backend)
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
@@ -148,8 +106,9 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
         error = Some("invalid_auth"),
       )
 
-      val backend = new TestMockSttpBackend()
-      backend.setResponse("chat.postMessage", errorResponse.asJson.noSpaces)
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(errorResponse.asJson.noSpaces)
 
       val slackClient = new SlackClient(config, backend)
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
@@ -166,8 +125,9 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
     "should handle network errors properly" in {
       val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
 
-      val backend = new TestMockSttpBackend()
-      backend.setResponse("chat.postMessage", "Internal Server Error", StatusCode.InternalServerError)
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(Response("Internal Server Error", StatusCode.InternalServerError))
 
       val slackClient = new SlackClient(config, backend)
       SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
@@ -177,6 +137,113 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
           result.isLeft shouldBe true
           result.left.toOption.get shouldBe a[RuntimeException]
           result.left.toOption.get.getMessage should include("Failed to send message")
+        }
+      }
+    }
+
+    "should correctly format messages with multiple buttons" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(
+        ok = true,
+        channel = Some("C1234567890"),
+        ts = Some("1234567890.123456"),
+      )
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches { request =>
+          request.uri.toString().contains("chat.postMessage") &&
+            request.body.toString.contains("actions") &&
+            request.body.toString.contains("Approve") &&
+            request.body.toString.contains("Decline") &&
+            request.body.toString.contains("Maybe")
+        }
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val slackClient = new SlackClient(config, backend)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(
+          text = "What should we do?",
+          interactions = Seq(
+            Button("Approve", "approve_action"),
+            Button("Decline", "decline_action"),
+            Button("Maybe", "maybe_action"),
+          ),
+        )
+
+        outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567890.123456"
+        }
+      }
+    }
+
+    "should validate thread message contains thread_ts" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(
+        ok = true,
+        channel = Some("C1234567890"),
+        ts = Some("1234567891.123456"),
+      )
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches { request =>
+          request.uri.toString().contains("chat.postMessage") &&
+            request.body.toString.contains("thread_ts") &&
+            request.body.toString.contains("1234567890.123456")
+        }
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val slackClient = new SlackClient(config, backend)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(text = "Thread reply message")
+
+        outboundGateway.sendToThread("C1234567890-1234567890.123456", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567891.123456"
+        }
+      }
+    }
+
+    "should handle missing timestamp in response" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(
+        ok = true,
+        channel = Some("C1234567890"),
+        ts = None, // Missing timestamp
+      )
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val slackClient = new SlackClient(config, backend)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(text = "Test message")
+
+        outboundGateway.sendToChannel("C1234567890", message).attempt.asserting { result =>
+          result.isLeft shouldBe true
+          result.left.toOption.get shouldBe a[RuntimeException]
+          result.left.toOption.get.getMessage should include("No message timestamp returned")
+        }
+      }
+    }
+
+    "should handle invalid message ID format in thread replies" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust("should not be called")
+
+      val slackClient = new SlackClient(config, backend)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(text = "Thread reply message")
+
+        outboundGateway.sendToThread("invalid-format", message).attempt.asserting { result =>
+          result.isLeft shouldBe true
+          result.left.toOption.get shouldBe an[IllegalArgumentException]
+          result.left.toOption.get.getMessage should include("Invalid message ID format")
         }
       }
     }
@@ -333,6 +400,80 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
           actions = None,
         )
         inboundGateway.handleInteraction(payload).asserting(_ => succeed)
+      }
+    }
+
+    "should handle empty actions list" in {
+      SlackInboundGateway.create.flatMap { inboundGateway =>
+        val payload = SlackInteractionPayload(
+          `type` = "block_actions",
+          user = SlackUser(id = "U123456", name = "testuser"),
+          container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
+          trigger_id = "trigger123",
+          team = SlackTeam(id = "T123456", domain = "testteam"),
+          channel = SlackChannel(id = "C123456", name = "general"),
+          actions = Some(List.empty),
+        )
+        inboundGateway.handleInteraction(payload).asserting(_ => succeed)
+      }
+    }
+
+    "should handle container without message_ts" in {
+      SlackInboundGateway.create.flatMap { inboundGateway =>
+        var capturedContext: Option[chatops4s.InteractionContext] = None
+
+        val handler: chatops4s.InteractionContext => IO[Unit] = { ctx =>
+          IO {
+            capturedContext = Some(ctx)
+          }
+        }
+
+        for {
+          buttonInteraction <- inboundGateway.registerAction(handler)
+          button             = buttonInteraction.render("Test Button")
+
+          payload = SlackInteractionPayload(
+            `type` = "block_actions",
+            user = SlackUser(id = "U123456", name = "testuser"),
+            container = SlackContainer(`type` = "view", message_ts = None),
+            trigger_id = "trigger123",
+            team = SlackTeam(id = "T123456", domain = "testteam"),
+            channel = SlackChannel(id = "C123456", name = "general"),
+            actions = Some(
+              List(
+                SlackAction(
+                  action_id = button.value,
+                  text = SlackText(`type` = "plain_text", text = button.label),
+                  value = Some(button.value),
+                  `type` = "button",
+                  action_ts = "1234567890",
+                ),
+              ),
+            ),
+          )
+
+          _ <- inboundGateway.handleInteraction(payload)
+        } yield {
+          capturedContext shouldBe defined
+          capturedContext.get.userId shouldBe "U123456"
+          capturedContext.get.channelId shouldBe "C123456"
+          capturedContext.get.messageId shouldBe "" // Empty when message_ts is None
+        }
+      }
+    }
+
+    "should create unique action IDs for different button interactions" in {
+      SlackInboundGateway.create.flatMap { inboundGateway =>
+        for {
+          buttonInteraction1 <- inboundGateway.registerAction(_ => IO.unit)
+          buttonInteraction2 <- inboundGateway.registerAction(_ => IO.unit)
+          button1             = buttonInteraction1.render("Button 1")
+          button2             = buttonInteraction2.render("Button 2")
+        } yield {
+          button1.value should not be button2.value
+          button1.label shouldBe "Button 1"
+          button2.label shouldBe "Button 2"
+        }
       }
     }
   }
