@@ -9,6 +9,8 @@ import org.scalatest.matchers.should.Matchers
 import sttp.client4.*
 import sttp.client4.testing.*
 import sttp.model.StatusCode
+import sttp.monad.MonadAsyncError
+import sttp.client4.impl.cats.implicits.*
 
 class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
 
@@ -31,7 +33,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       )
 
       val backend = BackendStub[IO]
-        .whenAnyRequest(_.uri.toString().contains("chat.postMessage"))
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
         .thenRespondAdjust(mockResponse.asJson.noSpaces)
 
       val client  = new SlackClient(config, backend)
@@ -93,7 +95,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
                     text = Some(SlackText(`type` = "plain_text", text = "Decline")),
                     action_id = Some("decline_deploy"),
                     value = Some("decline_deploy"),
-                    style = Some("danger"),
+                    style = Some("primary"),
                   ),
                 ),
               ),
@@ -212,7 +214,7 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val mockResponse = SlackPostMessageResponse(ok = true, channel = Some("C1234567890"), ts = Some("1234567890.123456"))
 
       val backend = BackendStub[IO]
-        .whenRequestMatchesPartial{ request =>
+        .whenRequestMatches { request =>
           request.uri.toString().contains("chat.postMessage") &&
             request.headers.exists(h => h.name == "Authorization" && h.value == s"Bearer ${config.botToken}") &&
             request.headers.exists(h => h.name == "Content-Type" && h.value == "application/json")
@@ -223,6 +225,61 @@ class SlackClientSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
       val request = SlackPostMessageRequest(
         channel = "C1234567890",
         text = "Test message with header validation",
+      )
+
+      client.postMessage(request).asserting { response =>
+        response.ok shouldBe true
+        response.channel shouldBe Some("C1234567890")
+      }
+    }
+
+    "should handle missing response timestamp" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(
+        ok = true,
+        channel = Some("C1234567890"),
+        ts = None,
+      )
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val client  = new SlackClient(config, backend)
+      val request = SlackPostMessageRequest(
+        channel = "C1234567890",
+        text = "Test message",
+      )
+
+      client.postMessage(request).asserting { response =>
+        response.ok shouldBe true
+        response.channel shouldBe Some("C1234567890")
+        response.ts shouldBe None
+      }
+    }
+
+    "should handle request validation" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(ok = true, channel = Some("C1234567890"), ts = Some("1234567890.123456"))
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches { request =>
+          val bodyString = request.body match {
+            case StringBody(content, _, _) => content
+            case _ => ""
+          }
+          request.uri.toString().contains("chat.postMessage") &&
+            bodyString.contains("C1234567890") &&
+            bodyString.contains("Test validation message")
+        }
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val client  = new SlackClient(config, backend)
+      val request = SlackPostMessageRequest(
+        channel = "C1234567890",
+        text = "Test validation message",
       )
 
       client.postMessage(request).asserting { response =>

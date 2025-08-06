@@ -10,6 +10,8 @@ import org.scalatest.matchers.should.Matchers
 import sttp.client4.*
 import sttp.client4.testing.*
 import sttp.model.StatusCode
+import sttp.monad.MonadAsyncError
+import sttp.client4.impl.cats.implicits.*
 
 class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers {
 
@@ -152,11 +154,15 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
 
       val backend = BackendStub[IO]
         .whenRequestMatches { request =>
+          val bodyString = request.body match {
+            case StringBody(content, _, _) => content
+            case _ => ""
+          }
           request.uri.toString().contains("chat.postMessage") &&
-            request.body.toString.contains("actions") &&
-            request.body.toString.contains("Approve") &&
-            request.body.toString.contains("Decline") &&
-            request.body.toString.contains("Maybe")
+            bodyString.contains("actions") &&
+            bodyString.contains("Approve") &&
+            bodyString.contains("Decline") &&
+            bodyString.contains("Maybe")
         }
         .thenRespondAdjust(mockResponse.asJson.noSpaces)
 
@@ -188,9 +194,13 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
 
       val backend = BackendStub[IO]
         .whenRequestMatches { request =>
+          val bodyString = request.body match {
+            case StringBody(content, _, _) => content
+            case _ => ""
+          }
           request.uri.toString().contains("chat.postMessage") &&
-            request.body.toString.contains("thread_ts") &&
-            request.body.toString.contains("1234567890.123456")
+            bodyString.contains("thread_ts") &&
+            bodyString.contains("1234567890.123456")
         }
         .thenRespondAdjust(mockResponse.asJson.noSpaces)
 
@@ -210,7 +220,7 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
       val mockResponse = SlackPostMessageResponse(
         ok = true,
         channel = Some("C1234567890"),
-        ts = None, // Missing timestamp
+        ts = None, 
       )
 
       val backend = BackendStub[IO]
@@ -244,6 +254,79 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
           result.isLeft shouldBe true
           result.left.toOption.get shouldBe an[IllegalArgumentException]
           result.left.toOption.get.getMessage should include("Invalid message ID format")
+        }
+      }
+    }
+
+    "should validate request body content for simple messages" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(
+        ok = true,
+        channel = Some("C1234567890"),
+        ts = Some("1234567890.123456"),
+      )
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches { request =>
+          val bodyString = request.body match {
+            case StringBody(content, _, _) => content
+            case _ => ""
+          }
+          request.uri.toString().contains("chat.postMessage") &&
+            bodyString.contains("\"channel\":\"C1234567890\"") &&
+            bodyString.contains("\"text\":\"Simple validation message\"") &&
+            !bodyString.contains("blocks")
+        }
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val slackClient = new SlackClient(config, backend)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(text = "Simple validation message")
+
+        outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567890.123456"
+        }
+      }
+    }
+
+    "should validate request body content for messages with buttons" in {
+      val config = SlackConfig(botToken = "xoxb-test-token", signingSecret = "test-secret")
+
+      val mockResponse = SlackPostMessageResponse(
+        ok = true,
+        channel = Some("C1234567890"),
+        ts = Some("1234567890.123456"),
+      )
+
+      val backend = BackendStub[IO]
+        .whenRequestMatches { request =>
+          val bodyString = request.body match {
+            case StringBody(content, _, _) => content
+            case _ => ""
+          }
+          request.uri.toString().contains("chat.postMessage") &&
+            bodyString.contains("\"channel\":\"C1234567890\"") &&
+            bodyString.contains("\"text\":\"Message with buttons\"") &&
+            bodyString.contains("blocks") &&
+            bodyString.contains("section") &&
+            bodyString.contains("actions") &&
+            bodyString.contains("button") &&
+            bodyString.contains("Test Button")
+        }
+        .thenRespondAdjust(mockResponse.asJson.noSpaces)
+
+      val slackClient = new SlackClient(config, backend)
+      SlackOutboundGateway.create(slackClient).flatMap { outboundGateway =>
+        val message = Message(
+          text = "Message with buttons",
+          interactions = Seq(
+            Button("Test Button", "test_action"),
+          ),
+        )
+
+        outboundGateway.sendToChannel("C1234567890", message).asserting { response =>
+          response.messageId shouldBe "C1234567890-1234567890.123456"
         }
       }
     }
@@ -473,6 +556,92 @@ class SlackGatewayIntegrationSpec extends AsyncFreeSpec with AsyncIOSpec with Ma
           button1.value should not be button2.value
           button1.label shouldBe "Button 1"
           button2.label shouldBe "Button 2"
+        }
+      }
+    }
+
+    "should handle error in action handler gracefully" in {
+      SlackInboundGateway.create.flatMap { inboundGateway =>
+        val errorHandler: chatops4s.InteractionContext => IO[Unit] = { _ =>
+          IO.raiseError(new RuntimeException("Handler error"))
+        }
+
+        for {
+          buttonInteraction <- inboundGateway.registerAction(errorHandler)
+          button             = buttonInteraction.render("Error Button")
+
+          payload = SlackInteractionPayload(
+            `type` = "block_actions",
+            user = SlackUser(id = "U123456", name = "testuser"),
+            container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
+            trigger_id = "trigger123",
+            team = SlackTeam(id = "T123456", domain = "testteam"),
+            channel = SlackChannel(id = "C123456", name = "general"),
+            actions = Some(
+              List(
+                SlackAction(
+                  action_id = button.value,
+                  text = SlackText(`type` = "plain_text", text = button.label),
+                  value = Some(button.value),
+                  `type` = "button",
+                  action_ts = "1234567890",
+                ),
+              ),
+            ),
+          )
+
+          result <- inboundGateway.handleInteraction(payload).attempt
+        } yield {
+          result.isLeft shouldBe true
+          result.left.toOption.get.getMessage should include("Handler error")
+        }
+      }
+    }
+
+    "should handle multiple handlers with different action IDs" in {
+      SlackInboundGateway.create.flatMap { inboundGateway =>
+        var handler1Called = false
+        var handler2Called = false
+
+        val handler1: chatops4s.InteractionContext => IO[Unit] = { _ =>
+          IO { handler1Called = true }
+        }
+
+        val handler2: chatops4s.InteractionContext => IO[Unit] = { _ =>
+          IO { handler2Called = true }
+        }
+
+        for {
+          buttonInteraction1 <- inboundGateway.registerAction(handler1)
+          buttonInteraction2 <- inboundGateway.registerAction(handler2)
+          button1             = buttonInteraction1.render("Button 1")
+          button2             = buttonInteraction2.render("Button 2")
+
+          // Call only the first handler
+          payload1 = SlackInteractionPayload(
+            `type` = "block_actions",
+            user = SlackUser(id = "U123456", name = "testuser"),
+            container = SlackContainer(`type` = "message", message_ts = Some("1234567890.123456")),
+            trigger_id = "trigger123",
+            team = SlackTeam(id = "T123456", domain = "testteam"),
+            channel = SlackChannel(id = "C123456", name = "general"),
+            actions = Some(
+              List(
+                SlackAction(
+                  action_id = button1.value,
+                  text = SlackText(`type` = "plain_text", text = button1.label),
+                  value = Some(button1.value),
+                  `type` = "button",
+                  action_ts = "1234567890",
+                ),
+              ),
+            ),
+          )
+
+          _ <- inboundGateway.handleInteraction(payload1)
+        } yield {
+          handler1Called shouldBe true
+          handler2Called shouldBe false
         }
       }
     }
