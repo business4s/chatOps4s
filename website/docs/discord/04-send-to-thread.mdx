@@ -1,0 +1,36 @@
+---
+sidebar_position: 1.4
+---
+
+import SbtDependency from "@site/src/components/SbtDependency";
+
+# Send to Thread
+
+You can use the `DiscordOutbound` trait to send a message to a thread. This is espesically useful when registering an action, where `channelId` is a property available in an `InteractionContext` object.
+
+## Example
+
+<SbtDependency moduleName={"chatops4s-discord"} />
+
+```scala
+HttpClientCatsBackend.resource[IO]().use { backend =>
+    val discordInbound = new DiscordInbound()
+    val discordOutbound = new DiscordOutbound(
+        token =  "",
+        url = "",
+        backend = backend,
+    )
+    val acceptButton    = discordInbound.registerAction(ctx => discordOutbound.sendToThread(ctx.channelId, "Accepts Thread", "Someone Accepted!"))
+    val declineButton   = discordInbound.registerAction(ctx => discordOutbound.sendToThread(ctx.messageId, "Declines Thread", "Someone Declined"!))
+    val message         = Message(
+        text = "Deploy to production?",
+        interactions = Seq(
+        acceptButton.render("Accept"),
+        declineButton.render("Decline"),
+        ),
+    )
+    discordOutbound.sendToChannel("", message)
+}
+```
+
+Now when the accept button is clicked, `ChatOps4s` will send a "Some Accepted" message to the "Accepts Thread" thread, which is in the same channel of the message where the action resides. Similarly, if the decline button is clicked, `ChatOps4s` will send a "Someone Declined" message to the with "Declines Thread".

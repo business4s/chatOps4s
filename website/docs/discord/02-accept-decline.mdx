@@ -1,0 +1,54 @@
+---
+sidebar_position: 1.2
+---
+
+import SbtDependency from "@site/src/components/SbtDependency";
+
+# Accept Decline
+
+A simple but useful action you can perform in ChatOps4s is accept/decline. This involves sending an "Accept" and "Decline" buttons. You can add custom logic that executes when a particular button is pressed.
+
+## Example
+
+<SbtDependency moduleName={"chatops4s-discord"} />
+
+```scala
+HttpClientCatsBackend.resource[IO]().use { backend =>
+    val discordOutbound = new DiscordOutbound(
+        token = "",
+        url = "",
+        backend = backend,
+    )
+    val acceptDecline   = SendToProductionService(discordOutbound = discordOutbound)
+    val acceptButton    = discordInbound.registerAction(ctx => println("You pressed accept!"))
+    val declineButton   = discordInbound.registerAction(ctx => println("You pressed decline!"))
+    val message         = Message(
+        text = "Deploy to production?",
+        interactions = Seq(
+        acceptButton.render("Accept"),
+        declineButton.render("Decline"),
+        ),
+    )
+    discordOutbound.sendToChannel("", message)
+}
+```
+
+When the accept button is clicked, "You pressed accept!" is printed to the terminal. When the decline button is clicked, "You pressed decline!" is printed to the terminal.
+
+## The `DiscordOutbound`
+
+The `DiscordOutbound` trait provides APIs to send messages to Discord channels. A `DiscordOutbound` requires
+
+- A `token`. This can be obtained after creating a "New Application" on the [Discord developer portal](https://discord.com/developers/applications).
+- A `url`. This is the URL you provide when creating a "New Application" on the [Discord developer portal](https://discord.com/developers/applications).
+- A `backend`. This is an `sttp` backend of your choice.
+
+In this example, we are sending a `Message` to a channel. For other examples on what you can do with `DiscordOutbound`, take a look at a [Sending a Reply](/chatops4s/docs/discord/sending-a-reply/) and [Starting a Thread](chatops4s/docs/discord/starting-a-thread/).
+
+## The `InteractionContext`
+
+The `InteractionContext`, presented as `ctx` in the callbacks of registering an action, is an object that contains information about the interaction the action is associated with. It contains three useful ids which can be handy to use with the `DiscordOutbound` trait.
+
+- `userId` is the id of the user which interacted with the given action.
+- `messageId` is the id of the message where the interaction with the given action occured.
+- `channelId` is the id of the channel where the interaction with the given action occured.
