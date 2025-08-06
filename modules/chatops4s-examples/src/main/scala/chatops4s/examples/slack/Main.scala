@@ -33,7 +33,7 @@ object Main extends IOApp {
 
         HttpClientCatsBackend.resource[IO]().use { backend =>
           SlackGateway.create(config, backend).use { case (outbound, inbound) =>
-            createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { server =>
+            createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { _ =>
               for {
                 _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
                 _ <- logger.info("Server started! Send a test message...")
