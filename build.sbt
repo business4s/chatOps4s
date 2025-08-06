@@ -111,6 +111,7 @@ lazy val commonSettings = Seq(
     "-explain-cyclic",
     "-Ydebug-cyclic"
   ),
+  Test / scalacOptions := (Test / scalacOptions).value.filterNot(_ == "-Wunused:all"),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0" % Test
