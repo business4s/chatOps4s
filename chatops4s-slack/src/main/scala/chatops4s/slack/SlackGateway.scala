@@ -1,8 +1,8 @@
 package chatops4s.slack
 
 import cats.effect.{IO, Resource}
-import chatops4s.{InboundGateway, OutboundGateway}
 import chatops4s.slack.models.SlackConfig
+import chatops4s.{InboundGateway, OutboundGateway}
 import sttp.client4.Backend
 
 object SlackGateway {

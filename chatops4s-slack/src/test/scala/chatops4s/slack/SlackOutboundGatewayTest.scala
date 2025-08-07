@@ -1,8 +1,8 @@
 package chatops4s.slack
 
-import chatops4s.{Button, Message}
-import chatops4s.slack.models.*
 import cats.effect.unsafe.implicits.global
+import chatops4s.slack.models.*
+import chatops4s.{Button, Message}
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

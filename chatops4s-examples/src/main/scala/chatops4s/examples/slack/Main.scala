@@ -16,6 +16,7 @@ import pureconfig.module.catseffect.syntax.*
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.*
 import sttp.tapir.server.http4s.Http4sServerInterpreter
+
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 

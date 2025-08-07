@@ -1,9 +1,9 @@
 package chatops4s.slack
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import chatops4s.InteractionContext
 import chatops4s.slack.models.*
-import cats.effect.unsafe.implicits.global
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 

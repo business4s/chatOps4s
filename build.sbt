@@ -12,7 +12,7 @@ lazy val `chatops4s` = (project in file("."))
     `chatops4s-discord`,
     `chatops4s-discord-example`,
   )
-lazy val `chatops4s-core` = (project in file("modules/chatops4s-core"))
+lazy val `chatops4s-core` = (project in file("chatops4s-core"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -25,7 +25,7 @@ lazy val `chatops4s-core` = (project in file("modules/chatops4s-core"))
     Test / parallelExecution := false
   )
 
-lazy val `chatops4s-slack` = (project in file("modules/chatops4s-slack"))
+lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -44,7 +44,7 @@ lazy val `chatops4s-slack` = (project in file("modules/chatops4s-slack"))
   )
   .dependsOn(`chatops4s-core`)
 
-lazy val `chatops4s-examples` = (project in file("modules/chatops4s-examples"))
+lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(

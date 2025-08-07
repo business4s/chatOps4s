@@ -1,8 +1,8 @@
 package chatops4s.slack
 
 import cats.effect.{IO, Ref}
-import chatops4s.{Button, Message, MessageResponse, OutboundGateway}
 import chatops4s.slack.models.*
+import chatops4s.{Button, Message, MessageResponse, OutboundGateway}
 
 class SlackOutboundGateway(
     slackClient: SlackClient,

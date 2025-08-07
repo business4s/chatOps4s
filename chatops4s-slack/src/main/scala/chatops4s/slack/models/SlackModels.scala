@@ -1,7 +1,7 @@
 package chatops4s.slack.models
 
-import io.circe.{Codec, Decoder, Encoder}
 import io.circe.generic.semiauto.*
+import io.circe.{Codec, Decoder, Encoder}
 import pureconfig.ConfigReader
 
 case class SlackConfig(

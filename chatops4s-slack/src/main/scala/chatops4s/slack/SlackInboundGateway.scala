@@ -2,8 +2,9 @@ package chatops4s.slack
 
 import cats.effect.{IO, Ref}
 import cats.implicits.*
-import chatops4s.{Button, ButtonInteraction, InboundGateway, InteractionContext}
 import chatops4s.slack.models.*
+import chatops4s.{Button, ButtonInteraction, InboundGateway, InteractionContext}
+
 import java.util.UUID
 
 class SlackInboundGateway private (
