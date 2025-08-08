@@ -1,6 +1,5 @@
 package chatops4s.slack.models
 
-import io.circe.generic.semiauto.*
 import io.circe.{Codec, Decoder, Encoder}
 import pureconfig.ConfigReader
 
@@ -15,31 +14,19 @@ case class SlackPostMessageRequest(
     text: String,
     blocks: Option[List[SlackBlock]] = None,
     thread_ts: Option[String] = None,
-)
-
-object SlackPostMessageRequest {
-  given Codec[SlackPostMessageRequest] = deriveCodec[SlackPostMessageRequest]
-}
+) derives Codec
 
 case class SlackBlock(
     `type`: String,
     text: Option[SlackText] = None,
     elements: Option[List[SlackBlockElement]] = None,
     accessory: Option[SlackBlockElement] = None,
-)
-
-object SlackBlock {
-  given Codec[SlackBlock] = deriveCodec[SlackBlock]
-}
+) derives Codec
 
 case class SlackText(
     `type`: String,
     text: String,
-)
-
-object SlackText {
-  given Codec[SlackText] = deriveCodec[SlackText]
-}
+) derives Codec
 
 case class SlackBlockElement(
     `type`: String,
@@ -47,11 +34,7 @@ case class SlackBlockElement(
     action_id: Option[String] = None,
     value: Option[String] = None,
     style: Option[String] = None,
-)
-
-object SlackBlockElement {
-  given Codec[SlackBlockElement] = deriveCodec[SlackBlockElement]
-}
+) derives Codec
 
 case class SlackPostMessageResponse(
     ok: Boolean,
@@ -59,22 +42,14 @@ case class SlackPostMessageResponse(
     ts: Option[String] = None,
     message: Option[SlackMessage] = None,
     error: Option[String] = None,
-)
-
-object SlackPostMessageResponse {
-  given Codec[SlackPostMessageResponse] = deriveCodec[SlackPostMessageResponse]
-}
+) derives Codec
 
 case class SlackMessage(
     text: String,
     user: Option[String] = None,
     ts: String,
     thread_ts: Option[String] = None,
-)
-
-object SlackMessage {
-  given Codec[SlackMessage] = deriveCodec[SlackMessage]
-}
+) derives Codec
 
 case class SlackInteractionPayload(
     `type`: String,
@@ -86,47 +61,29 @@ case class SlackInteractionPayload(
     message: Option[SlackMessage] = None,
     actions: Option[List[SlackAction]] = None,
     response_url: Option[String] = None,
-)
+) derives Codec
 
-object SlackInteractionPayload {
-  given Codec[SlackInteractionPayload] = deriveCodec[SlackInteractionPayload]
-}
 
 case class SlackUser(
     id: String,
     name: String,
-)
-
-object SlackUser {
-  given Codec[SlackUser] = deriveCodec[SlackUser]
-}
+) derives Codec
 
 case class SlackTeam(
     id: String,
     domain: String,
-)
-
-object SlackTeam {
-  given Codec[SlackTeam] = deriveCodec[SlackTeam]
-}
+) derives Codec
 
 case class SlackChannel(
     id: String,
     name: String,
-)
+) derives Codec
 
-object SlackChannel {
-  given Codec[SlackChannel] = deriveCodec[SlackChannel]
-}
 
 case class SlackContainer(
     `type`: String,
     message_ts: Option[String] = None,
-)
-
-object SlackContainer {
-  given Codec[SlackContainer] = deriveCodec[SlackContainer]
-}
+) derives Codec
 
 case class SlackAction(
     action_id: String,
@@ -135,8 +92,4 @@ case class SlackAction(
     value: Option[String] = None,
     `type`: String,
     action_ts: String,
-)
-
-object SlackAction {
-  given Codec[SlackAction] = deriveCodec[SlackAction]
-}
+) derives Codec

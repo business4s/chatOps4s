@@ -2,7 +2,6 @@ package chatops4s.slack
 
 import cats.effect.IO
 import chatops4s.slack.models.*
-import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*
 
@@ -14,8 +13,7 @@ class SlackClient(config: SlackConfig, backend: Backend[IO]) {
     val req = basicRequest
       .post(uri"$baseUrl/chat.postMessage")
       .header("Authorization", s"Bearer ${config.botToken}")
-      .header("Content-Type", "application/json")
-      .body(request.asJson.noSpaces)
+      .body(asJson(request))
       .response(asJson[SlackPostMessageResponse])
 
     backend.send(req).flatMap { response =>

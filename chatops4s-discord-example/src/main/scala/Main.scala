@@ -49,12 +49,8 @@ object Main extends IOApp {
         .toRoutes(List(server.interactionRoute, sendEndpoint))
 
     BlazeServerBuilder[IO]
-      .bindHttp(8080, "localhost")
-      .withHttpApp(
-        Router(
-          "/" -> routes,
-        ).orNotFound,
-      )
+      .bindHttp(8080, "0.0.0.0")
+      .withHttpApp(Router("/" -> routes).orNotFound)
       .resource
       .use(_ => IO.never)
       .as(ExitCode.Success)

@@ -9,6 +9,7 @@ class SlackOutboundGateway(
     messageStore: Ref[IO, Map[String, String]], // messageId -> channelId mapping
 ) extends OutboundGateway {
 
+  // TODO sendToChannel and sendToThread seems very similar. Can we refactor to not repeat?
   override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
     val slackRequest = convertToSlackRequest(channelId, message)
 

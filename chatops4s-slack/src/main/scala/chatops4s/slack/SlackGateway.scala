@@ -7,6 +7,7 @@ import sttp.client4.Backend
 
 object SlackGateway {
 
+  // TODO Resource seems unnecessary
   def create(config: SlackConfig, backend: Backend[IO]): Resource[IO, (OutboundGateway, InboundGateway)] = {
     for {
       slackClient     <- Resource.eval(IO.pure(new SlackClient(config, backend)))
@@ -15,6 +16,7 @@ object SlackGateway {
     } yield (outboundGateway, inboundGateway)
   }
 
+  // TODO Resource seems unnecessary
   def createOutboundOnly(config: SlackConfig, backend: Backend[IO]): Resource[IO, OutboundGateway] = {
     Resource.eval {
       val slackClient = new SlackClient(config, backend)
