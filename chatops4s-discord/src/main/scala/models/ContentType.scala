@@ -1,4 +1,4 @@
-package enums
+package models
 
 enum ContentType(val value: Int) {
   case ActionRow extends ContentType(1)

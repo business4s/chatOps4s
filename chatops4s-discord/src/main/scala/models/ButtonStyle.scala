@@ -1,4 +1,4 @@
-package enums
+package models
 
 enum ButtonStyle(val value: Int) {
   case Primary   extends ButtonStyle(1)

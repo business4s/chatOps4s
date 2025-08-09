@@ -2,18 +2,18 @@ package api
 
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
-import enums.InteractionType
 import io.circe.Json
 import io.circe.parser.*
 import sttp.tapir.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.generic.auto.*
 import io.circe.generic.auto.*
-import models.{DiscordResponse, InteractionContext}
+import models.{DiscordResponse, InteractionContext, InteractionType}
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.bouncycastle.util.encoders.Hex
 import sttp.model.StatusCode
+import sttp.tapir.server.ServerEndpoint
 import sttp.tapir.server.ServerEndpoint.Full
 
 class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends StrictLogging {
@@ -35,7 +35,8 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
       )
       .out(jsonBody[DiscordResponse])
 
-  val interactionRoute: Full[Unit, Unit, (String, String, String), ErrorInfo, DiscordResponse, Any, IO] = interactionEndpoint.serverLogic(logic())
+  val interactionRoute: ServerEndpoint.Full[Unit, Unit, (String, String, String), ErrorInfo, DiscordResponse, Any, IO] =
+    interactionEndpoint.serverLogic(logic())
 
   private def verifySignature(
       publicKey: String,
@@ -52,6 +53,7 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
     verifier.verifySignature(signatureBytes)
   }
 
+  // TODO make it method with parameters instead of lambda
   private def logic(): ((String, String, String)) => IO[Either[ErrorInfo, DiscordResponse]] = { case (signature, timestamp, body) =>
     if (!verifySignature(discordPublicKey, signature, timestamp, body)) {
       logger.info("Failed to authorize signature of request from Discord")
@@ -66,13 +68,17 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
     }
   }
 
-  private def processRequest(json: Json) = {
+  private def processRequest(json: Json): IO[Either[BadRequest, DiscordResponse]] = {
     val cursor = json.hcursor
     val _type  = cursor.get[Int]("type").toOption
 
     _type match {
       case Some(1) => IO.pure(Right(DiscordResponse(`type` = InteractionType.Ping.value))) // PING
       case Some(_) =>
+        // TODO we should parse in a way that produces an error message that we can log.
+        //  Currently we dont know which filed might be missing.
+        //  Parsign to a case class might be a good approach.
+        //  Of just for comprehension on Either 
         val customId  = cursor.downField("data").get[String]("custom_id").toOption
         val userId    = cursor.downField("member").downField("user").get[String]("id").toOption
         val channelId = cursor.get[String]("channel_id").toOption

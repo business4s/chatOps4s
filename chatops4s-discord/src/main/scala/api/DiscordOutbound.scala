@@ -4,17 +4,12 @@ import io.circe.*
 import io.circe.syntax.*
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
-import enums.{ButtonStyle, ContentType}
 import models.*
-import sttp.client4.circe.asJson
+import sttp.client4.circe.*
 import sttp.client4.*
 
-class DiscordOutbound(
-    token: String,
-    url: String,
-    backend: Backend[IO],
-) extends OutboundGateway,
-      StrictLogging {
+// TODO Parametrize with F[_] and remove cats dependency
+class DiscordOutbound(token: String, url: String, backend: Backend[IO]) extends OutboundGateway, StrictLogging {
   final private val rootUrl       = "https://discord.com/api/v10"
   final private val versionNumber = 1.0
 
@@ -24,6 +19,7 @@ class DiscordOutbound(
     .header("Content-Type", "application/json")
 
   override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
+    // TODO logging should be inside IO
     logger.info(s"Sending message to channel $channelId: $message")
     val json = if (message.interactions.nonEmpty) {
       Json.obj(
@@ -67,6 +63,7 @@ class DiscordOutbound(
   }
 
   override def replyToMessage(channelId: String, messageId: String, message: Message): IO[MessageResponse] = {
+    // TODO logging should be inside IO
     logger.info(s"Replying to message $messageId in channel $channelId: $message")
 
     val baseJson = Json.obj(
@@ -124,7 +121,7 @@ class DiscordOutbound(
 
     val createThreadRequest = baseRequest
       .post(uri"$rootUrl/channels/$channelId/threads")
-      .body(createThreadJson.noSpaces)
+      .body(asJson(createThreadJson))
       .response(asJson[Json])
 
     createThreadRequest.send(backend).flatMap { response =>

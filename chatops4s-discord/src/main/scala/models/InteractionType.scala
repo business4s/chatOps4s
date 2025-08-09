@@ -1,4 +1,4 @@
-package enums
+package models
 
 enum InteractionType(val value: Int) {
   case Ping                  extends InteractionType(1)
