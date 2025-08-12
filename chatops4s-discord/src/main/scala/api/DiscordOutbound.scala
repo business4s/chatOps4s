@@ -2,23 +2,24 @@ package api
 
 import io.circe.*
 import io.circe.syntax.*
-import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import models.*
 import sttp.client4.circe.*
 import sttp.client4.*
+import sttp.monad.MonadError
+import sttp.monad.syntax.*
 
-// TODO Parametrize with F[_] and remove cats dependency
-class DiscordOutbound(token: String, url: String, backend: Backend[IO]) extends OutboundGateway, StrictLogging {
+class DiscordOutbound[F[_]](token: String, url: String, backend: Backend[F]) extends OutboundGateway[F], StrictLogging {
   final private val rootUrl       = "https://discord.com/api/v10"
   final private val versionNumber = 1.0
+  given MonadError[F] = backend.monad
 
   private def baseRequest = basicRequest
     .header("Authorization", s"Bot $token")
     .header("User-Agent", s"DiscordBot ($url, $versionNumber)")
     .header("Content-Type", "application/json")
 
-  override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
+  override def sendToChannel(channelId: String, message: Message): F[MessageResponse] = {
     // TODO logging should be inside IO
     logger.info(s"Sending message to channel $channelId: $message")
     val json = if (message.interactions.nonEmpty) {
@@ -53,18 +54,17 @@ class DiscordOutbound(token: String, url: String, backend: Backend[IO]) extends 
       response.body match {
         case Right(json) =>
           val messageId = json.hcursor.get[String]("id").getOrElse("")
-          logger.info("Message sent to Discord")
-          IO.pure(MessageResponse(messageId = messageId))
+          summon[MonadError[F]].unit(logger.info("Message sent to Discord"))
+          summon[MonadError[F]].unit(MessageResponse(messageId = messageId))
         case Left(error) =>
-          logger.info(s"Failed to send message: $error")
-          IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
+          summon[MonadError[F]].unit(logger.info(s"Failed to send message: $error"))
+          summon[MonadError[F]].error(new RuntimeException(s"Failed to send message: $error"))
       }
     }
   }
 
-  override def replyToMessage(channelId: String, messageId: String, message: Message): IO[MessageResponse] = {
-    // TODO logging should be inside IO
-    logger.info(s"Replying to message $messageId in channel $channelId: $message")
+  override def replyToMessage(channelId: String, messageId: String, message: Message): F[MessageResponse] = {
+    summon[MonadError[F]].unit(logger.info(s"Replying to message $messageId in channel $channelId: $message"))
 
     val baseJson = Json.obj(
       "content"           := message.text,
@@ -105,16 +105,16 @@ class DiscordOutbound(token: String, url: String, backend: Backend[IO]) extends 
       response.body match {
         case Right(json) =>
           val newMessageId = json.hcursor.get[String]("id").getOrElse("")
-          logger.info("Reply sent to Discord")
-          IO.pure(MessageResponse(messageId = newMessageId))
+          summon[MonadError[F]].unit(logger.info("Reply sent to Discord"))
+          summon[MonadError[F]].unit(MessageResponse(messageId = newMessageId))
         case Left(error) =>
-          logger.error(s"Failed to send reply: $error")
-          IO.raiseError(new RuntimeException(s"Failed to send reply: $error"))
+          summon[MonadError[F]].unit(logger.error(s"Failed to send reply: $error"))
+          summon[MonadError[F]].error(new RuntimeException(s"Failed to send reply: $error"))
       }
     }
   }
 
-  override def sendToThread(channelId: String, threadName: String, message: Message): IO[MessageResponse] = {
+  override def sendToThread(channelId: String, threadName: String, message: Message): F[MessageResponse] = {
     val createThreadJson = Json.obj(
       "name" := threadName,
     )
@@ -130,13 +130,13 @@ class DiscordOutbound(token: String, url: String, backend: Backend[IO]) extends 
           val cursor = json.hcursor
           cursor.get[String]("id") match {
             case Right(threadId) =>
-              logger.info(s"Created thread $threadName with id $threadId")
+              summon[MonadError[F]].unit(logger.info(s"Created thread $threadName with id $threadId"))
               sendToChannel(threadId, message)
-            case Left(err)       =>
-              IO.raiseError(new RuntimeException(s"Could not extract 'id': $err"))
+            case Left(error)       =>
+              summon[MonadError[F]].error(new RuntimeException(s"Could not extract 'id': $error"))
           }
         case Left(error) =>
-          IO.raiseError(new RuntimeException(s"Request failed: $error"))
+          summon[MonadError[F]].error(new RuntimeException(s"Request failed: $error"))
       }
     }
   }
