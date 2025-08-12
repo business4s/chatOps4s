@@ -1,20 +1,28 @@
-import api.{DiscordInbound, DiscordOutbound, Server}
-import cats.effect.{ExitCode, IO, IOApp}
-import org.http4s.HttpRoutes
-import org.http4s.blaze.server.BlazeServerBuilder
-import sttp.tapir.*
-import sttp.tapir.server.http4s.Http4sServerInterpreter
-import utilities.EnvLoader
-import org.http4s.server.Router
-import models.*
-import services.*
-import sttp.tapir.json.circe.*
-import sttp.tapir.generic.auto.*
-import io.circe.generic.auto.*
-import sttp.client4.httpclient.cats.HttpClientCatsBackend
+package discord
 
-object Main extends IOApp {
+import api.DiscordInbound
+import cats.effect.{ExitCode, IO, IOApp}
+import com.comcast.ip4s.{Host, Port}
+import discord.services.*
+import discord.utilities.EnvLoader
+import io.circe.generic.auto.*
+import models.MessageResponse
+import org.http4s.HttpRoutes
+import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.server.Router
+import api.Server
+import api.DiscordOutbound
+import com.typesafe.scalalogging.StrictLogging
+import models.Message
+import sttp.client4.httpclient.cats.HttpClientCatsBackend
+import sttp.tapir.*
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
+import sttp.tapir.server.http4s.Http4sServerInterpreter
+
+object Main extends IOApp with StrictLogging {
   private val discordInbound = new DiscordInbound()
+  private final val port = 8080;
   private val server         =
     new Server(discordPublicKey = "cec2f053ddcba6bb67570ac176afc730df3325a729ccb32edbed9dbe4d1741ca", discordInbound = discordInbound)
 
@@ -48,11 +56,13 @@ object Main extends IOApp {
       Http4sServerInterpreter[IO]()
         .toRoutes(List(server.interactionRoute, sendEndpoint))
 
-    BlazeServerBuilder[IO]
-      .bindHttp(8080, "0.0.0.0")
-      .withHttpApp(Router("/" -> routes).orNotFound)
-      .resource
-      .use(_ => IO.never)
+    EmberServerBuilder
+      .default[IO]
+      .withHost(Host.fromString("0.0.0.0").get)
+      .withPort(Port.fromInt(this.port).get)
+      .withHttpApp(routes.orNotFound)
+      .build
+      .useForever
       .as(ExitCode.Success)
   }
 }

@@ -1,4 +1,4 @@
-package chatops4s.examples.slack
+package slack
 
 import cats.effect.{ExitCode, IO, IOApp}
 import chatops4s.slack.SlackGateway
