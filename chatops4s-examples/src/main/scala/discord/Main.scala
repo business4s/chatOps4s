@@ -22,7 +22,7 @@ import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 object Main extends IOApp with StrictLogging {
   private val discordInbound = new DiscordInbound()
-  private final val port = 8080;
+  final private val port     = 8080;
   private val server         =
     new Server(discordPublicKey = "cec2f053ddcba6bb67570ac176afc730df3325a729ccb32edbed9dbe4d1741ca", discordInbound = discordInbound)
 
