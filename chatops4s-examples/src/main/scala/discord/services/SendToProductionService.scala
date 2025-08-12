@@ -1,8 +1,8 @@
-package services
+package discord.services
 
-import api.DiscordOutbound
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
+import api.DiscordOutbound
 import models.Message
 
 class SendToProductionService(discordOutbound: DiscordOutbound) extends StrictLogging {
