@@ -78,7 +78,7 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
         // TODO we should parse in a way that produces an error message that we can log.
         //  Currently we dont know which filed might be missing.
         //  Parsign to a case class might be a good approach.
-        //  Of just for comprehension on Either 
+        //  Of just for comprehension on Either
         val customId  = cursor.downField("data").get[String]("custom_id").toOption
         val userId    = cursor.downField("member").downField("user").get[String]("id").toOption
         val channelId = cursor.get[String]("channel_id").toOption

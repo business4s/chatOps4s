@@ -40,7 +40,7 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
       "com.github.pureconfig"         %% "pureconfig-cats-effect" % "0.17.9",
       "ch.qos.logback"                 % "logback-classic"        % "1.5.18",
       // TODO replace with scala-logging - its more minimal and currently used by libs in the business4s ecosystem
-      "org.typelevel"                 %% "log4cats-slf4j"         % "2.7.1",
+      "com.typesafe.scala-logging" %% "scala-logging"   % "3.9.5",
     ),
     // TODO remove if possible
     Test / parallelExecution := false,

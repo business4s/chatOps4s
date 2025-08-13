@@ -1,41 +1,33 @@
 package chatops4s.slack
 
 import cats.effect.{IO, Ref}
-import chatops4s.slack.models.*
 import chatops4s.{Button, Message, MessageResponse, OutboundGateway}
+import chatops4s.slack.models.*
 
 class SlackOutboundGateway(
     slackClient: SlackClient,
     messageStore: Ref[IO, Map[String, String]], // messageId -> channelId mapping
 ) extends OutboundGateway {
 
-  // TODO sendToChannel and sendToThread seems very similar. Can we refactor to not repeat?
   override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
-    val slackRequest = convertToSlackRequest(channelId, message)
+    sendMessage(channelId, message, threadTs = None)
+  }
+
+  override def sendToThread(messageId: String, message: Message): IO[MessageResponse] = {
+    val (channelId, threadTs) = extractChannelAndTimestamp(messageId)
+    sendMessage(channelId, message, threadTs = Some(threadTs))
+  }
+
+  private def sendMessage(channelId: String, message: Message, threadTs: Option[String]): IO[MessageResponse] = {
+    val slackRequest = convertToSlackRequest(channelId, message, threadTs)
 
     slackClient.postMessage(slackRequest).flatMap { response =>
       response.ts match {
         case Some(timestamp) =>
           for {
             _        <- messageStore.update(_ + (timestamp -> channelId))
-            messageId = s"$channelId-$timestamp" // Store channel info in messageId
+            messageId = s"$channelId-$timestamp"
           } yield MessageResponse(messageId)
-        case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
-      }
-    }
-  }
-
-  override def sendToThread(messageId: String, message: Message): IO[MessageResponse] = {
-    val (channelId, threadTs) = extractChannelAndTimestamp(messageId)
-    val slackRequest          = convertToSlackRequest(channelId, message, Some(threadTs))
-
-    slackClient.postMessage(slackRequest).flatMap { response =>
-      response.ts match {
-        case Some(timestamp) =>
-          for {
-            _           <- messageStore.update(_ + (timestamp -> channelId))
-            newMessageId = s"$channelId-$timestamp"
-          } yield MessageResponse(newMessageId)
         case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
       }
     }
@@ -44,7 +36,7 @@ class SlackOutboundGateway(
   private def convertToSlackRequest(
       channelId: String,
       message: Message,
-      threadTs: Option[String] = None,
+      threadTs: Option[String],
   ): SlackPostMessageRequest = {
     val blocks = if (message.interactions.nonEmpty) {
       Some(

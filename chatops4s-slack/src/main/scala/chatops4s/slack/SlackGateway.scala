@@ -1,26 +1,28 @@
 package chatops4s.slack
 
 import cats.effect.{IO, Resource}
-import chatops4s.slack.models.SlackConfig
 import chatops4s.{InboundGateway, OutboundGateway}
+import chatops4s.slack.models.SlackConfig
 import sttp.client4.Backend
 
 object SlackGateway {
 
-  // TODO Resource seems unnecessary
   def create(config: SlackConfig, backend: Backend[IO]): Resource[IO, (OutboundGateway, InboundGateway)] = {
-    for {
-      slackClient     <- Resource.eval(IO.pure(new SlackClient(config, backend)))
-      outboundGateway <- Resource.eval(SlackOutboundGateway.create(slackClient))
-      inboundGateway  <- Resource.eval(SlackInboundGateway.create)
-    } yield (outboundGateway, inboundGateway)
+    Resource.eval {
+      for {
+        slackClient     <- IO.pure(new SlackClient(config, backend))
+        outboundGateway <- SlackOutboundGateway.create(slackClient)
+        inboundGateway  <- SlackInboundGateway.create
+      } yield (outboundGateway, inboundGateway)
+    }
   }
 
-  // TODO Resource seems unnecessary
   def createOutboundOnly(config: SlackConfig, backend: Backend[IO]): Resource[IO, OutboundGateway] = {
     Resource.eval {
-      val slackClient = new SlackClient(config, backend)
-      SlackOutboundGateway.create(slackClient)
+      for {
+        slackClient <- IO.pure(new SlackClient(config, backend))
+        gateway     <- SlackOutboundGateway.create(slackClient)
+      } yield gateway
     }
   }
 }
