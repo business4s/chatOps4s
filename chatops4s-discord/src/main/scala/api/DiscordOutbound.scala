@@ -12,7 +12,7 @@ import sttp.monad.syntax.*
 class DiscordOutbound[F[_]](token: String, url: String, backend: Backend[F]) extends OutboundGateway[F], StrictLogging {
   final private val rootUrl       = "https://discord.com/api/v10"
   final private val versionNumber = 1.0
-  given MonadError[F] = backend.monad
+  given MonadError[F]             = backend.monad
 
   private def baseRequest = basicRequest
     .header("Authorization", s"Bot $token")
@@ -132,7 +132,7 @@ class DiscordOutbound[F[_]](token: String, url: String, backend: Backend[F]) ext
             case Right(threadId) =>
               summon[MonadError[F]].unit(logger.info(s"Created thread $threadName with id $threadId"))
               sendToChannel(threadId, message)
-            case Left(error)       =>
+            case Left(error)     =>
               summon[MonadError[F]].error(new RuntimeException(s"Could not extract 'id': $error"))
           }
         case Left(error) =>

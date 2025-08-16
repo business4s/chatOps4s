@@ -63,7 +63,6 @@ case class SlackInteractionPayload(
     response_url: Option[String] = None,
 ) derives Codec
 
-
 case class SlackUser(
     id: String,
     name: String,
@@ -78,7 +77,6 @@ case class SlackChannel(
     id: String,
     name: String,
 ) derives Codec
-
 
 case class SlackContainer(
     `type`: String,
