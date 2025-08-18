@@ -6,7 +6,7 @@ import chatops4s.slack.models.SlackConfig
 import sttp.client4.Backend
 
 object SlackGateway {
- //Resources eliminated
+
   def create(config: SlackConfig, backend: Backend[IO]): IO[(OutboundGateway, InboundGateway)] = {
     for {
       slackClient     <- IO.pure(new SlackClient(config, backend))
