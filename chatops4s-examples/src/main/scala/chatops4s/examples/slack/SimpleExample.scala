@@ -20,7 +20,7 @@ object SimpleExample extends IOApp with StrictLogging {
       .use { backend =>
         SlackGateway
           .createOutboundOnly(config, backend)
-          .use { outbound =>
+          .flatMap { outbound =>
             sendSimpleMessage(outbound)
           }
       }

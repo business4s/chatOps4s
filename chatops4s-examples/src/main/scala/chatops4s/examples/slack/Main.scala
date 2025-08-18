@@ -29,7 +29,7 @@ object Main extends IOApp with StrictLogging {
         val config = appConfig.slack
 
         HttpClientCatsBackend.resource[IO]().use { backend =>
-          SlackGateway.create(config, backend).use { case (outbound, inbound) =>
+          SlackGateway.create(config, backend).flatMap { case (outbound, inbound) =>
             createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { _ =>
               for {
                 _ <- IO(logger.info(s"Starting Slack ChatOps server on port ${config.port}"))
