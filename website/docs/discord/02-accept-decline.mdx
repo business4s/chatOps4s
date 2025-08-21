@@ -13,25 +13,7 @@ A simple but useful action you can perform in ChatOps4s is Accept/Decline. This 
 <SbtDependency moduleName={"chatops4s-discord"} />
 
 ```scala
-HttpClientCatsBackend.resource[IO]().use { backend =>
-    val discordInbound = new DiscordInbound()
-    val discordOutbound = new DiscordOutbound(
-        token = "",
-        url = "",
-        backend = backend,
-    )
-    val acceptDecline   = SendToProductionService(discordOutbound = discordOutbound)
-    val acceptButton    = discordInbound.registerAction(ctx => println("You pressed accept!"))
-    val declineButton   = discordInbound.registerAction(ctx => println("You pressed decline!"))
-    val message         = Message(
-        text = "Deploy to production?",
-        interactions = Seq(
-        acceptButton.render("Accept"),
-        declineButton.render("Decline"),
-        ),
-    )
-    discordOutbound.sendToChannel("", message)
-}
+
 ```
 
 When the accept button is clicked, "You pressed accept!" is printed to the terminal. When the decline button is clicked, "You pressed decline!" is printed to the terminal.

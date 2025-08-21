@@ -13,28 +13,7 @@ You can use the `DiscordOutbound` trait to send a reply. This is especially usef
 <SbtDependency moduleName={"chatops4s-discord"} />
 
 ```scala
-HttpClientCatsBackend.resource[IO]().use { backend =>
-  val discordInbound = new DiscordInbound()
-  val discordOutbound = new DiscordOutbound(
-    token = "",
-    url = "",
-    backend = backend,
-  )
-  val acceptButton = discordInbound.registerAction(ctx =>
-    discordOutbound.replyToMessage(ctx.messageId, "You Accepted!")
-  )
-  val declineButton = discordInbound.registerAction(ctx =>
-    discordOutbound.replyToMessage(ctx.messageId, "You Declined!")
-  )
-  val message = Message(
-    text = "Deploy to production?",
-    interactions = Seq(
-      acceptButton.render("Accept"),
-      declineButton.render("Decline"),
-    ),
-  )
-  discordOutbound.sendToChannel("", message)
-}
+
 ```
 
 Now, when the Accept button is clicked, `ChatOps4s` will reply to the message where the interaction occurred with "You Accepted!". Similarly, if the Decline button is clicked, it will reply with "You Declined!".
