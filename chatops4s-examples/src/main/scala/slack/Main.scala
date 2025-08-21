@@ -1,4 +1,4 @@
-package slack
+package chatops4s.examples.slack
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.implicits.*

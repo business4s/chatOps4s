@@ -1,4 +1,4 @@
-package discord
+package chatops4s.examples.discord
 
 import api.DiscordInbound
 import cats.effect.{ExitCode, IO, IOApp}
