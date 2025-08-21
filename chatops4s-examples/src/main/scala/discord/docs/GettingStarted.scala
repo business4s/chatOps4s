@@ -10,7 +10,7 @@ import com.comcast.ip4s.{Host, Port}
 
 object GettingStarted extends IOApp {
   private val discordInbound = new DiscordInbound()
-  final private val port = 8080;
+  final private val port     = 8080;
   private val server         =
     new Server(discordPublicKey = "", discordInbound = discordInbound)
 
