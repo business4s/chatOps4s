@@ -9,22 +9,18 @@ import com.comcast.ip4s.*
 import io.circe.parser.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
-import org.typelevel.log4cats.Logger
-import org.typelevel.log4cats.slf4j.Slf4jLogger
+import com.typesafe.scalalogging.StrictLogging
 import pureconfig.*
 import pureconfig.module.catseffect.syntax.*
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.*
 import sttp.tapir.server.http4s.Http4sServerInterpreter
-
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 case class AppConfig(slack: SlackConfig) derives ConfigReader
 
-object Main extends IOApp {
-
-  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+object Main extends IOApp with StrictLogging {
 
   override def run(args: List[String]): IO[ExitCode] = {
     ConfigSource.default
@@ -33,15 +29,15 @@ object Main extends IOApp {
         val config = appConfig.slack
 
         HttpClientCatsBackend.resource[IO]().use { backend =>
-          SlackGateway.create(config, backend).use { case (outbound, inbound) =>
+          SlackGateway.create(config, backend).flatMap { case (outbound, inbound) =>
             createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { _ =>
               for {
-                _ <- logger.info(s"Starting Slack ChatOps server on port ${config.port}")
-                _ <- logger.info("Server started! Send a test message...")
+                _ <- IO(logger.info(s"Starting Slack ChatOps server on port ${config.port}"))
+                _ <- IO(logger.info("Server started! Send a test message..."))
 
                 _ <- runChatOpsExample(outbound, inbound)
 
-                _ <- logger.info("ChatOps example completed. Server will keep running...")
+                _ <- IO(logger.info("ChatOps example completed. Server will keep running..."))
                 _ <- IO.never // Keep server running
               } yield ExitCode.Success
             }
@@ -49,7 +45,7 @@ object Main extends IOApp {
         }
       }
       .handleErrorWith { error =>
-        logger.error(error)("Failed to load configuration") *>
+        IO(logger.error("Failed to load configuration", error)) *>
           IO.pure(ExitCode.Error)
       }
   }
@@ -77,12 +73,12 @@ object Main extends IOApp {
       .withPort(Port.fromInt(config.port).get)
       .withHttpApp(routes.orNotFound)
       .build
-      .evalTap(_ => logger.info(s"Slack server started on port ${config.port}"))
+      .evalTap(_ => IO(logger.info(s"Slack server started on port ${config.port}")))
   }
 
   private def handleInteraction(formData: String, inboundGateway: SlackInboundGateway): IO[Unit] = {
     for {
-      _       <- logger.debug(s"Received interaction: $formData")
+      _       <- IO(logger.debug(s"Received interaction: $formData"))
       payload <- parsePayload(formData)
       _       <- inboundGateway.handleInteraction(payload)
     } yield ()
@@ -102,15 +98,15 @@ object Main extends IOApp {
         payload     <- decode[SlackInteractionPayload](payloadJson)
       } yield payload
     }.handleErrorWith { error =>
-      logger.error(error)(s"Failed to parse interaction payload: $formData") *>
+      IO(logger.error(s"Failed to parse interaction payload: $formData", error)) *>
         IO.raiseError(error)
     }
   }
 
   private def runChatOpsExample(outbound: OutboundGateway, inbound: InboundGateway): IO[Unit] = {
     for {
-      approveAction <- inbound.registerAction(ctx => logger.info(s"✅ Approved by ${ctx.userId} in channel ${ctx.channelId}"))
-      rejectAction  <- inbound.registerAction(ctx => logger.info(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}"))
+      approveAction <- inbound.registerAction(ctx => IO(logger.info(s"✅ Approved by ${ctx.userId} in channel ${ctx.channelId}")))
+      rejectAction  <- inbound.registerAction(ctx => IO(logger.info(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}")))
 
       msg = Message(
               text = "🚀 Deploy to production?",
@@ -123,13 +119,13 @@ object Main extends IOApp {
       channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
 
       response <- outbound.sendToChannel(channelId, msg)
-      _        <- logger.info(s"Message sent with ID: ${response.messageId}")
+      _        <- IO(logger.info(s"Message sent with ID: ${response.messageId}"))
 
       _ <- outbound.sendToThread(
              response.messageId,
              Message("👆 Please click one of the buttons above to proceed"),
            )
-      _ <- logger.info("Follow-up thread message sent")
+      _ <- IO(logger.info("Follow-up thread message sent"))
 
     } yield ()
   }
