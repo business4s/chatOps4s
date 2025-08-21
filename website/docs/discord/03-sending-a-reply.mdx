@@ -12,8 +12,7 @@ You can use the `DiscordOutbound` trait to send a reply. This is especially usef
 
 <SbtDependency moduleName={"chatops4s-discord"} />
 
-```scala
-
+```scala file=./main/scala/discord/docs/SendingAReply.scala start=start_doc end=end_doc
 ```
 
 Now, when the Accept button is clicked, `ChatOps4s` will reply to the message where the interaction occurred with "You Accepted!". Similarly, if the Decline button is clicked, it will reply with "You Declined!".

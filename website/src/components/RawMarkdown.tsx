@@ -2,7 +2,7 @@ import React from "react";
 
 // build a context of all .md files under that folder:
 const schemas = require.context(
-  "!!raw-loader!../../../chatops4s-discord-example/src/main/scala",
+  "!!raw-loader!../../../chatops4s-examples",
   true,
   /\.md$/
 );
