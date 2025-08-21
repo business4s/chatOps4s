@@ -7,6 +7,7 @@ import sttp.client4.httpclient.cats.HttpClientCatsBackend
 
 object SendToThread extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
+    // start_doc
     HttpClientCatsBackend.resource[IO]().use { backend =>
       val discordInbound  = new DiscordInbound()
       val discordOutbound = new DiscordOutbound(
@@ -48,6 +49,7 @@ object SendToThread extends IOApp {
         .flatMap(_ => {
           IO.pure(ExitCode.Success)
         })
+      // end_doc
     }
   }
 }

@@ -8,6 +8,7 @@ import org.http4s.ember.server.EmberServerBuilder
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import com.comcast.ip4s.{Host, Port}
 
+// start_doc
 object GettingStarted extends IOApp {
   private val discordInbound = new DiscordInbound()
   final private val port     = 8080;
@@ -30,3 +31,4 @@ object GettingStarted extends IOApp {
       .as(ExitCode.Success)
   }
 }
+// end_doc
