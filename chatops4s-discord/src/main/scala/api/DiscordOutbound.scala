@@ -20,50 +20,50 @@ class DiscordOutbound[F[_]](token: String, url: String, backend: Backend[F]) ext
     .header("Content-Type", "application/json")
 
   override def sendToChannel(channelId: String, message: Message): F[MessageResponse] = {
-    // TODO logging should be inside IO
-    logger.info(s"Sending message to channel $channelId: $message")
-    val json = if (message.interactions.nonEmpty) {
-      Json.obj(
-        "content"    := message.text,
-        "components" := Json.arr(
-          Json.obj(
-            "type"       := ContentType.ActionRow.value,
-            "components" := message.interactions.map { b =>
-              Json.obj(
-                "type"      := ContentType.Button.value,
-                "style"     := ButtonStyle.Primary.value,
-                "label"     := b.label,
-                "custom_id" := b.value,
-              )
-            },
+    m.unit(logger.info(s"Sending message to channel $channelId: $message")).flatMap(_ => {
+      val json = if (message.interactions.nonEmpty) {
+        Json.obj(
+          "content" := message.text,
+          "components" := Json.arr(
+            Json.obj(
+              "type" := ContentType.ActionRow.value,
+              "components" := message.interactions.map { b =>
+                Json.obj(
+                  "type" := ContentType.Button.value,
+                  "style" := ButtonStyle.Primary.value,
+                  "label" := b.label,
+                  "custom_id" := b.value,
+                )
+              },
+            ),
           ),
-        ),
-      )
-    } else {
-      Json.obj(
-        "content" := message.text,
-      )
-    }
-
-    val request = baseRequest
-      .post(uri"$rootUrl/channels/$channelId/messages")
-      .body(json.noSpaces)
-      .response(asJson[Json])
-
-    request.send(backend).flatMap { response =>
-      response.body match {
-        case Right(json) =>
-          val messageId = json.hcursor.get[String]("id").getOrElse("")
-          for {
-            _ <- m.unit(logger.info("Message sent to Discord"))
-            messageResponse: MessageResponse <-  m.unit(MessageResponse(messageId = messageId))
-          } yield (messageResponse)
-        case Left(error) =>
-          m.unit(logger.info(s"Failed to send message: $error")).flatMap(_ => {
-            m.error(new RuntimeException(s"Failed to send message: $error"))
-          })
+        )
+      } else {
+        Json.obj(
+          "content" := message.text,
+        )
       }
-    }
+
+      val request = baseRequest
+        .post(uri"$rootUrl/channels/$channelId/messages")
+        .body(json.noSpaces)
+        .response(asJson[Json])
+
+      request.send(backend).flatMap { response =>
+        response.body match {
+          case Right(json) =>
+            val messageId = json.hcursor.get[String]("id").getOrElse("")
+            for {
+              _ <- m.unit(logger.info("Message sent to Discord"))
+              messageResponse: MessageResponse <- m.unit(MessageResponse(messageId = messageId))
+            } yield (messageResponse)
+          case Left(error) =>
+            m.unit(logger.info(s"Failed to send message: $error")).flatMap(_ => {
+              m.error(new RuntimeException(s"Failed to send message: $error"))
+            })
+        }
+      }
+    })
   }
 
   override def replyToMessage(channelId: String, messageId: String, message: Message): F[MessageResponse] = {
