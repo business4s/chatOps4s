@@ -1,4 +1,4 @@
-package utilities
+package discord.utilities
 
 import scala.io.Source
 

@@ -1,0 +1,28 @@
+---
+sidebar_position: 1.1
+---
+
+import SbtDependency from "@site/src/components/SbtDependency";
+
+# Getting Started
+
+## Installation
+
+To use `ChatOps4s` with Discord, install the following dependency
+
+<SbtDependency moduleName={"chatops4s-discord"} />
+
+## Picking an `sttp` Backend
+
+You must install an `sttp` backend which `ChatOps4s` will use to make HTTP requests on your behalf. View your choices of backends on `sttp`'s [documentation](https://sttp.softwaremill.com/en/latest/backends/summary.html).
+
+## Picking a `tapir` Server Interpreter
+
+You must install a `tapir` server interpreter to allow `ChatOps4s` to receive HTTP requests from Discord. View your choices of server interpreters on `tapir`'s [documentation](https://tapir.softwaremill.com/en/latest/server/overview.html).
+
+## Setting up your Server
+
+Once you have picked a server interpreter and `sttp` backend, import the `Server` and `DiscordInbound` class to set up your sever. In the following example, we create a `ChatOps4s` server using the `http4s` interpreter (using `blaze`) and `cats` backend for `sttp`:
+
+```scala file=./main/scala/discord/docs/GettingStarted.scala start=start_doc end=end_doc
+```

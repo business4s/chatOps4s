@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets
 case class AppConfig(slack: SlackConfig) derives ConfigReader
 
 object Main extends IOApp with StrictLogging {
-
   override def run(args: List[String]): IO[ExitCode] = {
     ConfigSource.default
       .loadF[IO, AppConfig]()

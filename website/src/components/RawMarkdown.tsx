@@ -1,26 +1,26 @@
-import React from 'react';
+import React from "react";
 
 // build a context of all .md files under that folder:
 const schemas = require.context(
-    '!!raw-loader!../../../chatops4s-examples/src/test/resources',
-    true,
-    /\.md$/
+  "!!raw-loader!../../../chatops4s-examples",
+  true,
+  /\.md$/
 );
 
 type Props = {
-    file: string;
+  file: string;
 };
 
 const SupportedJsonSchemaTypes: React.FC<Props> = ({ file }) => {
-    let html = '';
-    try {
-        html = schemas(`./${file}`).default;
-    } catch (e) {
-        console.error(`Could not find ${file}`, e);
-        return <div>⚠️ Schema not found: {file}</div>;
-    }
+  let html = "";
+  try {
+    html = schemas(`./${file}`).default;
+  } catch (e) {
+    console.error(`Could not find ${file}`, e);
+    return <div>⚠️ Schema not found: {file}</div>;
+  }
 
-    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
 };
 
 export default SupportedJsonSchemaTypes;
