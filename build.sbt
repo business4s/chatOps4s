@@ -8,7 +8,6 @@ lazy val `chatops4s` = (project in file("."))
     `chatops4s-slack`,
     `chatops4s-examples`,
     `chatops4s-discord`,
-    `chatops4s-discord-example`,
   )
 
 lazy val `chatops4s-core` = (project in file("chatops4s-core"))
@@ -40,7 +39,7 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
       "com.github.pureconfig"         %% "pureconfig-cats-effect" % "0.17.9",
       "ch.qos.logback"                 % "logback-classic"        % "1.5.18",
       // TODO replace with scala-logging - its more minimal and currently used by libs in the business4s ecosystem
-      "org.typelevel"                 %% "log4cats-slf4j"         % "2.7.1",
+      "com.typesafe.scala-logging" %% "scala-logging"   % "3.9.5",
     ),
     // TODO remove if possible
     Test / parallelExecution := false,
@@ -57,6 +56,7 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe"          % "1.11.38",
       "org.http4s"                  %% "http4s-ember-server"       % "0.23.30",
       "ch.qos.logback"               % "logback-classic"           % "1.5.18",
+      "com.softwaremill.sttp.client4" %% "cats"                % "4.0.9",
     ),
     // TODO remove if possible
     Test / parallelExecution := false,
@@ -64,20 +64,8 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
     run / fork               := true,
     run / javaOptions += "-Xmx512m",
   )
-  .dependsOn(`chatops4s-slack`)
+  .dependsOn(`chatops4s-slack`,`chatops4s-discord`)
 
-// TODO we probably can unify under chatops4s-examples, no need for separate modules
-lazy val `chatops4s-discord-example` = (project in file("chatops4s-discord-example"))
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "ch.qos.logback"                 % "logback-classic"     % "1.5.18",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.38",
-      "org.http4s"                    %% "http4s-blaze-server" % "0.23.17",
-      "com.softwaremill.sttp.client4" %% "cats"                % "4.0.9",
-    ),
-  )
-  .dependsOn(`chatops4s-discord`)
 
 lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
   .settings(commonSettings)

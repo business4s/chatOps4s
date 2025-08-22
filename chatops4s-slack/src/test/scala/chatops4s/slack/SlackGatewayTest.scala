@@ -27,7 +27,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       val result = SlackGateway
         .create(config, backend)
-        .use { case (outbound, inbound) =>
+        .flatMap { case (outbound, inbound) =>
           IO.pure((outbound, inbound))
         }
         .unsafeRunSync()
@@ -52,7 +52,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       val result = SlackGateway
         .createOutboundOnly(config, backend)
-        .use { gateway =>
+        .flatMap { gateway =>
           val message = Message("Test message")
           gateway.sendToChannel("C123", message).map(messageResponse => (gateway, messageResponse))
         }
@@ -78,7 +78,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       assertThrows[RuntimeException] {
         SlackGateway
           .createOutboundOnly(config, backend)
-          .use { gateway =>
+          .flatMap { gateway =>
             val message = Message("Test message")
             gateway.sendToChannel("C123", message)
           }
@@ -104,7 +104,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       SlackGateway
         .create(config, backend)
-        .use { case (outbound, inbound) =>
+        .flatMap { case (outbound, inbound) =>
           gatewayUsed = true
           val message = Message("Resource test")
           outbound.sendToChannel("C123", message).map(_ => ())
