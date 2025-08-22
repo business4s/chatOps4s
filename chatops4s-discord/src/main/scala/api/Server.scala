@@ -14,7 +14,6 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.bouncycastle.util.encoders.Hex
 import sttp.model.StatusCode
 import sttp.tapir.server.ServerEndpoint
-import sttp.tapir.server.ServerEndpoint.Full
 
 class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends StrictLogging {
   sealed trait ErrorInfo
