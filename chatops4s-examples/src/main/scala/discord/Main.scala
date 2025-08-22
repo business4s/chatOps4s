@@ -1,6 +1,6 @@
 package chatops4s.examples.discord
 
-import api.DiscordInbound
+import api.{DiscordInbound, DiscordOutbound, Server}
 import cats.effect.{ExitCode, IO, IOApp}
 import com.comcast.ip4s.{Host, Port}
 import discord.services.*
@@ -10,8 +10,6 @@ import models.MessageResponse
 import org.http4s.HttpRoutes
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
-import api.Server
-import api.DiscordOutbound
 import com.typesafe.scalalogging.StrictLogging
 import models.Message
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
