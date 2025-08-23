@@ -2,7 +2,7 @@ package chatops4s.slack
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chatops4s.slack.instances.given 
+import chatops4s.slack.instances.given
 import chatops4s.slack.models.*
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec

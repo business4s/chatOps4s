@@ -18,7 +18,7 @@ object Ref {
 }
 
 class MutableRef[F[_]: Monad, A](private var value: A) extends Ref[F, A] {
-  def get: F[A] = Monad[F].pure(value)
+  def get: F[A]                  = Monad[F].pure(value)
   def update(f: A => A): F[Unit] = {
     value = f(value)
     Monad[F].pure(())
@@ -26,8 +26,9 @@ class MutableRef[F[_]: Monad, A](private var value: A) extends Ref[F, A] {
 }
 
 class SlackInboundGateway[F[_]: Monad] private (
-                                                 actionHandlers: Ref[F, Map[String, InteractionContext => F[Unit]]],
-                                               ) extends InboundGateway[F] with StrictLogging {
+    actionHandlers: Ref[F, Map[String, InteractionContext => F[Unit]]],
+) extends InboundGateway[F]
+    with StrictLogging {
 
   private val M = Monad[F]
 

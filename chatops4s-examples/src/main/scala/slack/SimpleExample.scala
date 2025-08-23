@@ -3,7 +3,7 @@ package chatops4s.examples.slack
 import cats.effect.{ExitCode, IO, IOApp}
 import chatops4s.{Message, OutboundGateway}
 import chatops4s.slack.SlackGateway
-import chatops4s.slack.instances.given 
+import chatops4s.slack.instances.given
 import chatops4s.slack.models.SlackConfig
 import com.typesafe.scalalogging.StrictLogging
 import sttp.client4.httpclient.cats.HttpClientCatsBackend

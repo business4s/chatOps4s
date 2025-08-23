@@ -5,9 +5,10 @@ import chatops4s.slack.models.*
 import com.typesafe.scalalogging.StrictLogging
 
 class SlackOutboundGateway[F[_]: Monad](
-                                         slackClient: SlackClient[F],
-                                         messageStore: Ref[F, Map[String, String]], // messageId -> channelId mapping
-                                       ) extends OutboundGateway[F] with StrictLogging {
+    slackClient: SlackClient[F],
+    messageStore: Ref[F, Map[String, String]], // messageId -> channelId mapping
+) extends OutboundGateway[F]
+    with StrictLogging {
 
   private val M = Monad[F]
 
@@ -42,10 +43,10 @@ class SlackOutboundGateway[F[_]: Monad](
   }
 
   private def convertToSlackRequest(
-                                     channelId: String,
-                                     message: Message,
-                                     threadTs: Option[String],
-                                   ): SlackPostMessageRequest = {
+      channelId: String,
+      message: Message,
+      threadTs: Option[String],
+  ): SlackPostMessageRequest = {
     val blocks = if (message.interactions.nonEmpty) {
       Some(
         List(

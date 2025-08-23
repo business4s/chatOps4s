@@ -4,7 +4,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.implicits.*
 import chatops4s.*
 import chatops4s.slack.*
-import chatops4s.slack.instances.given 
+import chatops4s.slack.instances.given
 import chatops4s.slack.models.{SlackConfig, SlackInteractionPayload}
 import com.comcast.ip4s.*
 import io.circe.parser.*
@@ -22,7 +22,7 @@ object Main extends IOApp with StrictLogging {
     val config = SlackConfig(
       botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", ""),
       signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", ""),
-      port = sys.env.get("PORT").flatMap(_.toIntOption).getOrElse(3000)
+      port = sys.env.get("PORT").flatMap(_.toIntOption).getOrElse(3000),
     )
 
     if (config.botToken.isEmpty || config.signingSecret.isEmpty) {
@@ -106,12 +106,12 @@ object Main extends IOApp with StrictLogging {
       rejectAction  <- inbound.registerAction(ctx => IO.delay(logger.info(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}")))
 
       msg = Message(
-        text = "🚀 Deploy to production?",
-        interactions = Seq(
-          approveAction.render("✅ Approve"),
-          rejectAction.render("❌ Decline"),
-        ),
-      )
+              text = "🚀 Deploy to production?",
+              interactions = Seq(
+                approveAction.render("✅ Approve"),
+                rejectAction.render("❌ Decline"),
+              ),
+            )
 
       channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
 
@@ -119,9 +119,9 @@ object Main extends IOApp with StrictLogging {
       _        <- IO.delay(logger.info(s"Message sent with ID: ${response.messageId}"))
 
       _ <- outbound.sendToThread(
-        response.messageId,
-        Message("👆 Please click one of the buttons above to proceed"),
-      )
+             response.messageId,
+             Message("👆 Please click one of the buttons above to proceed"),
+           )
       _ <- IO.delay(logger.info("Follow-up thread message sent"))
 
     } yield ()
