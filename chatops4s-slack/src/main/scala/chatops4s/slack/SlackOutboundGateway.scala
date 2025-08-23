@@ -1,24 +1,27 @@
 package chatops4s.slack
 
-import cats.effect.{IO, Ref}
+import cats.effect.{Sync, Ref}
 import chatops4s.{Button, Message, MessageResponse, OutboundGateway}
 import chatops4s.slack.models.*
+import com.typesafe.scalalogging.StrictLogging
 
-class SlackOutboundGateway(
-    slackClient: SlackClient,
-    messageStore: Ref[IO, Map[String, String]], // messageId -> channelId mapping
-) extends OutboundGateway {
+class SlackOutboundGateway[F[_]: Sync](
+                                        slackClient: SlackClient[F],
+                                        messageStore: Ref[F, Map[String, String]], // messageId -> channelId mapping
+                                      ) extends OutboundGateway[F] with StrictLogging {
 
-  override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
-    sendMessage(channelId, message, threadTs = None)
+  override def sendToChannel(channelId: String, message: Message): F[MessageResponse] = {
+    Sync[F].delay(logger.info(s"Sending message to channel: $channelId")) *>
+      sendMessage(channelId, message, threadTs = None)
   }
 
-  override def sendToThread(messageId: String, message: Message): IO[MessageResponse] = {
+  override def sendToThread(messageId: String, message: Message): F[MessageResponse] = {
     val (channelId, threadTs) = extractChannelAndTimestamp(messageId)
-    sendMessage(channelId, message, threadTs = Some(threadTs))
+    Sync[F].delay(logger.info(s"Sending thread message to channel: $channelId, thread: $threadTs")) *>
+      sendMessage(channelId, message, threadTs = Some(threadTs))
   }
 
-  private def sendMessage(channelId: String, message: Message, threadTs: Option[String]): IO[MessageResponse] = {
+  private def sendMessage(channelId: String, message: Message, threadTs: Option[String]): F[MessageResponse] = {
     val slackRequest = convertToSlackRequest(channelId, message, threadTs)
 
     slackClient.postMessage(slackRequest).flatMap { response =>
@@ -27,17 +30,21 @@ class SlackOutboundGateway(
           for {
             _        <- messageStore.update(_ + (timestamp -> channelId))
             messageId = s"$channelId-$timestamp"
+            _        <- Sync[F].delay(logger.debug(s"Message stored with ID: $messageId"))
           } yield MessageResponse(messageId)
-        case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
+        case None            =>
+          val errorMsg = "No message timestamp returned"
+          Sync[F].delay(logger.error(errorMsg)) *>
+            Sync[F].raiseError(new RuntimeException(errorMsg))
       }
     }
   }
 
   private def convertToSlackRequest(
-      channelId: String,
-      message: Message,
-      threadTs: Option[String],
-  ): SlackPostMessageRequest = {
+                                     channelId: String,
+                                     message: Message,
+                                     threadTs: Option[String],
+                                   ): SlackPostMessageRequest = {
     val blocks = if (message.interactions.nonEmpty) {
       Some(
         List(
@@ -80,9 +87,9 @@ class SlackOutboundGateway(
 }
 
 object SlackOutboundGateway {
-  def create(slackClient: SlackClient): IO[SlackOutboundGateway] = {
+  def create[F[_]: Sync](slackClient: SlackClient[F]): F[SlackOutboundGateway[F]] = {
     Ref
-      .of[IO, Map[String, String]](Map.empty)
-      .map(new SlackOutboundGateway(slackClient, _))
+      .of[F, Map[String, String]](Map.empty)
+      .map(new SlackOutboundGateway[F](slackClient, _))
   }
 }

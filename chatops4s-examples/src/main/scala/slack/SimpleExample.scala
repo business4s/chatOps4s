@@ -19,7 +19,7 @@ object SimpleExample extends IOApp with StrictLogging {
       .resource[IO]()
       .use { backend =>
         SlackGateway
-          .createOutboundOnly(config, backend)
+          .createOutboundOnly[IO](config, backend)
           .flatMap { outbound =>
             sendSimpleMessage(outbound)
           }
@@ -27,14 +27,14 @@ object SimpleExample extends IOApp with StrictLogging {
       .as(ExitCode.Success)
   }
 
-  private def sendSimpleMessage(outbound: OutboundGateway): IO[Unit] = {
+  private def sendSimpleMessage(outbound: OutboundGateway[IO]): IO[Unit] = {
     val channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
     val message   = Message(text = "🤖 Hello from ChatOps4s! This is a test message.")
 
     for {
-      _        <- IO(logger.info(s"Sending message to channel: $channelId"))
+      _        <- IO.delay(logger.info(s"Sending message to channel: $channelId"))
       response <- outbound.sendToChannel(channelId, message)
-      _        <- IO(logger.info(s"✅ Message sent successfully! Message ID: ${response.messageId}"))
+      _        <- IO.delay(logger.info(s"✅ Message sent successfully! Message ID: ${response.messageId}"))
     } yield ()
   }
 }

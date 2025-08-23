@@ -1,15 +1,16 @@
 package chatops4s.slack
 
-import cats.effect.IO
+import cats.effect.Sync
 import chatops4s.slack.models.*
 import sttp.client4.*
 import sttp.client4.circe.*
+import com.typesafe.scalalogging.StrictLogging
 
-class SlackClient(config: SlackConfig, backend: Backend[IO]) {
+class SlackClient[F[_]: Sync](config: SlackConfig, backend: Backend[F]) extends StrictLogging {
 
   private val baseUrl = "https://slack.com/api"
 
-  def postMessage(request: SlackPostMessageRequest): IO[SlackPostMessageResponse] = {
+  def postMessage(request: SlackPostMessageRequest): F[SlackPostMessageResponse] = {
     val req = basicRequest
       .post(uri"$baseUrl/chat.postMessage")
       .header("Authorization", s"Bearer ${config.botToken}")
@@ -20,21 +21,30 @@ class SlackClient(config: SlackConfig, backend: Backend[IO]) {
       response.body match {
         case Right(slackResponse) =>
           if (slackResponse.ok) {
-            IO.pure(slackResponse)
+            Sync[F].delay(logger.debug(s"Message sent successfully: ${slackResponse.ts}")) *>
+              Sync[F].pure(slackResponse)
           } else {
-            IO.raiseError(new RuntimeException(s"Slack API error: ${slackResponse.error.getOrElse("Unknown error")}"))
+            val errorMsg = s"Slack API error: ${slackResponse.error.getOrElse("Unknown error")}"
+            Sync[F].delay(logger.error(errorMsg)) *>
+              Sync[F].raiseError(new RuntimeException(errorMsg))
           }
-        case Left(error)          => IO.raiseError(new RuntimeException(s"Failed to send message: $error"))
+        case Left(error)          =>
+          val errorMsg = s"Failed to send message: $error"
+          Sync[F].delay(logger.error(errorMsg)) *>
+            Sync[F].raiseError(new RuntimeException(errorMsg))
       }
     }
   }
 
-  def postMessageToThread(channelId: String, threadTs: String, text: String): IO[SlackPostMessageResponse] = {
-    val request = SlackPostMessageRequest(
-      channel = channelId,
-      text = text,
-      thread_ts = Some(threadTs),
-    )
-    postMessage(request)
+  def postMessageToThread(channelId: String, threadTs: String, text: String): F[SlackPostMessageResponse] = {
+    Sync[F].delay(logger.debug(s"Sending thread message to channel $channelId, thread $threadTs")) *>
+      {
+        val request = SlackPostMessageRequest(
+          channel = channelId,
+          text = text,
+          thread_ts = Some(threadTs),
+        )
+        postMessage(request)
+      }
   }
 }

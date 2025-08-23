@@ -10,46 +10,43 @@ import io.circe.parser.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
 import com.typesafe.scalalogging.StrictLogging
-import pureconfig.*
-import pureconfig.module.catseffect.syntax.*
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.*
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
-case class AppConfig(slack: SlackConfig) derives ConfigReader
-
 object Main extends IOApp with StrictLogging {
   override def run(args: List[String]): IO[ExitCode] = {
-    ConfigSource.default
-      .loadF[IO, AppConfig]()
-      .flatMap { appConfig =>
-        val config = appConfig.slack
+    val config = SlackConfig(
+      botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", ""),
+      signingSecret = sys.env.getOrElse("SLACK_SIGNING_SECRET", ""),
+      port = sys.env.get("PORT").flatMap(_.toIntOption).getOrElse(3000)
+    )
 
-        HttpClientCatsBackend.resource[IO]().use { backend =>
-          SlackGateway.create(config, backend).flatMap { case (outbound, inbound) =>
-            createServer(config, inbound.asInstanceOf[SlackInboundGateway]).use { _ =>
-              for {
-                _ <- IO(logger.info(s"Starting Slack ChatOps server on port ${config.port}"))
-                _ <- IO(logger.info("Server started! Send a test message..."))
+    if (config.botToken.isEmpty || config.signingSecret.isEmpty) {
+      IO.delay(logger.error("Missing SLACK_BOT_TOKEN or SLACK_SIGNING_SECRET environment variables")) *>
+        IO.pure(ExitCode.Error)
+    } else {
+      HttpClientCatsBackend.resource[IO]().use { backend =>
+        SlackGateway.create[IO](config, backend).flatMap { case (outbound, inbound) =>
+          createServer(config, inbound.asInstanceOf[SlackInboundGateway[IO]]).use { _ =>
+            for {
+              _ <- IO.delay(logger.info(s"Starting Slack ChatOps server on port ${config.port}"))
+              _ <- IO.delay(logger.info("Server started! Send a test message..."))
 
-                _ <- runChatOpsExample(outbound, inbound)
+              _ <- runChatOpsExample(outbound, inbound)
 
-                _ <- IO(logger.info("ChatOps example completed. Server will keep running..."))
-                _ <- IO.never // Keep server running
-              } yield ExitCode.Success
-            }
+              _ <- IO.delay(logger.info("ChatOps example completed. Server will keep running..."))
+              _ <- IO.never // Keep server running
+            } yield ExitCode.Success
           }
         }
       }
-      .handleErrorWith { error =>
-        IO(logger.error("Failed to load configuration", error)) *>
-          IO.pure(ExitCode.Error)
-      }
+    }
   }
 
-  private def createServer(config: SlackConfig, inboundGateway: SlackInboundGateway): Resource[IO, Server] = {
+  private def createServer(config: SlackConfig, inboundGateway: SlackInboundGateway[IO]): Resource[IO, Server] = {
     val interactionsEndpoint = endpoint.post
       .in("slack" / "interactions")
       .in(stringBody)
@@ -72,12 +69,12 @@ object Main extends IOApp with StrictLogging {
       .withPort(Port.fromInt(config.port).get)
       .withHttpApp(routes.orNotFound)
       .build
-      .evalTap(_ => IO(logger.info(s"Slack server started on port ${config.port}")))
+      .evalTap(_ => IO.delay(logger.info(s"Slack server started on port ${config.port}")))
   }
 
-  private def handleInteraction(formData: String, inboundGateway: SlackInboundGateway): IO[Unit] = {
+  private def handleInteraction(formData: String, inboundGateway: SlackInboundGateway[IO]): IO[Unit] = {
     for {
-      _       <- IO(logger.debug(s"Received interaction: $formData"))
+      _       <- IO.delay(logger.debug(s"Received interaction: $formData"))
       payload <- parsePayload(formData)
       _       <- inboundGateway.handleInteraction(payload)
     } yield ()
@@ -97,35 +94,77 @@ object Main extends IOApp with StrictLogging {
         payload     <- decode[SlackInteractionPayload](payloadJson)
       } yield payload
     }.handleErrorWith { error =>
-      IO(logger.error(s"Failed to parse interaction payload: $formData", error)) *>
+      IO.delay(logger.error(s"Failed to parse interaction payload: $formData", error)) *>
         IO.raiseError(error)
     }
   }
 
-  private def runChatOpsExample(outbound: OutboundGateway, inbound: InboundGateway): IO[Unit] = {
+  private def runChatOpsExample(outbound: OutboundGateway[IO], inbound: InboundGateway[IO]): IO[Unit] = {
     for {
-      approveAction <- inbound.registerAction(ctx => IO(logger.info(s"✅ Approved by ${ctx.userId} in channel ${ctx.channelId}")))
-      rejectAction  <- inbound.registerAction(ctx => IO(logger.info(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}")))
+      approveAction <- inbound.registerAction(ctx => IO.delay(logger.info(s"✅ Approved by ${ctx.userId} in channel ${ctx.channelId}")))
+      rejectAction  <- inbound.registerAction(ctx => IO.delay(logger.info(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}")))
 
       msg = Message(
-              text = "🚀 Deploy to production?",
-              interactions = Seq(
-                approveAction.render("✅ Approve"),
-                rejectAction.render("❌ Decline"),
-              ),
-            )
+        text = "🚀 Deploy to production?",
+        interactions = Seq(
+          approveAction.render("✅ Approve"),
+          rejectAction.render("❌ Decline"),
+        ),
+      )
 
       channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
 
       response <- outbound.sendToChannel(channelId, msg)
-      _        <- IO(logger.info(s"Message sent with ID: ${response.messageId}"))
+      _        <- IO.delay(logger.info(s"Message sent with ID: ${response.messageId}"))
 
       _ <- outbound.sendToThread(
-             response.messageId,
-             Message("👆 Please click one of the buttons above to proceed"),
-           )
-      _ <- IO(logger.info("Follow-up thread message sent"))
+        response.messageId,
+        Message("👆 Please click one of the buttons above to proceed"),
+      )
+      _ <- IO.delay(logger.info("Follow-up thread message sent"))
 
     } yield ()
   }
+}decode(formData, StandardCharsets.UTF_8))
+payloadJson <- {
+  if (decoded.startsWith("payload=")) {
+    Right(decoded.substring(8))
+  } else {
+    Right(decoded)
+  }
+}
+payload     <- decode[SlackInteractionPayload](payloadJson)
+} yield payload
+}.handleErrorWith { error =>
+  IO.println(s"Failed to parse interaction payload: $formData - Error: ${error.getMessage}") *>
+    IO.raiseError(error)
+}
+}
+
+private def runChatOpsExample(outbound: OutboundGateway[IO], inbound: InboundGateway[IO]): IO[Unit] = {
+  for {
+    approveAction <- inbound.registerAction(ctx => IO.println(s"✅ Approved by ${ctx.userId} in channel ${ctx.channelId}"))
+    rejectAction  <- inbound.registerAction(ctx => IO.println(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}"))
+
+    msg = Message(
+      text = "🚀 Deploy to production?",
+      interactions = Seq(
+        approveAction.render("✅ Approve"),
+        rejectAction.render("❌ Decline"),
+      ),
+    )
+
+    channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
+
+    response <- outbound.sendToChannel(channelId, msg)
+    _        <- IO.println(s"Message sent with ID: ${response.messageId}")
+
+    _ <- outbound.sendToThread(
+      response.messageId,
+      Message("👆 Please click one of the buttons above to proceed"),
+    )
+    _ <- IO.println("Follow-up thread message sent")
+
+  } yield ()
+}
 }

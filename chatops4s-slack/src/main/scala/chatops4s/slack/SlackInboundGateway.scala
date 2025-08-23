@@ -1,26 +1,28 @@
 package chatops4s.slack
 
-import cats.effect.{IO, Ref}
+import cats.effect.{Sync, Ref}
 import cats.implicits.*
 import chatops4s.slack.models.*
 import chatops4s.{Button, ButtonInteraction, InboundGateway, InteractionContext}
+import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID
 
-class SlackInboundGateway private (
-    actionHandlers: Ref[IO, Map[String, InteractionContext => IO[Unit]]],
-) extends InboundGateway {
+class SlackInboundGateway[F[_]: Sync] private (
+                                                actionHandlers: Ref[F, Map[String, InteractionContext => F[Unit]]],
+                                              ) extends InboundGateway[F] with StrictLogging {
 
-  override def registerAction(handler: InteractionContext => IO[Unit]): IO[ButtonInteraction] = {
+  override def registerAction(handler: InteractionContext => F[Unit]): F[ButtonInteraction] = {
     for {
-      actionId <- IO(UUID.randomUUID().toString)
+      actionId <- Sync[F].pure(UUID.randomUUID().toString)
+      _        <- Sync[F].delay(logger.debug(s"Registering action with ID: $actionId"))
       _        <- actionHandlers.update(_ + (actionId -> handler))
     } yield new SlackButtonInteraction(actionId)
   }
 
-  def handleInteraction(payload: SlackInteractionPayload): IO[Unit] = {
-    payload.actions match {
-      case Some(actions) =>
+  def handleInteraction(payload: SlackInteractionPayload): F[Unit] = {
+    Sync[F].delay(logger.debug(s"Handling interaction: ${payload.`type`}")) *>
+      payload.actions.fold(Sync[F].unit) { actions =>
         actions.traverse_ { action =>
           val context = InteractionContext(
             userId = payload.user.id,
@@ -30,21 +32,24 @@ class SlackInboundGateway private (
 
           actionHandlers.get.flatMap { handlers =>
             handlers.get(action.action_id) match {
-              case Some(handler) => handler(context)
-              case None          => IO.unit // Unknown action, ignore
+              case Some(handler) =>
+                Sync[F].delay(logger.info(s"Executing action ${action.action_id} for user ${context.userId}")) *>
+                  handler(context)
+              case None          =>
+                Sync[F].delay(logger.warn(s"Unknown action ID: ${action.action_id}")) *>
+                  Sync[F].unit
             }
           }
         }
-      case None          => IO.unit
-    }
+      }
   }
 }
 
 object SlackInboundGateway {
-  def create: IO[SlackInboundGateway] = {
+  def create[F[_]: Sync]: F[SlackInboundGateway[F]] = {
     Ref
-      .of[IO, Map[String, InteractionContext => IO[Unit]]](Map.empty)
-      .map(new SlackInboundGateway(_))
+      .of[F, Map[String, InteractionContext => F[Unit]]](Map.empty)
+      .map(new SlackInboundGateway[F](_))
   }
 }
 
