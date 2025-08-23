@@ -3,6 +3,7 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chatops4s.InteractionContext
+import chatops4s.slack.instances.given
 import chatops4s.slack.models.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -11,7 +12,7 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
 
   "SlackInboundGateway" - {
     "registerAction should create button interaction" in {
-      val gateway                                     = SlackInboundGateway.create.unsafeRunSync()
+      val gateway                                     = SlackInboundGateway.create[IO].unsafeRunSync()
       var capturedContext: Option[InteractionContext] = None
 
       val handler = (ctx: InteractionContext) =>
@@ -27,7 +28,7 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "handleInteraction should execute registered action" in {
-      val gateway                                     = SlackInboundGateway.create.unsafeRunSync()
+      val gateway                                     = SlackInboundGateway.create[IO].unsafeRunSync()
       var capturedContext: Option[InteractionContext] = None
 
       val handler = (ctx: InteractionContext) =>
@@ -67,7 +68,7 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "handleInteraction should ignore unknown actions" in {
-      val gateway                                     = SlackInboundGateway.create.unsafeRunSync()
+      val gateway                                     = SlackInboundGateway.create[IO].unsafeRunSync()
       var capturedContext: Option[InteractionContext] = None
 
       val handler = (ctx: InteractionContext) =>
@@ -103,7 +104,7 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "handleInteraction should work with no actions" in {
-      val gateway = SlackInboundGateway.create.unsafeRunSync()
+      val gateway = SlackInboundGateway.create[IO].unsafeRunSync()
 
       val payload = SlackInteractionPayload(
         `type` = "view_submission",
@@ -119,7 +120,7 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "should handle multiple actions in one payload" in {
-      val gateway        = SlackInboundGateway.create.unsafeRunSync()
+      val gateway        = SlackInboundGateway.create[IO].unsafeRunSync()
       var executionCount = 0
 
       val handler1 = (ctx: InteractionContext) => IO { executionCount += 1 }
@@ -161,7 +162,7 @@ class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "should handle concurrent registrations" in {
-      val gateway = SlackInboundGateway.create.unsafeRunSync()
+      val gateway = SlackInboundGateway.create[IO].unsafeRunSync()
 
       val registrations = (1 to 10).map { i =>
         IO.delay {

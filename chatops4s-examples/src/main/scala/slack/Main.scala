@@ -4,6 +4,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.implicits.*
 import chatops4s.*
 import chatops4s.slack.*
+import chatops4s.slack.instances.given 
 import chatops4s.slack.models.{SlackConfig, SlackInteractionPayload}
 import com.comcast.ip4s.*
 import io.circe.parser.*
@@ -125,46 +126,4 @@ object Main extends IOApp with StrictLogging {
 
     } yield ()
   }
-}decode(formData, StandardCharsets.UTF_8))
-payloadJson <- {
-  if (decoded.startsWith("payload=")) {
-    Right(decoded.substring(8))
-  } else {
-    Right(decoded)
-  }
-}
-payload     <- decode[SlackInteractionPayload](payloadJson)
-} yield payload
-}.handleErrorWith { error =>
-  IO.println(s"Failed to parse interaction payload: $formData - Error: ${error.getMessage}") *>
-    IO.raiseError(error)
-}
-}
-
-private def runChatOpsExample(outbound: OutboundGateway[IO], inbound: InboundGateway[IO]): IO[Unit] = {
-  for {
-    approveAction <- inbound.registerAction(ctx => IO.println(s"✅ Approved by ${ctx.userId} in channel ${ctx.channelId}"))
-    rejectAction  <- inbound.registerAction(ctx => IO.println(s"❌ Rejected by ${ctx.userId} in channel ${ctx.channelId}"))
-
-    msg = Message(
-      text = "🚀 Deploy to production?",
-      interactions = Seq(
-        approveAction.render("✅ Approve"),
-        rejectAction.render("❌ Decline"),
-      ),
-    )
-
-    channelId = sys.env.getOrElse("SLACK_CHANNEL_ID", "C1234567890")
-
-    response <- outbound.sendToChannel(channelId, msg)
-    _        <- IO.println(s"Message sent with ID: ${response.messageId}")
-
-    _ <- outbound.sendToThread(
-      response.messageId,
-      Message("👆 Please click one of the buttons above to proceed"),
-    )
-    _ <- IO.println("Follow-up thread message sent")
-
-  } yield ()
-}
 }

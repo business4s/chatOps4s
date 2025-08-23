@@ -14,9 +14,6 @@ lazy val `chatops4s-core` = (project in file("chatops4s-core"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      // TODO remove cats dependency (generalize for F[_])
-      "org.typelevel" %% "cats-effect" % "3.6.2",
-      "org.typelevel" %% "cats-core" % "2.13.0",
       "io.circe" %% "circe-core" % "0.14.14",
       "io.circe" %% "circe-generic" % "0.14.14",
       "io.circe" %% "circe-parser"  % "0.14.14",
@@ -30,18 +27,9 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client4" %% "core"                   % "4.0.9",
       "com.softwaremill.sttp.client4" %% "circe"                  % "4.0.9",
-      // TODO we would like to be independent of concrete backend and cats
-      "com.softwaremill.sttp.client4" %% "cats"                   % "4.0.9",
-      // TODO remove pureconfig (and config reading in general).
-      //  Usually libs will take plain config object from the client and the client
-      //  (examples in our case) is responsible for reading it from somehwere
-      "com.github.pureconfig"         %% "pureconfig-core"        % "0.17.9",
-      "com.github.pureconfig"         %% "pureconfig-cats-effect" % "0.17.9",
       "ch.qos.logback"                 % "logback-classic"        % "1.5.18",
-      // TODO replace with scala-logging - its more minimal and currently used by libs in the business4s ecosystem
       "com.typesafe.scala-logging" %% "scala-logging"   % "3.9.5",
     ),
-    // TODO remove if possible
     Test / parallelExecution := false,
   )
   .dependsOn(`chatops4s-core`)
@@ -119,7 +107,7 @@ lazy val commonSettings = Seq(
       "masterhj",
       "Himanshu Jaiswal",
       "jaiswalhiman1410@gmail.com",
-      url("https://github.com/masterhj"),
+      url("https://hjdev-phi.vercel.app"),
     ),
     Developer(
       "Liam Grossman",
