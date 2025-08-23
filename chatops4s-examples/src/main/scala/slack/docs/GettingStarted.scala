@@ -15,7 +15,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import io.circe.parser.*
 import chatops4s.slack.SlackInboundGateway
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 // start_doc
 object GettingStarted extends IOApp with StrictLogging {
@@ -26,14 +26,17 @@ object GettingStarted extends IOApp with StrictLogging {
       port = sys.env.get("PORT").flatMap(_.toIntOption).getOrElse(3000),
     )
 
-    HttpClientCatsBackend.resource[IO]().use { backend =>
-      SlackGateway.create[IO](config, backend).flatMap { case (outbound, inbound) =>
-        createServer(config, inbound.asInstanceOf[SlackInboundGateway[IO]]).use { _ =>
-          IO.delay(logger.info(s"Starting Slack ChatOps server on port ${config.port}")) *>
-            IO.never
+    HttpClientCatsBackend
+      .resource[IO]()
+      .use { backend =>
+        SlackGateway.create[IO](config, backend).flatMap { case (outbound, inbound) =>
+          createServer(config, inbound.asInstanceOf[SlackInboundGateway[IO]]).use { _ =>
+            IO.delay(logger.info(s"Starting Slack ChatOps server on port ${config.port}")) *>
+              IO.never
+          }
         }
       }
-    }.as(ExitCode.Success)
+      .as(ExitCode.Success)
   }
 
   private def createServer(config: SlackConfig, inboundGateway: SlackInboundGateway[IO]): Resource[IO, Server] = {
@@ -64,19 +67,19 @@ object GettingStarted extends IOApp with StrictLogging {
 
   private def parsePayload(formData: String): IO[SlackInteractionPayload] = {
     val result = for {
-      decoded <- Try(URLDecoder.decode(formData, StandardCharsets.UTF_8)) match {
-        case Success(value) => Right(value)
-        case Failure(exception) => Left(s"URL decode error: ${exception.getMessage}")
-      }
+      decoded     <- Try(URLDecoder.decode(formData, StandardCharsets.UTF_8)) match {
+                       case Success(value)     => Right(value)
+                       case Failure(exception) => Left(s"URL decode error: ${exception.getMessage}")
+                     }
       payloadJson <- if (decoded.startsWith("payload=")) {
-        Right(decoded.substring(8))
-      } else {
-        Right(decoded)
-      }
-      payload <- parse(payloadJson).flatMap(_.as[SlackInteractionPayload]) match {
-        case Right(value) => Right(value)
-        case Left(error) => Left(s"JSON parse error: ${error.getMessage}")
-      }
+                       Right(decoded.substring(8))
+                     } else {
+                       Right(decoded)
+                     }
+      payload     <- parse(payloadJson).flatMap(_.as[SlackInteractionPayload]) match {
+                       case Right(value) => Right(value)
+                       case Left(error)  => Left(s"JSON parse error: ${error.getMessage}")
+                     }
     } yield payload
 
     result match {

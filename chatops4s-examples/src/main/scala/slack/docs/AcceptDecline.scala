@@ -1,7 +1,7 @@
 package chatops4s.examples.slack.docs
 
 import cats.effect.{ExitCode, IO, IOApp}
-import chatops4s.{Message, OutboundGateway, InboundGateway}
+import chatops4s.{InboundGateway, Message, OutboundGateway}
 import chatops4s.slack.SlackGateway
 import chatops4s.slack.instances.given
 import chatops4s.slack.models.SlackConfig
@@ -19,16 +19,16 @@ object AcceptDecline extends IOApp with StrictLogging {
     HttpClientCatsBackend.resource[IO]().use { backend =>
       SlackGateway.create[IO](config, backend).flatMap { case (outbound, inbound) =>
         for {
-          acceptAction <- inbound.registerAction(_ => IO.println("You pressed accept!"))
+          acceptAction  <- inbound.registerAction(_ => IO.println("You pressed accept!"))
           declineAction <- inbound.registerAction(_ => IO.println("You pressed decline!"))
 
           message = Message(
-            text = "Deploy to production?",
-            interactions = Seq(
-              acceptAction.render("Accept"),
-              declineAction.render("Decline"),
-            ),
-          )
+                      text = "Deploy to production?",
+                      interactions = Seq(
+                        acceptAction.render("Accept"),
+                        declineAction.render("Decline"),
+                      ),
+                    )
 
           _ <- outbound.sendToChannel("", message)
         } yield ExitCode.Success

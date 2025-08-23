@@ -19,7 +19,7 @@ object SimpleMessage extends IOApp with StrictLogging {
     HttpClientCatsBackend.resource[IO]().use { backend =>
       SlackGateway.createOutboundOnly[IO](config, backend).flatMap { outbound =>
         val channelId = "C1234567890" // Your channel ID
-        val message = Message(text = "🤖 Hello from ChatOps4s! This is a test message.")
+        val message   = Message(text = "🤖 Hello from ChatOps4s! This is a test message.")
 
         outbound.sendToChannel(channelId, message).map { response =>
           logger.info(s"✅ Message sent successfully! Message ID: ${response.messageId}")
