@@ -1,34 +1,43 @@
 package chatops4s.slack
 
-import cats.effect.{IO, Ref}
 import chatops4s.{Button, Message, MessageResponse, OutboundGateway}
 import chatops4s.slack.models.*
+import com.typesafe.scalalogging.StrictLogging
 
-class SlackOutboundGateway(
-    slackClient: SlackClient,
-    messageStore: Ref[IO, Map[String, String]], // messageId -> channelId mapping
-) extends OutboundGateway {
+class SlackOutboundGateway[F[_]: Monad](
+    slackClient: SlackClient[F],
+    messageStore: Ref[F, Map[String, String]], // messageId -> channelId mapping
+) extends OutboundGateway[F]
+    with StrictLogging {
 
-  override def sendToChannel(channelId: String, message: Message): IO[MessageResponse] = {
+  private val M = Monad[F]
+
+  override def sendToChannel(channelId: String, message: Message): F[MessageResponse] = {
+    logger.info(s"Sending message to channel: $channelId")
     sendMessage(channelId, message, threadTs = None)
   }
 
-  override def sendToThread(messageId: String, message: Message): IO[MessageResponse] = {
+  override def sendToThread(messageId: String, message: Message): F[MessageResponse] = {
     val (channelId, threadTs) = extractChannelAndTimestamp(messageId)
+    logger.info(s"Sending thread message to channel: $channelId, thread: $threadTs")
     sendMessage(channelId, message, threadTs = Some(threadTs))
   }
 
-  private def sendMessage(channelId: String, message: Message, threadTs: Option[String]): IO[MessageResponse] = {
+  private def sendMessage(channelId: String, message: Message, threadTs: Option[String]): F[MessageResponse] = {
     val slackRequest = convertToSlackRequest(channelId, message, threadTs)
 
-    slackClient.postMessage(slackRequest).flatMap { response =>
+    M.flatMap(slackClient.postMessage(slackRequest)) { response =>
       response.ts match {
         case Some(timestamp) =>
-          for {
-            _        <- messageStore.update(_ + (timestamp -> channelId))
-            messageId = s"$channelId-$timestamp"
-          } yield MessageResponse(messageId)
-        case None            => IO.raiseError(new RuntimeException("No message timestamp returned"))
+          M.flatMap(messageStore.update(_ + (timestamp -> channelId))) { _ =>
+            val messageId = s"$channelId-$timestamp"
+            logger.debug(s"Message stored with ID: $messageId")
+            M.pure(MessageResponse(messageId))
+          }
+        case None            =>
+          val errorMsg = "No message timestamp returned"
+          logger.error(errorMsg)
+          M.raiseError(new RuntimeException(errorMsg))
       }
     }
   }
@@ -80,9 +89,9 @@ class SlackOutboundGateway(
 }
 
 object SlackOutboundGateway {
-  def create(slackClient: SlackClient): IO[SlackOutboundGateway] = {
-    Ref
-      .of[IO, Map[String, String]](Map.empty)
-      .map(new SlackOutboundGateway(slackClient, _))
+  def create[F[_]: Monad](slackClient: SlackClient[F]): F[SlackOutboundGateway[F]] = {
+    Monad[F].flatMap(Ref.of[F, Map[String, String]](Map.empty)) { ref =>
+      Monad[F].pure(new SlackOutboundGateway[F](slackClient, ref))
+    }
   }
 }

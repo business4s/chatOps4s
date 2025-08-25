@@ -1,6 +1,5 @@
 package chatops4s
 
-import cats.effect.IO
 import io.circe.{Codec, Decoder, Encoder}
 
 case class Message(
@@ -23,13 +22,13 @@ case class InteractionContext(
     messageId: String,
 ) derives io.circe.Codec.AsObject
 
-trait OutboundGateway {
-  def sendToChannel(channelId: String, message: Message): IO[MessageResponse]
-  def sendToThread(messageId: String, message: Message): IO[MessageResponse]
+trait OutboundGateway[F[_]] {
+  def sendToChannel(channelId: String, message: Message): F[MessageResponse]
+  def sendToThread(messageId: String, message: Message): F[MessageResponse]
 }
 
-trait InboundGateway {
-  def registerAction(handler: InteractionContext => IO[Unit]): IO[ButtonInteraction]
+trait InboundGateway[F[_]] {
+  def registerAction(handler: InteractionContext => F[Unit]): F[ButtonInteraction]
 }
 
 trait ButtonInteraction {

@@ -1,13 +1,12 @@
 package chatops4s.slack.models
 
 import io.circe.{Codec, Decoder, Encoder}
-import pureconfig.ConfigReader
 
 case class SlackConfig(
     botToken: String,
     signingSecret: String,
     port: Int = 3000,
-) derives ConfigReader
+)
 
 case class SlackPostMessageRequest(
     channel: String,
