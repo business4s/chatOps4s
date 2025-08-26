@@ -14,7 +14,6 @@ lazy val `chatops4s-core` = (project in file("chatops4s-core"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      // TODO remove cats dependency (generalize for F[_])
       "org.typelevel" %% "cats-effect" % "3.6.2",
       "org.typelevel" %% "cats-core" % "2.13.0",
       "io.circe" %% "circe-core" % "0.14.14",
