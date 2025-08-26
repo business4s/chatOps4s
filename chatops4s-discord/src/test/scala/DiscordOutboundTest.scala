@@ -1,5 +1,4 @@
-package api
-
+import api.DiscordOutbound
 import io.circe.syntax.*
 import models.*
 import org.scalatest.freespec.AnyFreeSpec

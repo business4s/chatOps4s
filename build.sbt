@@ -81,7 +81,8 @@ lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
       // TODO remove
       "org.typelevel"                 %% "cats-effect"      % "3.6.3",
       "com.typesafe.scala-logging"    %% "scala-logging"    % "3.9.5",
-      "com.softwaremill.sttp.tapir" %% "tapir-sttp-stub4-server" % "1.11.42" % Test
+      "com.softwaremill.sttp.tapir" %% "tapir-sttp-stub4-server" % "1.11.42" % Test,
+      "org.slf4j" % "slf4j-nop" % "2.0.17" % Test
     ),
   )
   .dependsOn(`chatops4s-core`)
