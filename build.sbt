@@ -70,17 +70,18 @@ lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.tapir"   %% "tapir-core"       % "1.11.38",
+      "com.softwaremill.sttp.tapir"   %% "tapir-core"       % "1.11.42",
       // TODO remove
-      "com.softwaremill.sttp.tapir"   %% "tapir-cats"       % "1.11.38",
+      "com.softwaremill.sttp.tapir"   %% "tapir-cats"       % "1.11.42",
       "org.bouncycastle"               % "bcpkix-jdk15on"   % "1.70",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe" % "1.11.38",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe" % "1.11.42",
       "com.softwaremill.sttp.client4" %% "core"             % "4.0.9",
       "com.softwaremill.sttp.client4" %% "circe"            % "4.0.9",
       "io.circe"                      %% "circe-parser"     % "0.14.14",
       // TODO remove
-      "org.typelevel"                 %% "cats-effect"      % "3.6.2",
+      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
       "com.typesafe.scala-logging"    %% "scala-logging"    % "3.9.5",
+      "com.softwaremill.sttp.tapir" %% "tapir-sttp-stub4-server" % "1.11.42" % Test
     ),
   )
   .dependsOn(`chatops4s-core`)

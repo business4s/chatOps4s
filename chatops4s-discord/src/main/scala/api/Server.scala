@@ -40,11 +40,11 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
     }
 
   private def verifySignature(
-     publicKey: String,
-     signature: String,
-     timestamp: String,
-     body: String,
-   ): Boolean = {
+      publicKey: String,
+      signature: String,
+      timestamp: String,
+      body: String,
+  ): Boolean = {
     val publicKeyBytes = Hex.decode(publicKey.strip())
     val signatureBytes = Hex.decode(signature.strip())
     val message        = (timestamp.strip() + body.strip()).getBytes("UTF-8")
@@ -70,7 +70,7 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
 
   private def processRequest(json: Json): IO[Either[String, DiscordResponse]] = {
     json.as[RequestInteractionData] match {
-      case Left(err) =>
+      case Left(err)          =>
         logger.info(s"Failed to decode interaction JSON: ${err.getMessage}")
         IO.pure(Left("Invalid interaction payload"))
       case Right(interaction) =>
@@ -91,10 +91,10 @@ class Server(discordPublicKey: String, discordInbound: DiscordInbound) extends S
                 discordInbound.handlers.get(id) match {
                   case Some(handler) =>
                     handler(ctx).map(_ => Right(DiscordResponse(`type` = InteractionType.DeferredMessageUpdate.value)))
-                  case None =>
+                  case None          =>
                     IO.pure(Right(DiscordResponse(`type` = InteractionType.DeferredMessageUpdate.value)))
                 }
-              case Left(missing) =>
+              case Left(missing)              =>
                 logger.info(s"Missing properties to handle interaction: $missing")
                 IO.pure(Left(missing))
             }
