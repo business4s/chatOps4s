@@ -17,13 +17,13 @@ class DiscordOutboundTest extends AnyFreeSpec with Matchers {
         SyncBackendStub
           .whenRequestMatches(_.uri.toString.contains("/channels/123/messages"))
           .thenRespondAdjust(
-              MessageResponse(id = "msg1").asJson.noSpaces
+            MessageResponse(id = "msg1").asJson.noSpaces,
           )
 
       val outbound = new DiscordOutbound[Identity](token, baseUrl, backendStub)
 
-      val message   = Message(text = "hello", interactions = List.empty)
-      val response  = outbound.sendToChannel("123", message)
+      val message  = Message(text = "hello", interactions = List.empty)
+      val response = outbound.sendToChannel("123", message)
 
       response shouldBe MessageResponse("msg1")
     }
@@ -33,7 +33,7 @@ class DiscordOutboundTest extends AnyFreeSpec with Matchers {
         SyncBackendStub
           .whenRequestMatches(_.uri.toString.contains("/channels/456/messages"))
           .thenRespondAdjust(
-            MessageResponse(id = "msg2").asJson.noSpaces
+            MessageResponse(id = "msg2").asJson.noSpaces,
           )
 
       val outbound = new DiscordOutbound[Identity](token, baseUrl, backendStub)
@@ -54,7 +54,7 @@ class DiscordOutboundTest extends AnyFreeSpec with Matchers {
           )
           .whenRequestMatches(_.uri.toString.contains("/channels/thread123/messages"))
           .thenRespondAdjust(
-            MessageResponse(id = "msg3").asJson.noSpaces
+            MessageResponse(id = "msg3").asJson.noSpaces,
           )
 
       val outbound = new DiscordOutbound[Identity](token, baseUrl, backendStub)

@@ -11,13 +11,14 @@ class DiscordInboundTest extends AnyFreeSpec with Matchers {
     "registerAction should store handler and return a button factory" in {
       val discordInbound = new DiscordInbound
 
-      var executed = false
-      val handler: InteractionContext => IO[Unit] = _ => IO {
-        executed = true
-      }
+      var executed                                = false
+      val handler: InteractionContext => IO[Unit] = _ =>
+        IO {
+          executed = true
+        }
 
       val registeredAction = discordInbound.registerAction(handler)
-      val button = registeredAction.render("Click me")
+      val button           = registeredAction.render("Click me")
 
       button.label shouldBe "Click me"
       button.value should not be empty
@@ -28,7 +29,7 @@ class DiscordInboundTest extends AnyFreeSpec with Matchers {
       executed shouldBe true
     }
     "each registered action should have a unique id" in {
-      val discordInbound = new DiscordInbound
+      val discordInbound                          = new DiscordInbound
       val handler: InteractionContext => IO[Unit] = _ => IO {}
 
       val registeredAction1 = discordInbound.registerAction(handler).render("")
