@@ -12,65 +12,69 @@ class ServerTest extends AnyFreeSpec with Matchers {
   private def sign(privateKey: Ed25519PrivateKeyParameters, timestamp: String, body: String): String = {
     val signer = new org.bouncycastle.crypto.signers.Ed25519Signer()
     signer.init(true, privateKey)
-    val msg = (timestamp + body).getBytes("UTF-8")
+    val msg    = (timestamp + body).getBytes("UTF-8")
     signer.update(msg, 0, msg.length)
     Hex.toHexString(signer.generateSignature())
   }
 
-  private val privateKey = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
-  private val publicKey  = privateKey.generatePublicKey()
+  private val privateKey   = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
+  private val publicKey    = privateKey.generatePublicKey()
   private val publicKeyHex = Hex.toHexString(publicKey.getEncoded)
 
   private val discordInbound = new DiscordInbound()
-  private val server = new Server(publicKeyHex, discordInbound)
+  private val server         = new Server(publicKeyHex, discordInbound)
 
   "Server.verifySignature" - {
     "accepts a valid signature" in {
-      val body = """{"type":1}"""
+      // arrange
+      val body      = """{"type":1}"""
       val timestamp = "12345"
-      val sig = sign(privateKey, timestamp, body)
-
-      val method = classOf[Server].getDeclaredMethod("verifySignature", classOf[String], classOf[String], classOf[String], classOf[String])
+      val sig       = sign(privateKey, timestamp, body)
+      val method    = classOf[Server].getDeclaredMethod("verifySignature", classOf[String], classOf[String], classOf[String], classOf[String])
       method.setAccessible(true)
-      val result = method.invoke(server, publicKeyHex, sig, timestamp, body).asInstanceOf[Boolean]
-
+      // act
+      val result    = method.invoke(server, publicKeyHex, sig, timestamp, body).asInstanceOf[Boolean]
+      // assert
       result shouldBe true
     }
 
     "rejects an invalid signature" in {
-      val body = """{"type":1}"""
-      val timestamp = "12345"
+      // arrange
+      val body            = """{"type":1}"""
+      val timestamp       = "12345"
       val otherPrivateKey = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
-      val sig = Hex.toHexString(otherPrivateKey.generatePublicKey().getEncoded)
-
-      val method = classOf[Server].getDeclaredMethod("verifySignature", classOf[String], classOf[String], classOf[String], classOf[String])
+      val sig             = Hex.toHexString(otherPrivateKey.generatePublicKey().getEncoded)
+      val method          = classOf[Server].getDeclaredMethod("verifySignature", classOf[String], classOf[String], classOf[String], classOf[String])
       method.setAccessible(true)
-      val result = method.invoke(server, publicKeyHex, sig, timestamp, body).asInstanceOf[Boolean]
-
+      // act
+      val result          = method.invoke(server, publicKeyHex, sig, timestamp, body).asInstanceOf[Boolean]
+      // assert
       result shouldBe false
     }
   }
 
   "Server.processRequest" - {
     "responds with PING to type 1 interaction" in {
-      val json = parse("""{"type":1}""").getOrElse(fail("Failed to parse JSON"))
-      val method = classOf[Server].getDeclaredMethod("processRequest", classOf[io.circe.Json])
+      // arrange
+      val json     = parse("""{"type":1}""").getOrElse(fail("Failed to parse JSON"))
+      val method   = classOf[Server].getDeclaredMethod("processRequest", classOf[io.circe.Json])
       method.setAccessible(true)
-
+      // act
       val resultIO = method.invoke(server, json).asInstanceOf[IO[Either[String, DiscordResponse]]]
-      val result = resultIO.unsafeRunSync()
-
+      val result   = resultIO.unsafeRunSync()
+      // assert
       result shouldBe Right(DiscordResponse(InteractionType.Ping.value))
     }
 
     "returns Left on invalid payload" in {
-      val json = parse("""{"type":999,"data":{}}""").getOrElse(fail("Failed to parse JSON"))
-      val method = classOf[Server].getDeclaredMethod("processRequest", classOf[io.circe.Json])
+      // arrange
+      val json     = parse("""{"type":999,"data":{}}""").getOrElse(fail("Failed to parse JSON"))
+      val method   = classOf[Server].getDeclaredMethod("processRequest", classOf[io.circe.Json])
       method.setAccessible(true)
-
+      // act
       val resultIO = method.invoke(server, json).asInstanceOf[IO[Either[String, DiscordResponse]]]
-      val result = resultIO.unsafeRunSync()
-
+      val result   = resultIO.unsafeRunSync()
+      // assert
       result.isLeft shouldBe true
     }
   }
