@@ -21,7 +21,7 @@ class ServerTest extends AnyFreeSpec with Matchers {
   private val publicKey  = privateKey.generatePublicKey()
   private val publicKeyHex = Hex.toHexString(publicKey.getEncoded)
 
-  private val discordInbound = new DiscordInbound() // you can mock handlers if needed
+  private val discordInbound = new DiscordInbound()
   private val server = new Server(publicKeyHex, discordInbound)
 
   "Server.verifySignature" - {
@@ -40,7 +40,8 @@ class ServerTest extends AnyFreeSpec with Matchers {
     "rejects an invalid signature" in {
       val body = """{"type":1}"""
       val timestamp = "12345"
-      val sig = "deadbeef"
+      val otherPrivateKey = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
+      val sig = Hex.toHexString(otherPrivateKey.generatePublicKey().getEncoded)
 
       val method = classOf[Server].getDeclaredMethod("verifySignature", classOf[String], classOf[String], classOf[String], classOf[String])
       method.setAccessible(true)

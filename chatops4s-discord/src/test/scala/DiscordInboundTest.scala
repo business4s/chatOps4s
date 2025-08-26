@@ -7,7 +7,7 @@ import org.scalatest.matchers.should.Matchers
 
 class DiscordInboundTest extends AnyFreeSpec with Matchers {
   "DiscordInbound" - {
-    "registerAction should store handler and return a button factory" in {
+    "registerAction should store handler and return the rendered button" in {
       val discordInbound = new DiscordInbound
 
       var executed                                = false
