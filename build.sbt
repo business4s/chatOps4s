@@ -51,8 +51,8 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
     libraryDependencies ++= Seq(
       "com.github.pureconfig"       %% "pureconfig-cats-effect"    % "0.17.9",
       "com.github.pureconfig"       %% "pureconfig-generic-scala3" % "0.17.9",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"       % "1.11.38",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"          % "1.11.38",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"       % "1.11.42",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"          % "1.11.42",
       "org.http4s"                  %% "http4s-ember-server"       % "0.23.30",
       "ch.qos.logback"               % "logback-classic"           % "1.5.18",
       "com.softwaremill.sttp.client4" %% "cats"                % "4.0.9",
@@ -81,8 +81,12 @@ lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
       // TODO remove
       "org.typelevel"                 %% "cats-effect"      % "3.6.3",
       "com.typesafe.scala-logging"    %% "scala-logging"    % "3.9.5",
+      "org.http4s"                  %% "http4s-ember-server"       % "0.23.30" % Test,
       "com.softwaremill.sttp.tapir" %% "tapir-sttp-stub4-server" % "1.11.42" % Test,
-      "org.slf4j" % "slf4j-nop" % "2.0.17" % Test
+      "org.slf4j" % "slf4j-nop" % "2.0.17" % Test,
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"       % "1.11.42" % Test,
+      "com.softwaremill.sttp.client4" %% "cats"                % "4.0.9" % Test
+
     ),
   )
   .dependsOn(`chatops4s-core`)
