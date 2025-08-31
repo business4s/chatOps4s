@@ -16,15 +16,16 @@ import sttp.client4.circe.asJson
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
 
 class ServerTest extends AnyFreeSpec with Matchers {
-  private val privateKey   = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
-  private val publicKey    = privateKey.generatePublicKey()
-  private val publicKeyHex = Hex.toHexString(publicKey.getEncoded)
+  private val privateKey     = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
+  private val publicKey      = privateKey.generatePublicKey()
+  private val publicKeyHex   = Hex.toHexString(publicKey.getEncoded)
   private val discordInbound = new DiscordInbound()
   private val server         = new Server(publicKeyHex, discordInbound)
 
   private def withServer[A](port: Int)(test: org.http4s.Uri => IO[A]) = {
     val routes: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(List(server.interactionRoute))
-    val serverResource = EmberServerBuilder.default[IO]
+    val serverResource         = EmberServerBuilder
+      .default[IO]
       .withHost(Host.fromString("127.0.0.1").get)
       .withPort(Port.fromInt(port).get)
       .withHttpApp(routes.orNotFound)
@@ -36,7 +37,7 @@ class ServerTest extends AnyFreeSpec with Matchers {
   private def sign(privateKey: Ed25519PrivateKeyParameters, timestamp: String, body: String) = {
     val signer = new org.bouncycastle.crypto.signers.Ed25519Signer()
     signer.init(true, privateKey)
-    val msg = (timestamp + body).getBytes("UTF-8")
+    val msg    = (timestamp + body).getBytes("UTF-8")
     signer.update(msg, 0, msg.length)
     Hex.toHexString(signer.generateSignature())
   }
@@ -45,9 +46,9 @@ class ServerTest extends AnyFreeSpec with Matchers {
     "responds with PING for valid type 1 interaction" in {
       // arrange
       withServer(5000) { baseUri =>
-        val body = """{"type":1}"""
+        val body      = """{"type":1}"""
         val timestamp = "12345"
-        val sig = sign(privateKey, timestamp, body)
+        val sig       = sign(privateKey, timestamp, body)
         // act
         HttpClientCatsBackend.resource[IO]().use { backend =>
           val request = basicRequest
@@ -59,7 +60,7 @@ class ServerTest extends AnyFreeSpec with Matchers {
 
           for {
             response <- request.send(backend)
-            _ <- backend.close()
+            _        <- backend.close()
           } yield {
             // assert
             val json = response.body.getOrElse(fail("No JSON response"))
@@ -72,10 +73,10 @@ class ServerTest extends AnyFreeSpec with Matchers {
     "returns error for invalid signature" in {
       withServer(5001) { baseUri =>
         // arrange
-        val body = """{"type":1}"""
-        val timestamp = "12345"
+        val body            = """{"type":1}"""
+        val timestamp       = "12345"
         val otherPrivateKey = new Ed25519PrivateKeyParameters(new java.security.SecureRandom())
-        val sig = Hex.toHexString(otherPrivateKey.generatePublicKey().getEncoded)
+        val sig             = Hex.toHexString(otherPrivateKey.generatePublicKey().getEncoded)
         // act
         HttpClientCatsBackend.resource[IO]().use { backend =>
           val request = basicRequest
@@ -87,7 +88,7 @@ class ServerTest extends AnyFreeSpec with Matchers {
 
           for {
             response <- request.send(backend)
-            _ <- backend.close()
+            _        <- backend.close()
           } yield {
             // assert
             response.code shouldBe sttp.model.StatusCode.Unauthorized
@@ -99,9 +100,9 @@ class ServerTest extends AnyFreeSpec with Matchers {
     "returns error for invalid payload type" in {
       withServer(5002) { baseUri =>
         // arrange
-        val body = """{"type":999}"""
+        val body      = """{"type":999}"""
         val timestamp = "12345"
-        val sig = sign(privateKey, timestamp, body)
+        val sig       = sign(privateKey, timestamp, body)
         // act
         HttpClientCatsBackend.resource[IO]().use { backend =>
           val request = basicRequest
@@ -113,7 +114,7 @@ class ServerTest extends AnyFreeSpec with Matchers {
 
           for {
             response <- request.send(backend)
-            _ <- backend.close()
+            _        <- backend.close()
           } yield {
             // assert
             response.code shouldBe sttp.model.StatusCode.BadRequest
