@@ -3,26 +3,29 @@ package chatops4s.slack
 import chatops4s.{InboundGateway, OutboundGateway}
 import chatops4s.slack.models.SlackConfig
 import sttp.client4.Backend
+import sttp.monad.MonadError
 
 object SlackGateway {
 
-  def create[F[_]: Monad](config: SlackConfig, backend: Backend[F]): F[(OutboundGateway[F], InboundGateway[F])] = {
-    val M = Monad[F]
-    M.flatMap(M.pure(new SlackClient[F](config, backend))) { slackClient =>
-      M.flatMap(SlackOutboundGateway.create[F](slackClient)) { outboundGateway =>
-        M.flatMap(SlackInboundGateway.create[F]) { inboundGateway =>
-          M.pure((outboundGateway: OutboundGateway[F], inboundGateway: InboundGateway[F]))
-        }
+  def create[F[_]](config: SlackConfig, backend: Backend[F]): F[(OutboundGateway[F], InboundGateway[F])] = {
+    implicit val monad: MonadError[F] = backend.monad
+
+    val slackClient = new SlackClient[F](config, backend)
+
+    monad.flatMap(SlackOutboundGateway.create[F](slackClient)) { outboundGateway =>
+      monad.flatMap(SlackInboundGateway.create[F]) { inboundGateway =>
+        monad.unit((outboundGateway: OutboundGateway[F], inboundGateway: InboundGateway[F]))
       }
     }
   }
 
-  def createOutboundOnly[F[_]: Monad](config: SlackConfig, backend: Backend[F]): F[OutboundGateway[F]] = {
-    val M = Monad[F]
-    M.flatMap(M.pure(new SlackClient[F](config, backend))) { slackClient =>
-      M.flatMap(SlackOutboundGateway.create[F](slackClient)) { gateway =>
-        M.pure(gateway: OutboundGateway[F])
-      }
+  def createOutboundOnly[F[_]](config: SlackConfig, backend: Backend[F]): F[OutboundGateway[F]] = {
+    implicit val monad: MonadError[F] = backend.monad
+
+    val slackClient = new SlackClient[F](config, backend)
+
+    monad.flatMap(SlackOutboundGateway.create[F](slackClient)) { gateway =>
+      monad.unit(gateway: OutboundGateway[F])
     }
   }
 }

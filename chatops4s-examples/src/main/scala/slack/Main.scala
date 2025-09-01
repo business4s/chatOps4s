@@ -4,7 +4,6 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.implicits.*
 import chatops4s.*
 import chatops4s.slack.*
-import chatops4s.slack.instances.given
 import chatops4s.slack.models.{SlackConfig, SlackInteractionPayload}
 import com.comcast.ip4s.*
 import io.circe.parser.*

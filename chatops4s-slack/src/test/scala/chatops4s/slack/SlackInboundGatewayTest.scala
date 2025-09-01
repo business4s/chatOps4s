@@ -3,10 +3,10 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chatops4s.InteractionContext
-import chatops4s.slack.instances.given
 import chatops4s.slack.models.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import sttp.client4.impl.cats.implicits.*
 
 class SlackInboundGatewayTest extends AnyFreeSpec with Matchers {
 

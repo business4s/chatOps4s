@@ -2,7 +2,6 @@ package chatops4s.examples.slack.docs
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import chatops4s.slack.SlackGateway
-import chatops4s.slack.instances.given
 import chatops4s.slack.models.{SlackConfig, SlackInteractionPayload}
 import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
