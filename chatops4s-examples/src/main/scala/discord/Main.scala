@@ -5,11 +5,9 @@ import cats.effect.{ExitCode, IO, IOApp}
 import com.comcast.ip4s.{Host, Port}
 import discord.services.*
 import discord.utilities.EnvLoader
-import io.circe.generic.auto.*
 import models.MessageResponse
 import org.http4s.HttpRoutes
 import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.server.Router
 import com.typesafe.scalalogging.StrictLogging
 import models.Message
 import sttp.client4.httpclient.cats.HttpClientCatsBackend
