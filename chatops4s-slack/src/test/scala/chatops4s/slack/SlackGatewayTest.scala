@@ -26,14 +26,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       )
 
       val result = SlackGateway
-        .create(config, backend)
+        .create[IO](config, backend)
         .flatMap { case (outbound, inbound) =>
           IO.pure((outbound, inbound))
         }
         .unsafeRunSync()
 
-      result._1 shouldBe a[OutboundGateway]
-      result._2 shouldBe a[InboundGateway]
+      result._1 shouldBe a[OutboundGateway[IO]]
+      result._2 shouldBe a[InboundGateway[IO]]
     }
 
     "createOutboundOnly should work and send messages" in {
@@ -51,14 +51,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       )
 
       val result = SlackGateway
-        .createOutboundOnly(config, backend)
+        .createOutboundOnly[IO](config, backend)
         .flatMap { gateway =>
           val message = Message("Test message")
           gateway.sendToChannel("C123", message).map(messageResponse => (gateway, messageResponse))
         }
         .unsafeRunSync()
 
-      result._1 shouldBe a[OutboundGateway]
+      result._1 shouldBe a[OutboundGateway[IO]]
       result._2.messageId shouldBe "C123-1234567890.123"
     }
 
@@ -77,7 +77,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       assertThrows[RuntimeException] {
         SlackGateway
-          .createOutboundOnly(config, backend)
+          .createOutboundOnly[IO](config, backend)
           .flatMap { gateway =>
             val message = Message("Test message")
             gateway.sendToChannel("C123", message)
@@ -103,7 +103,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       var gatewayUsed = false
 
       SlackGateway
-        .create(config, backend)
+        .create[IO](config, backend)
         .flatMap { case (outbound, inbound) =>
           gatewayUsed = true
           val message = Message("Resource test")

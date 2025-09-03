@@ -1,11 +1,13 @@
 package chatops4s.slack
 
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chatops4s.slack.models.*
 import chatops4s.{Button, Message}
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import sttp.client4.impl.cats.implicits.*
 
 class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
 
@@ -24,8 +26,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message("Hello World")
       val result  = gateway.sendToChannel("C123", message).unsafeRunSync()
 
@@ -46,8 +48,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message(
         text = "Deploy to production?",
         interactions = Seq(
@@ -74,8 +76,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message(
         text = "Choose an option:",
         interactions = (1 to 5).map(i => Button(s"Option $i", s"option_$i")),
@@ -99,8 +101,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message("Thread reply message")
       val result  = gateway.sendToThread("C123-1234567890.123", message).unsafeRunSync()
 
@@ -121,8 +123,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message(
         text = "Thread reply with button",
         interactions = Seq(Button("Acknowledge", "ack_thread")),
@@ -145,8 +147,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         errorResponse.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message("Test message")
 
       val exception = intercept[RuntimeException] {
@@ -161,7 +163,7 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
       val response = SlackPostMessageResponse(
         ok = true,
         channel = Some("C123"),
-        ts = None, // Missing timestamp
+        ts = None,
       )
 
       val backend = MockBackend.withResponse(
@@ -170,8 +172,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message("Test message")
 
       assertThrows[RuntimeException] {
@@ -183,8 +185,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
       val config  = SlackConfig("test-token", "test-secret")
       val backend = MockBackend.create()
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message("Thread reply")
 
       assertThrows[IllegalArgumentException] {
@@ -206,8 +208,8 @@ class SlackOutboundGatewayTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
-      val gateway = SlackOutboundGateway.create(client).unsafeRunSync()
+      val client  = new SlackClient[IO](config, backend)
+      val gateway = SlackOutboundGateway.create[IO](client).unsafeRunSync()
       val message = Message(
         text = "Simple message",
         interactions = Seq.empty,

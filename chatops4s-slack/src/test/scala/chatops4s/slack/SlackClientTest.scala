@@ -1,5 +1,6 @@
 package chatops4s.slack
 
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import chatops4s.slack.models.*
 import io.circe.syntax.*
@@ -24,7 +25,7 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
+      val client  = new SlackClient[IO](config, backend)
       val request = SlackPostMessageRequest("C123", "test message")
       val result  = client.postMessage(request).unsafeRunSync()
 
@@ -47,7 +48,7 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
         response.asJson.noSpaces,
       )
 
-      val client = new SlackClient(config, backend)
+      val client = new SlackClient[IO](config, backend)
       val result = client.postMessageToThread("C123", "1234567890.123", "thread reply").unsafeRunSync()
 
       result.ok shouldBe true
@@ -64,7 +65,7 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
         StatusCode.InternalServerError,
       )
 
-      val client  = new SlackClient(config, backend)
+      val client  = new SlackClient[IO](config, backend)
       val request = SlackPostMessageRequest("C123", "test message")
 
       assertThrows[RuntimeException] {
@@ -85,7 +86,7 @@ class SlackClientTest extends AnyFreeSpec with Matchers {
         errorResponse.asJson.noSpaces,
       )
 
-      val client  = new SlackClient(config, backend)
+      val client  = new SlackClient[IO](config, backend)
       val request = SlackPostMessageRequest("C123", "test message")
 
       assertThrows[RuntimeException] {
