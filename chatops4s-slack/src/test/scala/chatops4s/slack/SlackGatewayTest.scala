@@ -2,116 +2,181 @@ package chatops4s.slack
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import chatops4s.slack.models.*
-import chatops4s.{InboundGateway, Message, OutboundGateway}
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
+  private val okResponse = SlackModels.PostMessageResponse(
+    ok = true,
+    channel = Some("C123"),
+    ts = Some("1234567890.123"),
+  )
+
+  private def createGateway(backend: sttp.client4.testing.BackendStub[IO]): SlackGateway[IO] =
+    SlackGateway.create[IO]("test-token", "test-secret", backend).allocated.unsafeRunSync()._1
+
   "SlackGateway" - {
-    "create should return both gateways" in {
-      val config   = SlackConfig("test-token", "test-secret")
-      val response = SlackPostMessageResponse(
-        ok = true,
-        channel = Some("C123"),
-        ts = Some("1234567890.123"),
-      )
 
-      val backend = MockBackend.withResponse(
-        MockBackend.create(),
-        "chat.postMessage",
-        response.asJson.noSpaces,
-      )
+    "send" - {
+      "should send a simple message" in {
+        val backend = MockBackend.withPostMessage(okResponse.asJson.noSpaces)
+        val gateway = createGateway(backend)
 
-      val result = SlackGateway
-        .create[IO](config, backend)
-        .flatMap { case (outbound, inbound) =>
-          IO.pure((outbound, inbound))
+        val result = gateway.send("C123", "Hello World").unsafeRunSync()
+
+        result shouldBe MessageId("C123", "1234567890.123")
+      }
+
+      "should send a message with buttons" in {
+        val backend = MockBackend.withPostMessage(okResponse.asJson.noSpaces)
+        val gateway = createGateway(backend)
+
+        val approve = gateway.onButton(_ => IO.unit).unsafeRunSync()
+        val reject = gateway.onButton(_ => IO.unit).unsafeRunSync()
+
+        val result = gateway.send("C123", "Deploy?", Seq(
+          Button("Approve", approve),
+          Button("Reject", reject),
+        )).unsafeRunSync()
+
+        result shouldBe MessageId("C123", "1234567890.123")
+      }
+
+      "should handle API errors" in {
+        val errorResponse = SlackModels.PostMessageResponse(ok = false, error = Some("invalid_auth"))
+        val backend = MockBackend.withPostMessage(errorResponse.asJson.noSpaces)
+        val gateway = createGateway(backend)
+
+        val ex = intercept[RuntimeException] {
+          gateway.send("C123", "Test").unsafeRunSync()
         }
-        .unsafeRunSync()
+        ex.getMessage should include("invalid_auth")
+      }
 
-      result._1 shouldBe a[OutboundGateway[IO]]
-      result._2 shouldBe a[InboundGateway[IO]]
-    }
+      "should handle missing timestamp" in {
+        val noTsResponse = SlackModels.PostMessageResponse(ok = true, ts = None)
+        val backend = MockBackend.withPostMessage(noTsResponse.asJson.noSpaces)
+        val gateway = createGateway(backend)
 
-    "createOutboundOnly should work and send messages" in {
-      val config   = SlackConfig("test-token", "test-secret")
-      val response = SlackPostMessageResponse(
-        ok = true,
-        channel = Some("C123"),
-        ts = Some("1234567890.123"),
-      )
-
-      val backend = MockBackend.withResponse(
-        MockBackend.create(),
-        "chat.postMessage",
-        response.asJson.noSpaces,
-      )
-
-      val result = SlackGateway
-        .createOutboundOnly[IO](config, backend)
-        .flatMap { gateway =>
-          val message = Message("Test message")
-          gateway.sendToChannel("C123", message).map(messageResponse => (gateway, messageResponse))
+        assertThrows[RuntimeException] {
+          gateway.send("C123", "Test").unsafeRunSync()
         }
-        .unsafeRunSync()
-
-      result._1 shouldBe a[OutboundGateway[IO]]
-      result._2.messageId shouldBe "C123-1234567890.123"
-    }
-
-    "should handle configuration errors" in {
-      val config        = SlackConfig("", "") // Invalid config
-      val errorResponse = SlackPostMessageResponse(
-        ok = false,
-        error = Some("invalid_auth"),
-      )
-
-      val backend = MockBackend.withResponse(
-        MockBackend.create(),
-        "chat.postMessage",
-        errorResponse.asJson.noSpaces,
-      )
-
-      assertThrows[RuntimeException] {
-        SlackGateway
-          .createOutboundOnly[IO](config, backend)
-          .flatMap { gateway =>
-            val message = Message("Test message")
-            gateway.sendToChannel("C123", message)
-          }
-          .unsafeRunSync()
       }
     }
 
-    "should work with resource management" in {
-      val config   = SlackConfig("test-token", "test-secret")
-      val response = SlackPostMessageResponse(
-        ok = true,
-        channel = Some("C123"),
-        ts = Some("1234567890.123"),
-      )
+    "reply" - {
+      "should reply in thread" in {
+        val threadResponse = SlackModels.PostMessageResponse(
+          ok = true,
+          channel = Some("C123"),
+          ts = Some("1234567891.456"),
+        )
+        val backend = MockBackend.withPostMessage(threadResponse.asJson.noSpaces)
+        val gateway = createGateway(backend)
 
-      val backend = MockBackend.withResponse(
-        MockBackend.create(),
-        "chat.postMessage",
-        response.asJson.noSpaces,
-      )
+        val result = gateway.reply(MessageId("C123", "1234567890.123"), "Thread reply").unsafeRunSync()
 
-      var gatewayUsed = false
+        result shouldBe MessageId("C123", "1234567891.456")
+      }
 
-      SlackGateway
-        .create[IO](config, backend)
-        .flatMap { case (outbound, inbound) =>
-          gatewayUsed = true
-          val message = Message("Resource test")
-          outbound.sendToChannel("C123", message).map(_ => ())
-        }
-        .unsafeRunSync()
+      "should reply in thread with buttons" in {
+        val threadResponse = SlackModels.PostMessageResponse(
+          ok = true,
+          channel = Some("C123"),
+          ts = Some("1234567891.456"),
+        )
+        val backend = MockBackend.withPostMessage(threadResponse.asJson.noSpaces)
+        val gateway = createGateway(backend)
 
-      gatewayUsed shouldBe true
+        val btn = gateway.onButton(_ => IO.unit).unsafeRunSync()
+        val result = gateway.reply(
+          MessageId("C123", "1234567890.123"),
+          "Confirm?",
+          Seq(Button("OK", btn)),
+        ).unsafeRunSync()
+
+        result shouldBe MessageId("C123", "1234567891.456")
+      }
+    }
+
+    "onButton" - {
+      "should generate unique button IDs" in {
+        val backend = MockBackend.create()
+        val gateway = createGateway(backend)
+
+        val ids = (1 to 10).map(_ => gateway.onButton(_ => IO.unit).unsafeRunSync())
+
+        ids.map(_.value).toSet.size shouldBe 10
+      }
+    }
+
+    "interaction handling" - {
+      "should dispatch button click to registered handler" in {
+        val backend = MockBackend.create()
+        val gateway = createGateway(backend)
+        var captured: Option[ButtonClick] = None
+
+        val btnId = gateway.onButton { click =>
+          IO { captured = Some(click) }
+        }.unsafeRunSync()
+
+        val payload = interactionPayload(btnId.value)
+        gateway.asInstanceOf[SlackGatewayImpl[IO]].handleInteractionPayload(payload).unsafeRunSync()
+
+        captured shouldBe defined
+        captured.get.userId shouldBe "U123"
+        captured.get.messageId shouldBe MessageId("C123", "1234567890.123")
+        captured.get.buttonId shouldBe btnId
+      }
+
+      "should ignore unknown action IDs" in {
+        val backend = MockBackend.create()
+        val gateway = createGateway(backend)
+        var called = false
+
+        gateway.onButton { _ => IO { called = true } }.unsafeRunSync()
+
+        val payload = interactionPayload("unknown_action_id")
+        gateway.asInstanceOf[SlackGatewayImpl[IO]].handleInteractionPayload(payload).unsafeRunSync()
+
+        called shouldBe false
+      }
+
+      "should dispatch multiple actions in one payload" in {
+        val backend = MockBackend.create()
+        val gateway = createGateway(backend)
+        var count = 0
+
+        val btn1 = gateway.onButton { _ => IO { count += 1 } }.unsafeRunSync()
+        val btn2 = gateway.onButton { _ => IO { count += 10 } }.unsafeRunSync()
+
+        val payload = SlackModels.InteractionPayload(
+          `type` = "block_actions",
+          user = SlackModels.User("U123"),
+          channel = SlackModels.Channel("C123"),
+          container = SlackModels.Container(Some("1234567890.123")),
+          actions = Some(List(
+            SlackModels.Action(btn1.value, Some(btn1.value)),
+            SlackModels.Action(btn2.value, Some(btn2.value)),
+          )),
+        )
+        gateway.asInstanceOf[SlackGatewayImpl[IO]].handleInteractionPayload(payload).unsafeRunSync()
+
+        count shouldBe 11
+      }
     }
   }
+
+  private def interactionPayload(actionId: String): SlackModels.InteractionPayload =
+    SlackModels.InteractionPayload(
+      `type` = "block_actions",
+      user = SlackModels.User("U123"),
+      channel = SlackModels.Channel("C123"),
+      container = SlackModels.Container(Some("1234567890.123")),
+      actions = Some(List(
+        SlackModels.Action(actionId, Some(actionId)),
+      )),
+    )
 }

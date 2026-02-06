@@ -1,86 +1,45 @@
-
 lazy val `chatops4s` = (project in file("."))
   .settings(commonSettings)
   .settings(
     publish / skip := true,
   )
   .aggregate(
-    `chatops4s-core`,
     `chatops4s-slack`,
     `chatops4s-examples`,
-    `chatops4s-discord`,
-  )
-
-lazy val `chatops4s-core` = (project in file("chatops4s-core"))
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core" % "0.14.14",
-      "io.circe" %% "circe-generic" % "0.14.14",
-      "io.circe" %% "circe-parser"  % "0.14.14",
-    ),
-    Test / parallelExecution := false,
   )
 
 lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.client4" %% "core"                   % "4.0.9",
-      "com.softwaremill.sttp.client4" %% "circe"                  % "4.0.9",
-      "ch.qos.logback"                 % "logback-classic"        % "1.5.18",
-      "com.typesafe.scala-logging" %% "scala-logging"   % "3.9.5",
-      "com.softwaremill.sttp.client4" %% "cats" % "4.0.9" % Test,
+      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
+      "io.circe"                      %% "circe-core"       % "0.14.14",
+      "io.circe"                      %% "circe-generic"    % "0.14.14",
+      "io.circe"                      %% "circe-parser"     % "0.14.14",
+      "com.softwaremill.sttp.client4" %% "core"             % "4.0.9",
+      "com.softwaremill.sttp.client4" %% "circe"            % "4.0.9",
+      "com.softwaremill.sttp.tapir"   %% "tapir-core"       % "1.11.43",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe" % "1.11.43",
+      "com.softwaremill.sttp.tapir"   %% "tapir-cats"       % "1.11.43",
+      "com.softwaremill.sttp.client4" %% "cats"             % "4.0.9"  % Test,
     ),
     Test / parallelExecution := false,
   )
-  .dependsOn(`chatops4s-core`)
 
 lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.pureconfig"       %% "pureconfig-cats-effect"    % "0.17.9",
-      "com.github.pureconfig"       %% "pureconfig-generic-scala3" % "0.17.9",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"       % "1.11.43",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"          % "1.11.43",
-      "org.http4s"                  %% "http4s-ember-server"       % "0.23.30",
-      "ch.qos.logback"               % "logback-classic"           % "1.5.18",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.43",
+      "org.http4s"                    %% "http4s-ember-server" % "0.23.30",
       "com.softwaremill.sttp.client4" %% "cats"                % "4.0.9",
+      "ch.qos.logback"                 % "logback-classic"     % "1.5.18",
     ),
-    // TODO remove if possible
     Test / parallelExecution := false,
     publish / skip           := true,
     run / fork               := true,
-    run / javaOptions += "-Xmx512m",
   )
-  .dependsOn(`chatops4s-slack`,`chatops4s-discord`)
-
-
-lazy val `chatops4s-discord` = (project in file("chatops4s-discord"))
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.tapir"   %% "tapir-core"       % "1.11.42",
-      // TODO remove
-      "com.softwaremill.sttp.tapir"   %% "tapir-cats"       % "1.11.42",
-      "org.bouncycastle"               % "bcpkix-jdk15on"   % "1.70",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe" % "1.11.42",
-      "com.softwaremill.sttp.client4" %% "core"             % "4.0.9",
-      "com.softwaremill.sttp.client4" %% "circe"            % "4.0.9",
-      "io.circe"                      %% "circe-parser"     % "0.14.14",
-      // TODO remove
-      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
-      "com.typesafe.scala-logging"    %% "scala-logging"    % "3.9.5",
-      "org.http4s"                  %% "http4s-ember-server"       % "0.23.30" % Test,
-      "com.softwaremill.sttp.tapir" %% "tapir-sttp-stub4-server" % "1.11.42" % Test,
-      "org.slf4j" % "slf4j-nop" % "2.0.17" % Test,
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"       % "1.11.42" % Test,
-      "com.softwaremill.sttp.client4" %% "cats"                % "4.0.9" % Test
-
-    ),
-  )
-  .dependsOn(`chatops4s-core`)
+  .dependsOn(`chatops4s-slack`)
 
 lazy val commonSettings = Seq(
   scalaVersion         := "3.7.1",
@@ -110,18 +69,6 @@ lazy val commonSettings = Seq(
       "Voytek Pituła",
       "w.pitula@gmail.com",
       url("https://v.pitula.me"),
-    ),
-    Developer(
-      "masterhj",
-      "Himanshu Jaiswal",
-      "jaiswalhiman1410@gmail.com",
-      url("https://hjdev-phi.vercel.app"),
-    ),
-    Developer(
-      "Liam Grossman",
-      "Liam Grossman",
-      "me@liamgrossman.com",
-      url("https://liamgrossman.com"),
     ),
   ),
   versionScheme        := Some("semver-spec"),

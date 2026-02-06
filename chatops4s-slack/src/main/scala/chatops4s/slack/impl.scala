@@ -1,0 +1,180 @@
+package chatops4s.slack
+
+import cats.effect.kernel.{Async, Ref}
+import cats.syntax.all.*
+import io.circe.{Codec, Encoder, parser}
+import io.circe.syntax.*
+import sttp.client4.*
+import sttp.client4.circe.*
+import sttp.model.StatusCode
+import sttp.tapir.*
+import sttp.tapir.server.ServerEndpoint
+import java.util.UUID
+
+// Internal Slack API models
+
+private[slack] object SlackModels {
+
+  case class PostMessageRequest(
+      channel: String,
+      text: String,
+      blocks: Option[List[Block]] = None,
+      thread_ts: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class PostMessageResponse(
+      ok: Boolean,
+      channel: Option[String] = None,
+      ts: Option[String] = None,
+      error: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class Block(
+      `type`: String,
+      text: Option[TextObject] = None,
+      elements: Option[List[BlockElement]] = None,
+  ) derives Codec.AsObject
+
+  case class TextObject(
+      `type`: String,
+      text: String,
+  ) derives Codec.AsObject
+
+  case class BlockElement(
+      `type`: String,
+      text: Option[TextObject] = None,
+      action_id: Option[String] = None,
+      value: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class InteractionPayload(
+      `type`: String,
+      user: User,
+      channel: Channel,
+      container: Container,
+      actions: Option[List[Action]] = None,
+  ) derives Codec.AsObject
+
+  case class User(id: String) derives Codec.AsObject
+  case class Channel(id: String) derives Codec.AsObject
+  case class Container(message_ts: Option[String] = None) derives Codec.AsObject
+  case class Action(action_id: String, value: Option[String] = None) derives Codec.AsObject
+}
+
+// Gateway implementation
+
+private[slack] class SlackGatewayImpl[F[_]: Async](
+    token: String,
+    signingSecret: String,
+    backend: Backend[F],
+    handlersRef: Ref[F, Map[String, ButtonClick => F[Unit]]],
+) extends SlackGateway[F] {
+
+  import SlackModels.*
+
+  private val baseUrl = "https://slack.com/api"
+
+  override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
+    postMessage(channel, text, buttons, threadTs = None)
+
+  override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
+    postMessage(to.channel, text, buttons, threadTs = Some(to.ts))
+
+  override def onButton(handler: ButtonClick => F[Unit]): F[ButtonId] = {
+    val id = ButtonId(UUID.randomUUID().toString)
+    handlersRef.update(_ + (id.value -> handler)).as(id)
+  }
+
+  override def interactionEndpoint: ServerEndpoint[Any, F] = {
+    endpoint
+      .post
+      .in("slack" / "interactions")
+      .in(formBody[Map[String, String]])
+      .out(statusCode(StatusCode.Ok))
+      .serverLogicSuccess { form =>
+        form.get("payload") match {
+          case Some(payloadJson) =>
+            parser.decode[InteractionPayload](payloadJson) match {
+              case Right(payload) => handleInteractionPayload(payload)
+              case Left(_)        => Async[F].unit
+            }
+          case None => Async[F].unit
+        }
+      }
+  }
+
+  private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
+    val messageId = MessageId(
+      channel = payload.channel.id,
+      ts = payload.container.message_ts.getOrElse(""),
+    )
+
+    payload.actions.getOrElse(Nil).traverse_ { action =>
+      val click = ButtonClick(
+        userId = payload.user.id,
+        messageId = messageId,
+        buttonId = ButtonId(action.action_id),
+      )
+
+      handlersRef.get.flatMap { handlers =>
+        handlers.get(action.action_id).traverse_(handler => handler(click))
+      }
+    }
+  }
+
+  private def postMessage(
+      channel: String,
+      text: String,
+      buttons: Seq[Button],
+      threadTs: Option[String],
+  ): F[MessageId] = {
+    val blocks = if (buttons.nonEmpty) {
+      Some(List(
+        Block(
+          `type` = "section",
+          text = Some(TextObject(`type` = "mrkdwn", text = text)),
+        ),
+        Block(
+          `type` = "actions",
+          elements = Some(buttons.map(buttonToElement).toList),
+        ),
+      ))
+    } else None
+
+    val request = PostMessageRequest(
+      channel = channel,
+      text = text,
+      blocks = blocks,
+      thread_ts = threadTs,
+    )
+
+    val req = basicRequest
+      .post(uri"$baseUrl/chat.postMessage")
+      .header("Authorization", s"Bearer $token")
+      .contentType("application/json")
+      .body(request.asJson.noSpaces)
+      .response(asJson[PostMessageResponse])
+
+    backend.send(req).flatMap { response =>
+      response.body match {
+        case Right(slackResp) if slackResp.ok =>
+          slackResp.ts match {
+            case Some(ts0) => Async[F].pure(MessageId(channel, ts0))
+            case None      => Async[F].raiseError(new RuntimeException("No timestamp in response"))
+          }
+        case Right(slackResp) =>
+          Async[F].raiseError(new RuntimeException(s"Slack API error: ${slackResp.error.getOrElse("unknown")}"))
+        case Left(err) =>
+          Async[F].raiseError(new RuntimeException(s"Failed to parse response: $err"))
+      }
+    }
+  }
+
+  private def buttonToElement(button: Button): BlockElement =
+    BlockElement(
+      `type` = "button",
+      text = Some(TextObject(`type` = "plain_text", text = button.label)),
+      action_id = Some(button.id.value),
+      value = Some(button.id.value),
+    )
+}
