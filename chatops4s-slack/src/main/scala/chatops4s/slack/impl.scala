@@ -11,8 +11,6 @@ import sttp.tapir.*
 import sttp.tapir.server.ServerEndpoint
 import java.util.UUID
 
-// Internal Slack API models
-
 private[slack] object SlackModels {
 
   case class PostMessageRequest(
@@ -61,13 +59,21 @@ private[slack] object SlackModels {
   case class Action(action_id: String, value: Option[String] = None) derives Codec.AsObject
 }
 
-// Gateway implementation
+private[slack] class SlackSetupImpl[F[_]: Async](
+    handlersRef: Ref[F, Map[String, (ButtonClick, SlackGateway[F]) => F[Unit]]],
+) extends SlackSetup[F] {
+
+  override def onButton(handler: (ButtonClick, SlackGateway[F]) => F[Unit]): F[ButtonId] = {
+    val id = ButtonId(UUID.randomUUID().toString)
+    handlersRef.update(_ + (id.value -> handler)).as(id)
+  }
+}
 
 private[slack] class SlackGatewayImpl[F[_]: Async](
     token: String,
     signingSecret: String,
     backend: Backend[F],
-    handlersRef: Ref[F, Map[String, ButtonClick => F[Unit]]],
+    handlers: Map[String, (ButtonClick, SlackGateway[F]) => F[Unit]],
 ) extends SlackGateway[F] {
 
   import SlackModels.*
@@ -79,11 +85,6 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
 
   override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
     postMessage(to.channel, text, buttons, threadTs = Some(to.ts))
-
-  override def onButton(handler: ButtonClick => F[Unit]): F[ButtonId] = {
-    val id = ButtonId(UUID.randomUUID().toString)
-    handlersRef.update(_ + (id.value -> handler)).as(id)
-  }
 
   override def interactionEndpoint: ServerEndpoint[Any, F] = {
     endpoint
@@ -116,9 +117,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
         buttonId = ButtonId(action.action_id),
       )
 
-      handlersRef.get.flatMap { handlers =>
-        handlers.get(action.action_id).traverse_(handler => handler(click))
-      }
+      handlers.get(action.action_id).traverse_(handler => handler(click, this))
     }
   }
 
