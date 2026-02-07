@@ -20,26 +20,42 @@ object Main extends IOApp.Simple {
   private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
   private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
+  opaque type Version <: String = String
+  object Version {
+    def apply(v: String): Version = v
+  }
+
+  private def prompt(v: Version): String = s"Deploy $v to production?"
+
   override def run: IO[Unit] = {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack      <- SlackGateway.create(token, appToken, backend)
-        approveBtn <- slack.onButton { (click, gw) =>
+        approveBtn <- slack.onButton[Version] { (click, gw) =>
                         for {
-                          _ <- gw.update(click.messageId, s":white_check_mark: Deploy approved by <@${click.userId}>")
-                          _ <- gw.reply(click.messageId, "Deploying to production...").void
+                          _ <- gw.update(
+                                 click.messageId,
+                                 s"""${prompt(click.value)}
+                                    |:white_check_mark: *Approved* by <@${click.userId}>""".stripMargin,
+                               )
+                          _ <- gw.reply(click.messageId, s"Deploying to production...").void
                         } yield ()
                       }
-        rejectBtn  <- slack.onButton { (click, gw) =>
-                        gw.update(click.messageId, "Deploy cancelled.").void
+        rejectBtn  <- slack.onButton[Version] { (click, gw) =>
+                        gw.update(
+                          click.messageId,
+                          s"""${prompt(click.value)}
+                             |:x: *Rejected* by <@${click.userId}>""".stripMargin,
+                        ).void
                       }
         slackFiber <- slack.listen.start
+        v           = Version("v1.4.2")
         _          <- slack.send(
                         channel,
-                        "Deploy to production?",
+                        prompt(v),
                         Seq(
-                          Button("Approve", approveBtn, "approve"),
-                          Button("Reject", rejectBtn, "reject"),
+                          Button("Approve", approveBtn, v),
+                          Button("Reject", rejectBtn, v),
                         ),
                       )
         _          <- slackFiber.join
