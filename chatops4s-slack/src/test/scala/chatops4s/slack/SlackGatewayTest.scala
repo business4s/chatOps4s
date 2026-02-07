@@ -1,6 +1,7 @@
 package chatops4s.slack
 
 import cats.effect.IO
+import cats.effect.kernel.Ref
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import io.circe.syntax.*
@@ -17,18 +18,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
   private def createGateway(
       backend: sttp.client4.testing.BackendStub[IO],
-  ): (SlackGatewayImpl[IO], Unit) =
-    createGatewayWith(backend)(_ => IO.unit)
-
-  private def createGatewayWith[A](
-      backend: sttp.client4.testing.BackendStub[IO],
-  )(setup: SlackSetup[IO] => IO[A]): (SlackGatewayImpl[IO], A) = {
-    val (gw, a) = SlackGateway
-      .create[IO, A]("test-token", "test-secret", backend)(setup)
-      .allocated
-      .unsafeRunSync()
-      ._1
-    (gw.asInstanceOf[SlackGatewayImpl[IO]], a)
+  ): SlackGatewayImpl[IO] = {
+    val handlersRef = Ref.of[IO, Map[String, (ButtonClick, SlackGateway[IO]) => IO[Unit]]](Map.empty).unsafeRunSync()
+    new SlackGatewayImpl[IO]("test-token", backend, handlersRef, listen = IO.never)
   }
 
   "SlackGateway" - {
@@ -36,7 +28,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     "send" - {
       "should send a simple message" in {
         val backend = MockBackend.withPostMessage(okResponse.asJson.noSpaces)
-        val (gateway, _) = createGateway(backend)
+        val gateway = createGateway(backend)
 
         val result = gateway.send("C123", "Hello World").unsafeRunSync()
 
@@ -45,12 +37,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should send a message with buttons" in {
         val backend = MockBackend.withPostMessage(okResponse.asJson.noSpaces)
-        val (gateway, (approve, reject)) = createGatewayWith(backend) { setup =>
-          for {
-            a <- setup.onButton((_, _) => IO.unit)
-            r <- setup.onButton((_, _) => IO.unit)
-          } yield (a, r)
-        }
+        val gateway = createGateway(backend)
+        val approve = gateway.onButton((_, _) => IO.unit).unsafeRunSync()
+        val reject = gateway.onButton((_, _) => IO.unit).unsafeRunSync()
 
         val result = gateway.send("C123", "Deploy?", Seq(
           Button("Approve", approve),
@@ -63,7 +52,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "should handle API errors" in {
         val errorResponse = SlackModels.PostMessageResponse(ok = false, error = Some("invalid_auth"))
         val backend = MockBackend.withPostMessage(errorResponse.asJson.noSpaces)
-        val (gateway, _) = createGateway(backend)
+        val gateway = createGateway(backend)
 
         val ex = intercept[RuntimeException] {
           gateway.send("C123", "Test").unsafeRunSync()
@@ -74,7 +63,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "should handle missing timestamp" in {
         val noTsResponse = SlackModels.PostMessageResponse(ok = true, ts = None)
         val backend = MockBackend.withPostMessage(noTsResponse.asJson.noSpaces)
-        val (gateway, _) = createGateway(backend)
+        val gateway = createGateway(backend)
 
         assertThrows[RuntimeException] {
           gateway.send("C123", "Test").unsafeRunSync()
@@ -90,7 +79,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           ts = Some("1234567891.456"),
         )
         val backend = MockBackend.withPostMessage(threadResponse.asJson.noSpaces)
-        val (gateway, _) = createGateway(backend)
+        val gateway = createGateway(backend)
 
         val result = gateway.reply(MessageId("C123", "1234567890.123"), "Thread reply").unsafeRunSync()
 
@@ -104,9 +93,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           ts = Some("1234567891.456"),
         )
         val backend = MockBackend.withPostMessage(threadResponse.asJson.noSpaces)
-        val (gateway, btn) = createGatewayWith(backend) { setup =>
-          setup.onButton((_, _) => IO.unit)
-        }
+        val gateway = createGateway(backend)
+        val btn = gateway.onButton((_, _) => IO.unit).unsafeRunSync()
 
         val result = gateway.reply(
           MessageId("C123", "1234567890.123"),
@@ -121,9 +109,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     "onButton" - {
       "should generate unique button IDs" in {
         val backend = MockBackend.create()
-        val (_, ids) = createGatewayWith(backend) { setup =>
-          (1 to 10).toList.traverse(_ => setup.onButton((_, _) => IO.unit))
-        }
+        val gateway = createGateway(backend)
+
+        val ids = (1 to 10).toList.traverse(_ => gateway.onButton((_, _) => IO.unit)).unsafeRunSync()
 
         ids.map(_.value).toSet.size shouldBe 10
       }
@@ -134,11 +122,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val backend = MockBackend.create()
         var captured: Option[ButtonClick] = None
 
-        val (gateway, btnId) = createGatewayWith(backend) { setup =>
-          setup.onButton { (click, _) =>
-            IO { captured = Some(click) }
-          }
-        }
+        val gateway = createGateway(backend)
+        val btnId = gateway.onButton { (click, _) =>
+          IO { captured = Some(click) }
+        }.unsafeRunSync()
 
         val payload = interactionPayload(btnId.value)
         gateway.handleInteractionPayload(payload).unsafeRunSync()
@@ -153,9 +140,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val backend = MockBackend.create()
         var called = false
 
-        val (gateway, _) = createGatewayWith(backend) { setup =>
-          setup.onButton { (_, _) => IO { called = true } }
-        }
+        val gateway = createGateway(backend)
+        gateway.onButton { (_, _) => IO { called = true } }.unsafeRunSync()
 
         val payload = interactionPayload("unknown_action_id")
         gateway.handleInteractionPayload(payload).unsafeRunSync()
@@ -167,12 +153,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val backend = MockBackend.create()
         var count = 0
 
-        val (gateway, (btn1, btn2)) = createGatewayWith(backend) { setup =>
-          for {
-            b1 <- setup.onButton { (_, _) => IO { count += 1 } }
-            b2 <- setup.onButton { (_, _) => IO { count += 10 } }
-          } yield (b1, b2)
-        }
+        val gateway = createGateway(backend)
+        val btn1 = gateway.onButton { (_, _) => IO { count += 1 } }.unsafeRunSync()
+        val btn2 = gateway.onButton { (_, _) => IO { count += 10 } }.unsafeRunSync()
 
         val payload = SlackModels.InteractionPayload(
           `type` = "block_actions",

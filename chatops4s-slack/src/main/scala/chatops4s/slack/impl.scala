@@ -2,13 +2,10 @@ package chatops4s.slack
 
 import cats.effect.kernel.{Async, Ref}
 import cats.syntax.all.*
-import io.circe.{Codec, Encoder, parser}
+import io.circe.{Codec, Json}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*
-import sttp.model.StatusCode
-import sttp.tapir.*
-import sttp.tapir.server.ServerEndpoint
 import java.util.UUID
 
 private[slack] object SlackModels {
@@ -57,28 +54,39 @@ private[slack] object SlackModels {
   case class Channel(id: String) derives Codec.AsObject
   case class Container(message_ts: Option[String] = None) derives Codec.AsObject
   case class Action(action_id: String, value: Option[String] = None) derives Codec.AsObject
+
+  case class ConnectionsOpenResponse(
+      ok: Boolean,
+      url: Option[String] = None,
+      error: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class SocketEnvelope(
+      envelope_id: String,
+      `type`: String,
+      payload: Option[Json] = None,
+  ) derives Codec.AsObject
+
+  case class SocketAck(
+      envelope_id: String,
+  ) derives Codec.AsObject
 }
 
-private[slack] class SlackSetupImpl[F[_]: Async](
+private[slack] class SlackGatewayImpl[F[_]: Async](
+    token: String,
+    backend: Backend[F],
     handlersRef: Ref[F, Map[String, (ButtonClick, SlackGateway[F]) => F[Unit]]],
-) extends SlackSetup[F] {
+    val listen: F[Unit],
+) extends SlackGateway[F] with SlackSetup[F] {
+
+  import SlackModels.*
+
+  private val baseUrl = "https://slack.com/api"
 
   override def onButton(handler: (ButtonClick, SlackGateway[F]) => F[Unit]): F[ButtonId] = {
     val id = ButtonId(UUID.randomUUID().toString)
     handlersRef.update(_ + (id.value -> handler)).as(id)
   }
-}
-
-private[slack] class SlackGatewayImpl[F[_]: Async](
-    token: String,
-    signingSecret: String,
-    backend: Backend[F],
-    handlers: Map[String, (ButtonClick, SlackGateway[F]) => F[Unit]],
-) extends SlackGateway[F] {
-
-  import SlackModels.*
-
-  private val baseUrl = "https://slack.com/api"
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
     postMessage(channel, text, buttons, threadTs = None)
@@ -86,38 +94,22 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
   override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
     postMessage(to.channel, text, buttons, threadTs = Some(to.ts))
 
-  override def interactionEndpoint: ServerEndpoint[Any, F] = {
-    endpoint
-      .post
-      .in("slack" / "interactions")
-      .in(formBody[Map[String, String]])
-      .out(statusCode(StatusCode.Ok))
-      .serverLogicSuccess { form =>
-        form.get("payload") match {
-          case Some(payloadJson) =>
-            parser.decode[InteractionPayload](payloadJson) match {
-              case Right(payload) => handleInteractionPayload(payload)
-              case Left(_)        => Async[F].unit
-            }
-          case None => Async[F].unit
-        }
-      }
-  }
-
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
-    val messageId = MessageId(
-      channel = payload.channel.id,
-      ts = payload.container.message_ts.getOrElse(""),
-    )
-
-    payload.actions.getOrElse(Nil).traverse_ { action =>
-      val click = ButtonClick(
-        userId = payload.user.id,
-        messageId = messageId,
-        buttonId = ButtonId(action.action_id),
+    handlersRef.get.flatMap { handlers =>
+      val messageId = MessageId(
+        channel = payload.channel.id,
+        ts = payload.container.message_ts.getOrElse(""),
       )
 
-      handlers.get(action.action_id).traverse_(handler => handler(click, this))
+      payload.actions.getOrElse(Nil).traverse_ { action =>
+        val click = ButtonClick(
+          userId = payload.user.id,
+          messageId = messageId,
+          buttonId = ButtonId(action.action_id),
+        )
+
+        handlers.get(action.action_id).traverse_(handler => handler(click, this))
+      }
     }
   }
 
