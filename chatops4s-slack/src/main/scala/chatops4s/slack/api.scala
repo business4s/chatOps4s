@@ -6,7 +6,9 @@ import sttp.client4.{Backend, WebSocketBackend}
 
 case class MessageId(channel: String, ts: String)
 
-case class ButtonId[T <: String](value: String)
+case class ButtonId[T <: String](value: String) {
+  def toButton(label: String, value: T): Button = Button(label, this, value)
+}
 
 case class Button private (label: String, actionId: String, value: String)
 
@@ -29,7 +31,6 @@ object SlackSetup {
 
   def manifest(
       appName: String,
-      botName: String,
   ): String =
     s"""_metadata:
        |  major_version: 1
@@ -38,7 +39,7 @@ object SlackSetup {
        |  name: $appName
        |features:
        |  bot_user:
-       |    display_name: $botName
+       |    display_name: $appName
        |    always_online: true
        |oauth_config:
        |  scopes:
