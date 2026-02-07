@@ -116,8 +116,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
           value = action.value.getOrElse(""),
         )
 
-        val handlerId = action.action_id.split(":", 2).head
-        handlers.get(handlerId).traverse_(handler => handler(click, this))
+        handlers.get(action.action_id).traverse_(handler => handler(click, this))
       }
     }
   }
@@ -175,7 +174,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     BlockElement(
       `type` = "button",
       text = Some(TextObject(`type` = "plain_text", text = button.label)),
-      action_id = Some(s"${button.actionId}:${button.value}"),
+      action_id = Some(button.actionId),
       value = Some(button.value),
     )
 }

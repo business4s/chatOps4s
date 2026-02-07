@@ -16,29 +16,27 @@ object Main extends IOApp.Simple {
 
   scala.io.StdIn.readLine("Press enter to start...")
 
-  val token    = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token")
-  val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
-  val channel  = sys.env.getOrElse("SLACK_CHANNEL", "C0123456789")
-
-  type DeployAction = "approve" | "reject"
+  private val token    = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token")
+  private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
+  private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
   override def run: IO[Unit] = {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack     <- SlackGateway.create(token, appToken, backend)
-        deployBtn <- slack.onButton[DeployAction] { (click, gw) =>
-                       click.value match {
-                         case "approve" => gw.reply(click.messageId, s"Approved by <@${click.userId}>").void
-                         case "reject"  => gw.reply(click.messageId, s"Rejected by <@${click.userId}>").void
-                       }
-                     }
+        slack      <- SlackGateway.create(token, appToken, backend)
+        approveBtn <- slack.onButton { (click, gw) =>
+                        gw.reply(click.messageId, s"Approved by <@${click.userId}>").void
+                      }
+        rejectBtn  <- slack.onButton { (click, gw) =>
+                        gw.reply(click.messageId, s"Rejected by <@${click.userId}>").void
+                      }
         slackFiber <- slack.listen.start
         _          <- slack.send(
                         channel,
                         "Deploy to production?",
                         Seq(
-                          Button("Approve", deployBtn, "approve"),
-                          Button("Reject", deployBtn, "reject"),
+                          Button("Approve", approveBtn, "approve"),
+                          Button("Reject", rejectBtn, "reject"),
                         ),
                       )
         _          <- slackFiber.join

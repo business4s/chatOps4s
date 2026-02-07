@@ -163,8 +163,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           channel = SlackModels.Channel("C123"),
           container = SlackModels.Container(Some("1234567890.123")),
           actions = Some(List(
-            SlackModels.Action(s"${btn1.value}:v1", Some("v1")),
-            SlackModels.Action(s"${btn2.value}:v2", Some("v2")),
+            SlackModels.Action(btn1.value, Some("v1")),
+            SlackModels.Action(btn2.value, Some("v2")),
           )),
         )
         gateway.handleInteractionPayload(payload).unsafeRunSync()
@@ -174,14 +174,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     }
   }
 
-  private def interactionPayload(handlerId: String, value: String): SlackModels.InteractionPayload =
+  private def interactionPayload(actionId: String, value: String): SlackModels.InteractionPayload =
     SlackModels.InteractionPayload(
       `type` = "block_actions",
       user = SlackModels.User("U123"),
       channel = SlackModels.Channel("C123"),
       container = SlackModels.Container(Some("1234567890.123")),
       actions = Some(List(
-        SlackModels.Action(s"$handlerId:$value", Some(value)),
+        SlackModels.Action(actionId, Some(value)),
       )),
     )
 }
