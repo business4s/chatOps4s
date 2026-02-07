@@ -13,4 +13,20 @@ object MockBackend {
     create()
       .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
       .thenRespondAdjust(responseBody, statusCode)
+
+  def withPostMessageAndUpdate(
+      postMessageResponse: String,
+      updateResponse: String,
+      statusCode: StatusCode = StatusCode.Ok,
+  ): BackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+      .thenRespondAdjust(postMessageResponse, statusCode)
+      .whenRequestMatches(_.uri.toString().contains("chat.update"))
+      .thenRespondAdjust(updateResponse, statusCode)
+
+  def withUpdate(responseBody: String, statusCode: StatusCode = StatusCode.Ok): BackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("chat.update"))
+      .thenRespondAdjust(responseBody, statusCode)
 }

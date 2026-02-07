@@ -56,7 +56,7 @@ lazy val commonSettings = Seq(
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0"  % Test,
   ),
   organization         := "org.business4s",
-  homepage             := Some(url("https://business4s.github.io/chatop4s/")),
+  homepage             := Some(url("https://business4s.github.io/chatops4s/")),
   licenses             := List(License.MIT),
   developers           := List(
     Developer(
