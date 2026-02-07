@@ -6,18 +6,23 @@ import sttp.client4.{Backend, WebSocketBackend}
 
 case class MessageId(channel: String, ts: String)
 
-case class ButtonId(value: String) extends AnyVal
+case class ButtonId[T <: String](value: String)
 
-case class Button(label: String, id: ButtonId)
+case class Button private (label: String, actionId: String, value: String)
 
-case class ButtonClick(
+object Button {
+  def apply[T <: String](label: String, id: ButtonId[T], value: T): Button =
+    new Button(label, id.value, value)
+}
+
+case class ButtonClick[T <: String](
     userId: String,
     messageId: MessageId,
-    buttonId: ButtonId,
+    value: T,
 )
 
 trait SlackSetup[F[_]] {
-  def onButton(handler: (ButtonClick, SlackGateway[F]) => F[Unit]): F[ButtonId]
+  def onButton[T <: String](handler: (ButtonClick[T], SlackGateway[F]) => F[Unit]): F[ButtonId[T]]
 }
 
 object SlackSetup {
@@ -40,7 +45,6 @@ object SlackSetup {
        |    bot:
        |      - chat:write
        |      - chat:write.public
-       |      - connections:write
        |settings:
        |  interactivity:
        |    is_enabled: true
@@ -58,12 +62,14 @@ trait SlackGateway[F[_]] {
 
 object SlackGateway {
 
+  private type ErasedHandler[F[_]] = (ButtonClick[String], SlackGateway[F]) => F[Unit]
+
   def create[F[_]: Async](
       token: String,
       appToken: String,
       backend: WebSocketBackend[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
-    Ref.of[F, Map[String, (ButtonClick, SlackGateway[F]) => F[Unit]]](Map.empty).map { handlersRef =>
+    Ref.of[F, Map[String, ErasedHandler[F]]](Map.empty).map { handlersRef =>
       val listenRef = new java.util.concurrent.atomic.AtomicReference[F[Unit]]()
       val gateway = new SlackGatewayImpl[F](
         token, backend, handlersRef,

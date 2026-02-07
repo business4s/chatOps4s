@@ -17,11 +17,16 @@ private[slack] object SlackModels {
       thread_ts: Option[String] = None,
   ) derives Codec.AsObject
 
+  case class ResponseMetadata(
+      messages: Option[List[String]] = None,
+  ) derives Codec.AsObject
+
   case class PostMessageResponse(
       ok: Boolean,
       channel: Option[String] = None,
       ts: Option[String] = None,
       error: Option[String] = None,
+      response_metadata: Option[ResponseMetadata] = None,
   ) derives Codec.AsObject
 
   case class Block(
@@ -72,10 +77,12 @@ private[slack] object SlackModels {
   ) derives Codec.AsObject
 }
 
+private[slack] type ErasedHandler[F[_]] = (ButtonClick[String], SlackGateway[F]) => F[Unit]
+
 private[slack] class SlackGatewayImpl[F[_]: Async](
     token: String,
     backend: Backend[F],
-    handlersRef: Ref[F, Map[String, (ButtonClick, SlackGateway[F]) => F[Unit]]],
+    handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
     val listen: F[Unit],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
@@ -83,9 +90,10 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
 
   private val baseUrl = "https://slack.com/api"
 
-  override def onButton(handler: (ButtonClick, SlackGateway[F]) => F[Unit]): F[ButtonId] = {
-    val id = ButtonId(UUID.randomUUID().toString)
-    handlersRef.update(_ + (id.value -> handler)).as(id)
+  override def onButton[T <: String](handler: (ButtonClick[T], SlackGateway[F]) => F[Unit]): F[ButtonId[T]] = {
+    val id = ButtonId[T](UUID.randomUUID().toString)
+    val erased = handler.asInstanceOf[ErasedHandler[F]]
+    handlersRef.update(_ + (id.value -> erased)).as(id)
   }
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
@@ -102,13 +110,14 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
       )
 
       payload.actions.getOrElse(Nil).traverse_ { action =>
-        val click = ButtonClick(
+        val click = ButtonClick[String](
           userId = payload.user.id,
           messageId = messageId,
-          buttonId = ButtonId(action.action_id),
+          value = action.value.getOrElse(""),
         )
 
-        handlers.get(action.action_id).traverse_(handler => handler(click, this))
+        val handlerId = action.action_id.split(":", 2).head
+        handlers.get(handlerId).traverse_(handler => handler(click, this))
       }
     }
   }
@@ -143,7 +152,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
       .post(uri"$baseUrl/chat.postMessage")
       .header("Authorization", s"Bearer $token")
       .contentType("application/json")
-      .body(request.asJson.noSpaces)
+      .body(request.asJson.deepDropNullValues.noSpaces)
       .response(asJson[PostMessageResponse])
 
     backend.send(req).flatMap { response =>
@@ -154,7 +163,8 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
             case None      => Async[F].raiseError(new RuntimeException("No timestamp in response"))
           }
         case Right(slackResp) =>
-          Async[F].raiseError(new RuntimeException(s"Slack API error: ${slackResp.error.getOrElse("unknown")}"))
+          val details = slackResp.response_metadata.flatMap(_.messages).getOrElse(Nil).mkString("; ")
+          Async[F].raiseError(new RuntimeException(s"Slack API error: ${slackResp.error.getOrElse("unknown")}. $details"))
         case Left(err) =>
           Async[F].raiseError(new RuntimeException(s"Failed to parse response: $err"))
       }
@@ -165,7 +175,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     BlockElement(
       `type` = "button",
       text = Some(TextObject(`type` = "plain_text", text = button.label)),
-      action_id = Some(button.id.value),
-      value = Some(button.id.value),
+      action_id = Some(s"${button.actionId}:${button.value}"),
+      value = Some(button.value),
     )
 }
