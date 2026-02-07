@@ -4,7 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "ChatOps4s",
-  tagline: "Simplied Chat-ops for Scala",
+  tagline: "Simplified Chat-ops for Scala",
   favicon: "img/favicon/favicon.ico",
 
   // GitHub pages deployment config.
@@ -17,18 +17,10 @@ const config: Config = {
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
     locales: ["en"],
   },
-
-  markdown: {
-    mermaid: true,
-  },
-  themes: ["@docusaurus/theme-mermaid"],
 
   presets: [
     [
@@ -52,12 +44,10 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: "img/docusaurus-social-card.jpg",
     navbar: {
       title: "ChatOps4s",
       logo: {
-        alt: "Chatops4s Logo",
+        alt: "ChatOps4s Logo",
         src: "img/chatops4s-logo.drawio.svg",
       },
       items: [
@@ -77,19 +67,12 @@ const config: Config = {
     footer: {
       style: "dark",
       links: [],
-      // copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
       additionalLanguages: ["java", "scala", "json"],
     },
-    // algolia: {
-    //     appId: 'IMCN9UXKWU',
-    //     apiKey: '6abd8b572e53e72a85a9283c552438b7',
-    //     indexName: 'business4s',
-    //     searchPagePath: 'search',
-    // },
   } satisfies Preset.ThemeConfig,
   customFields: {
     chatops4sVersion: process.env.CHATOPS4S_VERSION,

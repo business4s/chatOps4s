@@ -3,7 +3,7 @@ import React from "react";
 import CodeBlock from "@theme/CodeBlock";
 
 interface SbtDependencyProps {
-  moduleName: "chatops4s-core" | "chatops4s-discord" | "chatops4s-slack";
+  moduleName: "chatops4s-slack";
 }
 
 const SbtDependency: React.FC<SbtDependencyProps> = ({ moduleName }) => {

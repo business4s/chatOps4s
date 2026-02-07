@@ -4,40 +4,42 @@ import styles from "./styles.module.css";
 
 type FeatureItem = {
   title: string;
-  Svg?: React.ComponentType<React.ComponentProps<"svg">>;
   description: JSX.Element;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: "Flexible",
+    title: "Simple",
     description: (
       <>
-        ChatOp4s works with a variety of chat platforms. Switch between Discord
-        or Slack.
+        Minimal API surface — send messages, register button handlers, and
+        listen for interactions in a few lines of code.
       </>
     ),
   },
   {
-    title: "Simple",
+    title: "Type-Safe",
     description: (
-      <>Minimal API to start recieving and reacting to interactions.</>
+      <>
+        Button values are typed with generics. Your handler receives a{" "}
+        <code>ButtonClick[T]</code> — no stringly-typed plumbing.
+      </>
     ),
   },
   {
-    title: "Powerful",
+    title: "Functional",
     description: (
-      <>Respond to chat interactions with your own business logic.</>
+      <>
+        Built on Cats Effect and sttp. Bring your own backend — fs2, http4s, or
+        anything sttp supports.
+      </>
     ),
   },
 ];
 
-function Feature({ title, Svg, description }: FeatureItem) {
+function Feature({ title, description }: FeatureItem) {
   return (
     <div className={clsx("col col--4")}>
-      {/*<div className="text--center">*/}
-      {/*  <Svg className={styles.featureSvg} role="img" />*/}
-      {/*</div>*/}
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>
         <p>{description}</p>
