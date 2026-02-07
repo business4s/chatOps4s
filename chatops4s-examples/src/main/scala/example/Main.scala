@@ -25,10 +25,13 @@ object Main extends IOApp.Simple {
       for {
         slack      <- SlackGateway.create(token, appToken, backend)
         approveBtn <- slack.onButton { (click, gw) =>
-                        gw.reply(click.messageId, s"Approved by <@${click.userId}>").void
+                        for {
+                          _ <- gw.update(click.messageId, s":white_check_mark: Deploy approved by <@${click.userId}>")
+                          _ <- gw.reply(click.messageId, "Deploying to production...").void
+                        } yield ()
                       }
         rejectBtn  <- slack.onButton { (click, gw) =>
-                        gw.reply(click.messageId, s"Rejected by <@${click.userId}>").void
+                        gw.update(click.messageId, "Deploy cancelled.").void
                       }
         slackFiber <- slack.listen.start
         _          <- slack.send(

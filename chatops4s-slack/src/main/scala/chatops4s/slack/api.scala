@@ -57,6 +57,7 @@ object SlackSetup {
 trait SlackGateway[F[_]] {
   def send(channel: String, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
   def reply(to: MessageId, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
+  def update(messageId: MessageId, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
   def listen: F[Unit]
 }
 

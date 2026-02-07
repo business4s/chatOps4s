@@ -17,6 +17,13 @@ private[slack] object SlackModels {
       thread_ts: Option[String] = None,
   ) derives Codec.AsObject
 
+  case class UpdateMessageRequest(
+      channel: String,
+      ts: String,
+      text: String,
+      blocks: Option[List[Block]] = None,
+  ) derives Codec.AsObject
+
   case class ResponseMetadata(
       messages: Option[List[String]] = None,
   ) derives Codec.AsObject
@@ -102,6 +109,36 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
   override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
     postMessage(to.channel, text, buttons, threadTs = Some(to.ts))
 
+  override def update(messageId: MessageId, text: String, buttons: Seq[Button]): F[MessageId] = {
+    val blocks = buildBlocks(text, buttons)
+
+    val request = UpdateMessageRequest(
+      channel = messageId.channel,
+      ts = messageId.ts,
+      text = text,
+      blocks = blocks,
+    )
+
+    val req = basicRequest
+      .post(uri"$baseUrl/chat.update")
+      .header("Authorization", s"Bearer $token")
+      .contentType("application/json")
+      .body(request.asJson.deepDropNullValues.noSpaces)
+      .response(asJson[PostMessageResponse])
+
+    backend.send(req).flatMap { response =>
+      response.body match {
+        case Right(slackResp) if slackResp.ok =>
+          Async[F].pure(messageId)
+        case Right(slackResp) =>
+          val details = slackResp.response_metadata.flatMap(_.messages).getOrElse(Nil).mkString("; ")
+          Async[F].raiseError(new RuntimeException(s"Slack API error: ${slackResp.error.getOrElse("unknown")}. $details"))
+        case Left(err) =>
+          Async[F].raiseError(new RuntimeException(s"Failed to parse response: $err"))
+      }
+    }
+  }
+
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
     handlersRef.get.flatMap { handlers =>
       val messageId = MessageId(
@@ -121,13 +158,8 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     }
   }
 
-  private def postMessage(
-      channel: String,
-      text: String,
-      buttons: Seq[Button],
-      threadTs: Option[String],
-  ): F[MessageId] = {
-    val blocks = if (buttons.nonEmpty) {
+  private def buildBlocks(text: String, buttons: Seq[Button]): Option[List[Block]] =
+    if (buttons.nonEmpty) {
       Some(List(
         Block(
           `type` = "section",
@@ -139,6 +171,14 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
         ),
       ))
     } else None
+
+  private def postMessage(
+      channel: String,
+      text: String,
+      buttons: Seq[Button],
+      threadTs: Option[String],
+  ): F[MessageId] = {
+    val blocks = buildBlocks(text, buttons)
 
     val request = PostMessageRequest(
       channel = channel,
