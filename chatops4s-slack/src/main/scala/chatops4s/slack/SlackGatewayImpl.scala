@@ -7,7 +7,7 @@ import java.util.UUID
 
 import SlackModels.*
 
-private[slack] type ErasedHandler[F[_]] = (ButtonClick[String], SlackGateway[F]) => F[Unit]
+private[slack] type ErasedHandler[F[_]] = ButtonClick[String] => F[Unit]
 private[slack] type ErasedCommandHandler[F[_]] = SlackModels.SlashCommandPayload => F[CommandResponse]
 
 private[slack] class SlackGatewayImpl[F[_]: Async](
@@ -17,7 +17,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     val listen: F[Unit],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
-  override def onButton[T <: String](handler: (ButtonClick[T], SlackGateway[F]) => F[Unit]): F[ButtonId[T]] = {
+  override def onButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
     val id = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
     handlersRef.update(_ + (id.value -> erased)).as(id)
@@ -65,7 +65,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
           value = action.value.getOrElse(""),
         )
 
-        handlers.get(action.action_id).traverse_(handler => handler(click, this))
+        handlers.get(action.action_id).traverse_(handler => handler(click))
       }
     }
   }
@@ -75,12 +75,12 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     // fox-comp would be cleaner
     commandHandlersRef.get.flatMap { handlers =>
       handlers.get(normalized).traverse_ { handler =>
-        handler(payload).flatMap { response =>
-          val (responseType, text) = response match {
-            case CommandResponse.Ephemeral(t) => ("ephemeral", t)
-            case CommandResponse.InChannel(t) => ("in_channel", t)
-          }
-          client.respondToCommand(payload.response_url, text, responseType)
+        handler(payload).flatMap {
+          case CommandResponse.Silent => Async[F].unit
+          case CommandResponse.Ephemeral(t) =>
+            client.respondToCommand(payload.response_url, t, "ephemeral")
+          case CommandResponse.InChannel(t) =>
+            client.respondToCommand(payload.response_url, t, "in_channel")
         }
       }
     }

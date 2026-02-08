@@ -40,6 +40,7 @@ sealed trait CommandResponse
 object CommandResponse {
   case class Ephemeral(text: String) extends CommandResponse
   case class InChannel(text: String) extends CommandResponse
+  case object Silent extends CommandResponse
 }
 
 case class CommandDef(command: String, description: String)

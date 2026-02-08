@@ -1,7 +1,7 @@
 package example
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{ButtonClick, ButtonId, CommandDef, CommandResponse, SlackGateway, SlackSetup}
+import chatops4s.slack.{ButtonClick, ButtonId, CommandDef, CommandParser, CommandResponse, SlackGateway, SlackSetup}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
@@ -20,33 +20,13 @@ object Main extends IOApp.Simple {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack      <- SlackGateway.create(token, appToken, backend)
-        approveBtn <- slack.onButton[Version](onApprove)
-        rejectBtn  <- slack.onButton[Version](onReject)
-        _          <- slack.onCommand[String]("deploy") { cmd =>
-                        IO.pure(CommandResponse.InChannel(s"Deployment of ${cmd.args} initiated by <@${cmd.userId}>"))
-                      }
+        approveBtn <- slack.onButton[Version](onApprove(slack))
+        rejectBtn  <- slack.onButton[Version](onReject(slack))
+        _          <- slack.onCommand[Version]("deploy")(onDeploy(slack, approveBtn, rejectBtn))
         slackFiber <- slack.listen.start
-//        _          <- requestApproval(Version("1.2.3"))(slack, approveBtn, rejectBtn)
         _          <- slackFiber.join
       } yield ()
     }
-  }
-
-  private def requestApproval(version: Version)(
-      slack: SlackGateway[IO],
-      approveBtn: ButtonId[Version],
-      rejectBtn: ButtonId[Version],
-  ): IO[Unit] = {
-    slack
-      .send(
-        channel,
-        prompt(version),
-        Seq(
-          approveBtn.toButton("Approve", version),
-          rejectBtn.toButton("Reject", version),
-        ),
-      )
-      .void
   }
 
   opaque type Version <: String = String
@@ -55,22 +35,42 @@ object Main extends IOApp.Simple {
     def apply(v: String): Version = v
   }
 
-  private def onApprove(click: ButtonClick[Version], gw: SlackGateway[IO]): IO[Unit] =
+  given CommandParser[Version] with {
+    def parse(text: String): Either[String, Version] =
+      if (text.matches("""v?\d+(\.\d+)*""")) Right(Version(text))
+      else Left(s"'$text' is not a valid version (expected e.g. v1.2.3)")
+  }
+
+  private def onApprove(slack: SlackGateway[IO])(click: ButtonClick[Version]): IO[Unit] =
     for {
-      _ <- gw.update(
+      _ <- slack.update(
              click.messageId,
              s"""${prompt(click.value)}
                 |:white_check_mark: *Approved* by <@${click.userId}>""".stripMargin,
            )
-      _ <- gw.reply(click.messageId, "Deploying to production...").void
+      _ <- slack.reply(click.messageId, "Deploying to production...")
     } yield ()
 
-  private def onReject(click: ButtonClick[Version], gw: SlackGateway[IO]): IO[Unit] =
-    gw.update(
+  private def onReject(slack: SlackGateway[IO])(click: ButtonClick[Version]): IO[Unit] =
+    slack.update(
       click.messageId,
       s"""${prompt(click.value)}
          |:x: *Rejected* by <@${click.userId}>""".stripMargin,
     ).void
+
+  private def onDeploy(
+      slack: SlackGateway[IO],
+      approveBtn: ButtonId[Version],
+      rejectBtn: ButtonId[Version],
+  )(cmd: chatops4s.slack.Command[Version]): IO[CommandResponse] =
+    slack.send(
+      cmd.channelId,
+      prompt(cmd.args),
+      Seq(
+        approveBtn.toButton("Approve", cmd.args),
+        rejectBtn.toButton("Reject", cmd.args),
+      ),
+    ).as(CommandResponse.Silent)
 
   private def prompt(v: Version): String = s"Deploy $v to production?"
 }
