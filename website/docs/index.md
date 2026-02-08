@@ -30,62 +30,14 @@ ChatOps4s uses [Socket Mode](https://api.slack.com/apis/socket-mode), so no publ
 
 ## Minimal Example
 
-```scala
-import cats.effect.{IO, IOApp}
-import chatops4s.slack.{SlackGateway, SlackSetup}
-import sttp.client4.httpclient.fs2.HttpClientFs2Backend
-
-object Main extends IOApp.Simple {
-
-  // Print the manifest to paste into Slack's "Create from manifest" dialog
-  println(SlackSetup.manifest(appName = "MyApp"))
-
-  private val token    = sys.env("SLACK_BOT_TOKEN")   // xoxb-...
-  private val appToken = sys.env("SLACK_APP_TOKEN")    // xapp-...
-  private val channel  = sys.env("SLACK_CHANNEL")      // #my-channel
-
-  override def run: IO[Unit] =
-    HttpClientFs2Backend.resource[IO]().use { backend =>
-      for {
-        slack <- SlackGateway.create(token, appToken, backend)
-        _     <- slack.send(channel, "Hello from ChatOps4s!")
-        _     <- slack.listen
-      } yield ()
-    }
-}
+```scala file=./main/scala/example/docs/GettingStarted.scala start=start_minimal end=end_minimal
 ```
 
 ## Interactive Buttons
 
 Register button handlers before calling `listen`. Each handler receives a typed `ButtonClick[T]` and the gateway itself:
 
-```scala
-import chatops4s.slack._
-
-// Define a typed button handler
-val program: IO[Unit] =
-  HttpClientFs2Backend.resource[IO]().use { backend =>
-    for {
-      slack      <- SlackGateway.create(token, appToken, backend)
-      approveBtn <- slack.onButton[String] { (click, gw) =>
-                      gw.update(click.messageId, s"Approved by <@${click.userId}>")
-                        .void
-                    }
-      rejectBtn  <- slack.onButton[String] { (click, gw) =>
-                      gw.update(click.messageId, s"Rejected by <@${click.userId}>")
-                        .void
-                    }
-      _          <- slack.send(
-                      channel,
-                      "Deploy v1.2.3 to production?",
-                      Seq(
-                        approveBtn.toButton("Approve", "v1.2.3"),
-                        rejectBtn.toButton("Reject", "v1.2.3"),
-                      ),
-                    )
-      _          <- slack.listen
-    } yield ()
-  }
+```scala file=./main/scala/example/docs/GettingStarted.scala start=start_buttons end=end_buttons
 ```
 
 ## API Overview
