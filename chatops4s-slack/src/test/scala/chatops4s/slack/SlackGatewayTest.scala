@@ -200,6 +200,52 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
     }
 
+    "delete" - {
+      "should delete a message" in {
+        val backend = MockBackend.withOkApi()
+        val gateway = createGateway(backend)
+
+        gateway.delete(MessageId("C123", "1234567890.123")).unsafeRunSync()
+      }
+
+      "should handle API errors on delete" in {
+        val errorBody = SlackModels.OkResponse(ok = false, error = Some("message_not_found")).asJson.noSpaces
+        val backend = MockBackend.create()
+          .whenAnyRequest.thenRespondAdjust(errorBody)
+        val gateway = createGateway(backend)
+
+        val ex = intercept[SlackApiException] {
+          gateway.delete(MessageId("C123", "1234567890.123")).unsafeRunSync()
+        }
+        ex.error shouldBe "message_not_found"
+      }
+    }
+
+    "reactions" - {
+      "should add a reaction" in {
+        val backend = MockBackend.withOkApi()
+        val gateway = createGateway(backend)
+
+        gateway.addReaction(MessageId("C123", "1234567890.123"), "rocket").unsafeRunSync()
+      }
+
+      "should remove a reaction" in {
+        val backend = MockBackend.withOkApi()
+        val gateway = createGateway(backend)
+
+        gateway.removeReaction(MessageId("C123", "1234567890.123"), "rocket").unsafeRunSync()
+      }
+    }
+
+    "sendEphemeral" - {
+      "should send an ephemeral message" in {
+        val backend = MockBackend.withOkApi()
+        val gateway = createGateway(backend)
+
+        gateway.sendEphemeral("C123", "U456", "Only you can see this").unsafeRunSync()
+      }
+    }
+
     "onCommand" - {
       "should dispatch slash command to registered handler" in {
         val backend = MockBackend.withResponseUrl()

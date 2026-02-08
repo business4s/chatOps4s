@@ -17,6 +17,7 @@ case class ButtonClick[T <: String](
     userId: String,
     messageId: MessageId,
     value: T,
+    threadId: Option[MessageId] = None,
 )
 
 trait CommandParser[T] {

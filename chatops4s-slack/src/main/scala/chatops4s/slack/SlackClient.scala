@@ -54,6 +54,45 @@ private[slack] class SlackClient[F[_]: Async](token: String, backend: Backend[F]
     backend.send(req).void
   }
 
+  def deleteMessage(messageId: MessageId): F[Unit] = {
+    val request = DeleteMessageRequest(channel = messageId.channel, ts = messageId.ts)
+    sendOkRequest(uri"$baseUrl/chat.delete", request.asJson)
+  }
+
+  def addReaction(messageId: MessageId, emoji: String): F[Unit] = {
+    val request = ReactionRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji)
+    sendOkRequest(uri"$baseUrl/reactions.add", request.asJson)
+  }
+
+  def removeReaction(messageId: MessageId, emoji: String): F[Unit] = {
+    val request = ReactionRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji)
+    sendOkRequest(uri"$baseUrl/reactions.remove", request.asJson)
+  }
+
+  def postEphemeral(channel: String, userId: String, text: String): F[Unit] = {
+    val request = PostEphemeralRequest(channel = channel, user = userId, text = text)
+    sendOkRequest(uri"$baseUrl/chat.postEphemeral", request.asJson)
+  }
+
+  private def sendOkRequest(url: sttp.model.Uri, body: io.circe.Json): F[Unit] = {
+    val req = basicRequest
+      .post(url)
+      .header("Authorization", s"Bearer $token")
+      .contentType("application/json")
+      .body(body.noSpaces)
+      .response(asJson[OkResponse])
+
+    backend.send(req).flatMap { response =>
+      response.body match {
+        case Right(r) if r.ok => Async[F].unit
+        case Right(r) =>
+          Async[F].raiseError(SlackApiException(r.error.getOrElse("unknown")))
+        case Left(err) =>
+          Async[F].raiseError(SlackApiException("parse_error", List(s"Failed to parse response: $err")))
+      }
+    }
+  }
+
   def updateMessage(messageId: MessageId, text: String, blocks: Option[List[Block]]): F[MessageId] = {
     val request = UpdateMessageRequest(
       channel = messageId.channel,

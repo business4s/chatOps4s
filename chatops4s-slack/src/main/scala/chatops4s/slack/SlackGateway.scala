@@ -8,6 +8,10 @@ trait SlackGateway[F[_]] {
   def send(channel: String, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
   def reply(to: MessageId, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
   def update(messageId: MessageId, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
+  def delete(messageId: MessageId): F[Unit]
+  def addReaction(messageId: MessageId, emoji: String): F[Unit]
+  def removeReaction(messageId: MessageId, emoji: String): F[Unit]
+  def sendEphemeral(channel: String, userId: String, text: String): F[Unit]
   def listen: F[Unit]
 }
 

@@ -36,7 +36,8 @@ object SlackSetup {
        |  scopes:
        |    bot:
        |      - chat:write
-       |      - chat:write.public$commandScopes
+       |      - chat:write.public
+       |      - reactions:write$commandScopes
        |settings:
        |  interactivity:
        |    is_enabled: true

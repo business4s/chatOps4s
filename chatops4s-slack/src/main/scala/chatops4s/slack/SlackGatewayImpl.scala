@@ -51,18 +51,32 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
   override def update(messageId: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
     client.updateMessage(messageId, text, buildBlocks(text, buttons))
 
+  override def delete(messageId: MessageId): F[Unit] =
+    client.deleteMessage(messageId)
+
+  override def addReaction(messageId: MessageId, emoji: String): F[Unit] =
+    client.addReaction(messageId, emoji)
+
+  override def removeReaction(messageId: MessageId, emoji: String): F[Unit] =
+    client.removeReaction(messageId, emoji)
+
+  override def sendEphemeral(channel: String, userId: String, text: String): F[Unit] =
+    client.postEphemeral(channel, userId, text)
+
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
     handlersRef.get.flatMap { handlers =>
       val messageId = MessageId(
         channel = payload.channel.id,
         ts = payload.container.message_ts.getOrElse(""),
       )
+      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(payload.channel.id, ts))
 
       payload.actions.getOrElse(Nil).traverse_ { action =>
         val click = ButtonClick[String](
           userId = payload.user.id,
           messageId = messageId,
           value = action.value.getOrElse(""),
+          threadId = threadId,
         )
 
         handlers.get(action.action_id).traverse_(handler => handler(click))

@@ -1,6 +1,7 @@
 package example
 
 import cats.effect.{IO, IOApp}
+import cats.syntax.all.*
 import chatops4s.slack.{ButtonClick, ButtonId, CommandDef, CommandParser, CommandResponse, SlackGateway, SlackSetup}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
@@ -42,35 +43,39 @@ object Main extends IOApp.Simple {
   }
 
   private def onApprove(slack: SlackGateway[IO])(click: ButtonClick[Version]): IO[Unit] =
-    for {
-      _ <- slack.update(
-             click.messageId,
-             s"""${prompt(click.value)}
-                |:white_check_mark: *Approved* by <@${click.userId}>""".stripMargin,
-           )
-      _ <- slack.reply(click.messageId, "Deploying to production...")
-    } yield ()
+    click.threadId.traverse_ { parent =>
+      for {
+        _ <- slack.update(click.messageId, s":white_check_mark: *Approved* by <@${click.userId}>")
+        _ <- slack.removeReaction(parent, "hourglass_flowing_sand")
+        _ <- slack.addReaction(parent, "white_check_mark")
+        _ <- slack.reply(parent, "Deploying to production...")
+      } yield ()
+    }
 
   private def onReject(slack: SlackGateway[IO])(click: ButtonClick[Version]): IO[Unit] =
-    slack.update(
-      click.messageId,
-      s"""${prompt(click.value)}
-         |:x: *Rejected* by <@${click.userId}>""".stripMargin,
-    ).void
+    click.threadId.traverse_ { parent =>
+      for {
+        _ <- slack.update(click.messageId, s":x: *Rejected* by <@${click.userId}>")
+        _ <- slack.removeReaction(parent, "hourglass_flowing_sand")
+        _ <- slack.addReaction(parent, "x")
+      } yield ()
+    }
 
   private def onDeploy(
       slack: SlackGateway[IO],
       approveBtn: ButtonId[Version],
       rejectBtn: ButtonId[Version],
   )(cmd: chatops4s.slack.Command[Version]): IO[CommandResponse] =
-    slack.send(
-      cmd.channelId,
-      prompt(cmd.args),
-      Seq(
-        approveBtn.toButton("Approve", cmd.args),
-        rejectBtn.toButton("Reject", cmd.args),
-      ),
-    ).as(CommandResponse.Silent)
-
-  private def prompt(v: Version): String = s"Deploy $v to production?"
+    for {
+      msg <- slack.send(cmd.channelId, s"Deploying *${cmd.args}* to production")
+      _   <- slack.addReaction(msg, "hourglass_flowing_sand")
+      _   <- slack.reply(
+               msg,
+               s"Approve deployment of *${cmd.args}*?",
+               Seq(
+                 approveBtn.toButton("Approve", cmd.args),
+                 rejectBtn.toButton("Reject", cmd.args),
+               ),
+             )
+    } yield CommandResponse.Silent
 }

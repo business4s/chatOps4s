@@ -1,6 +1,7 @@
 package chatops4s.slack
 
 import cats.effect.IO
+import io.circe.syntax.*
 import sttp.client4.testing.*
 import sttp.model.StatusCode
 
@@ -34,4 +35,11 @@ object MockBackend {
     create()
       .whenRequestMatches(_.uri.toString().contains("hooks.slack.com"))
       .thenRespondAdjust("ok", statusCode)
+
+  private val okBody = SlackModels.OkResponse(ok = true).asJson.noSpaces
+
+  def withOkApi(): BackendStub[IO] =
+    create()
+      .whenAnyRequest
+      .thenRespondAdjust(okBody)
 }

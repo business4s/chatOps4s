@@ -53,12 +53,14 @@ private[slack] object SlackModels {
       user: User,
       channel: Channel,
       container: Container,
+      message: Option[InteractionMessage] = None,
       actions: Option[List[Action]] = None,
   ) derives Codec.AsObject
 
   case class User(id: String) derives Codec.AsObject
   case class Channel(id: String) derives Codec.AsObject
   case class Container(message_ts: Option[String] = None) derives Codec.AsObject
+  case class InteractionMessage(thread_ts: Option[String] = None) derives Codec.AsObject
   case class Action(action_id: String, value: Option[String] = None) derives Codec.AsObject
 
   case class ConnectionsOpenResponse(
@@ -88,5 +90,27 @@ private[slack] object SlackModels {
   case class CommandResponsePayload(
       response_type: String,
       text: String,
+  ) derives Codec.AsObject
+
+  case class DeleteMessageRequest(
+      channel: String,
+      ts: String,
+  ) derives Codec.AsObject
+
+  case class ReactionRequest(
+      channel: String,
+      timestamp: String,
+      name: String,
+  ) derives Codec.AsObject
+
+  case class PostEphemeralRequest(
+      channel: String,
+      user: String,
+      text: String,
+  ) derives Codec.AsObject
+
+  case class OkResponse(
+      ok: Boolean,
+      error: Option[String] = None,
   ) derives Codec.AsObject
 }
