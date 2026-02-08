@@ -18,14 +18,15 @@ private[slack] object SocketMode {
       appToken: String,
       backend: WebSocketBackend[F],
       onInteraction: InteractionPayload => F[Unit],
+      onSlashCommand: SlashCommandPayload => F[Unit],
   ): F[Unit] = {
     val loop: F[Unit] = for {
       url <- openSocketUrl(appToken, backend)
-      _   <- connectAndHandle(url, backend, onInteraction)
+      _   <- connectAndHandle(url, backend, onInteraction, onSlashCommand)
     } yield ()
 
     loop.handleErrorWith { _ =>
-      Temporal[F].sleep(2.seconds) >> runLoop(appToken, backend, onInteraction)
+      Temporal[F].sleep(2.seconds) >> runLoop(appToken, backend, onInteraction, onSlashCommand)
     }
   }
 
@@ -57,6 +58,7 @@ private[slack] object SocketMode {
       url: String,
       backend: WebSocketBackend[F],
       onInteraction: InteractionPayload => F[Unit],
+      onSlashCommand: SlashCommandPayload => F[Unit],
   ): F[Unit] = {
     basicRequest
       .get(uri"$url")
@@ -72,6 +74,15 @@ private[slack] object SocketMode {
                       case Some(json) =>
                         json.as[InteractionPayload] match {
                           case Right(payload) => onInteraction(payload).attempt.void
+                          case Left(_)        => Async[F].unit
+                        }
+                      case None => Async[F].unit
+                    }
+                  case "slash_commands" =>
+                    envelope.payload match {
+                      case Some(json) =>
+                        json.as[SlashCommandPayload] match {
+                          case Right(payload) => onSlashCommand(payload).attempt.void
                           case Left(_)        => Async[F].unit
                         }
                       case None => Async[F].unit

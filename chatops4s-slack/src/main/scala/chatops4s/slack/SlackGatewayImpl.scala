@@ -8,10 +8,12 @@ import java.util.UUID
 import SlackModels.*
 
 private[slack] type ErasedHandler[F[_]] = (ButtonClick[String], SlackGateway[F]) => F[Unit]
+private[slack] type ErasedCommandHandler[F[_]] = SlackModels.SlashCommandPayload => F[CommandResponse]
 
 private[slack] class SlackGatewayImpl[F[_]: Async](
     client: SlackClient[F],
     handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
+    commandHandlersRef: Ref[F, Map[String, ErasedCommandHandler[F]]],
     val listen: F[Unit],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
@@ -19,6 +21,25 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     val id = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
     handlersRef.update(_ + (id.value -> erased)).as(id)
+  }
+
+  override def onCommand[T: {CommandParser as parser}](name: String)(handler: Command[T] => F[CommandResponse]): F[Unit] = {
+    val normalized = normalizeCommandName(name)
+    val erased: ErasedCommandHandler[F] = { payload =>
+      parser.parse(payload.text) match {
+        case Left(error) =>
+          Async[F].pure(CommandResponse.Ephemeral(s"Invalid command arguments: $error"))
+        case Right(args) =>
+          val cmd = Command(
+            args = args,
+            userId = payload.user_id,
+            channelId = payload.channel_id,
+            text = payload.text,
+          )
+          handler(cmd)
+      }
+    }
+    commandHandlersRef.update(_ + (normalized -> erased))
   }
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
@@ -48,6 +69,25 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
       }
     }
   }
+
+  private[slack] def handleSlashCommandPayload(payload: SlackModels.SlashCommandPayload): F[Unit] = {
+    val normalized = normalizeCommandName(payload.command)
+    // fox-comp would be cleaner
+    commandHandlersRef.get.flatMap { handlers =>
+      handlers.get(normalized).traverse_ { handler =>
+        handler(payload).flatMap { response =>
+          val (responseType, text) = response match {
+            case CommandResponse.Ephemeral(t) => ("ephemeral", t)
+            case CommandResponse.InChannel(t) => ("in_channel", t)
+          }
+          client.respondToCommand(payload.response_url, text, responseType)
+        }
+      }
+    }
+  }
+
+  private def normalizeCommandName(name: String): String =
+    name.stripPrefix("/").toLowerCase
 
   private def buildBlocks(text: String, buttons: Seq[Button]): Option[List[Block]] =
     if (buttons.nonEmpty) {

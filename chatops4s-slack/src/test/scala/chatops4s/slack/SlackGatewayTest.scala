@@ -20,8 +20,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       backend: sttp.client4.testing.BackendStub[IO],
   ): SlackGatewayImpl[IO] = {
     val handlersRef = Ref.of[IO, Map[String, ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef = Ref.of[IO, Map[String, ErasedCommandHandler[IO]]](Map.empty).unsafeRunSync()
     val client = new SlackClient[IO]("test-token", backend)
-    new SlackGatewayImpl[IO](client, handlersRef, listen = IO.never)
+    new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, listen = IO.never)
   }
 
   "SlackGateway" - {
@@ -198,7 +199,85 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         count shouldBe 11
       }
     }
+
+    "onCommand" - {
+      "should dispatch slash command to registered handler" in {
+        val backend = MockBackend.withResponseUrl()
+        val gateway = createGateway(backend)
+        var captured: Option[Command[String]] = None
+
+        gateway.onCommand[String]("/deploy") { cmd =>
+          IO { captured = Some(cmd) }.as(CommandResponse.InChannel(s"Deploying ${cmd.args}"))
+        }.unsafeRunSync()
+
+        val payload = slashCommandPayload("/deploy", "v1.2.3")
+        gateway.handleSlashCommandPayload(payload).unsafeRunSync()
+
+        captured shouldBe defined
+        captured.get.args shouldBe "v1.2.3"
+        captured.get.userId shouldBe "U123"
+        captured.get.channelId shouldBe "C123"
+        captured.get.text shouldBe "v1.2.3"
+      }
+
+      "should normalize command names (strip / and lowercase)" in {
+        val backend = MockBackend.withResponseUrl()
+        val gateway = createGateway(backend)
+        var called = false
+
+        gateway.onCommand[String]("Deploy") { _ =>
+          IO { called = true }.as(CommandResponse.Ephemeral("ok"))
+        }.unsafeRunSync()
+
+        val payload = slashCommandPayload("/deploy", "test")
+        gateway.handleSlashCommandPayload(payload).unsafeRunSync()
+
+        called shouldBe true
+      }
+
+      "should ignore unregistered commands" in {
+        val backend = MockBackend.create()
+        val gateway = createGateway(backend)
+        var called = false
+
+        gateway.onCommand[String]("/deploy") { _ =>
+          IO { called = true }.as(CommandResponse.Ephemeral("ok"))
+        }.unsafeRunSync()
+
+        val payload = slashCommandPayload("/rollback", "test")
+        gateway.handleSlashCommandPayload(payload).unsafeRunSync()
+
+        called shouldBe false
+      }
+
+      "should return ephemeral error on parse failure" in {
+        val backend = MockBackend.withResponseUrl()
+        val gateway = createGateway(backend)
+
+        given CommandParser[Int] with {
+          def parse(text: String): Either[String, Int] =
+            text.toIntOption.toRight(s"'$text' is not a number")
+        }
+
+        gateway.onCommand[Int]("/count") { cmd =>
+          IO.pure(CommandResponse.InChannel(s"Count: ${cmd.args}"))
+        }.unsafeRunSync()
+
+        // This should not throw - parse error is handled internally
+        val payload = slashCommandPayload("/count", "not-a-number")
+        gateway.handleSlashCommandPayload(payload).unsafeRunSync()
+      }
+    }
   }
+
+  private def slashCommandPayload(command: String, text: String): SlackModels.SlashCommandPayload =
+    SlackModels.SlashCommandPayload(
+      command = command,
+      text = text,
+      user_id = "U123",
+      channel_id = "C123",
+      response_url = "https://hooks.slack.com/commands/T123/456/789",
+    )
 
   private def interactionPayload(actionId: String, value: String): SlackModels.InteractionPayload =
     SlackModels.InteractionPayload(

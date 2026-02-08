@@ -76,4 +76,17 @@ private[slack] object SlackModels {
   case class SocketAck(
       envelope_id: String,
   ) derives Codec.AsObject
+
+  case class SlashCommandPayload(
+      command: String,
+      text: String,
+      user_id: String,
+      channel_id: String,
+      response_url: String,
+  ) derives Codec.AsObject
+
+  case class CommandResponsePayload(
+      response_type: String,
+      text: String,
+  ) derives Codec.AsObject
 }

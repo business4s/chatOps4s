@@ -18,14 +18,17 @@ object SlackGateway {
       appToken: String,
       backend: WebSocketBackend[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
-    Ref.of[F, Map[String, ErasedHandler[F]]](Map.empty).map { handlersRef =>
+    for {
+      handlersRef        <- Ref.of[F, Map[String, ErasedHandler[F]]](Map.empty)
+      commandHandlersRef <- Ref.of[F, Map[String, ErasedCommandHandler[F]]](Map.empty)
+    } yield {
       val client = new SlackClient[F](token, backend)
       val listenRef = new java.util.concurrent.atomic.AtomicReference[F[Unit]]()
       val gateway = new SlackGatewayImpl[F](
-        client, handlersRef,
+        client, handlersRef, commandHandlersRef,
         listen = Async[F].defer(listenRef.get()),
       )
-      listenRef.set(SocketMode.runLoop(appToken, backend, gateway.handleInteractionPayload))
+      listenRef.set(SocketMode.runLoop(appToken, backend, gateway.handleInteractionPayload, gateway.handleSlashCommandPayload))
       gateway: SlackGateway[F] & SlackSetup[F]
     }
   }

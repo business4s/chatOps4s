@@ -29,4 +29,9 @@ object MockBackend {
     create()
       .whenRequestMatches(_.uri.toString().contains("chat.update"))
       .thenRespondAdjust(responseBody, statusCode)
+
+  def withResponseUrl(statusCode: StatusCode = StatusCode.Ok): BackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("hooks.slack.com"))
+      .thenRespondAdjust("ok", statusCode)
 }

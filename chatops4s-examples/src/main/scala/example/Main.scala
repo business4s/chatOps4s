@@ -1,13 +1,16 @@
 package example
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{ButtonClick, ButtonId, SlackGateway, SlackSetup}
+import chatops4s.slack.{ButtonClick, ButtonId, CommandDef, CommandResponse, SlackGateway, SlackSetup}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
 
   // Paste at https://api.slack.com/apps → Create New App → From an app manifest
-  println(SlackSetup.manifest(appName = "ChatOps4sExample"))
+  println(SlackSetup.manifest(
+    appName = "ChatOps4sExample",
+    commands = Seq(CommandDef("/deploy", "Deploy a version to production")),
+  ))
 
   private val token    = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token")
   private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
@@ -19,8 +22,11 @@ object Main extends IOApp.Simple {
         slack      <- SlackGateway.create(token, appToken, backend)
         approveBtn <- slack.onButton[Version](onApprove)
         rejectBtn  <- slack.onButton[Version](onReject)
+        _          <- slack.onCommand[String]("deploy") { cmd =>
+                        IO.pure(CommandResponse.InChannel(s"Deployment of ${cmd.args} initiated by <@${cmd.userId}>"))
+                      }
         slackFiber <- slack.listen.start
-        _          <- requestApproval(Version("1.2.3"))(slack, approveBtn, rejectBtn)
+//        _          <- requestApproval(Version("1.2.3"))(slack, approveBtn, rejectBtn)
         _          <- slackFiber.join
       } yield ()
     }

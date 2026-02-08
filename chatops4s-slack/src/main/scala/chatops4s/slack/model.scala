@@ -19,5 +19,30 @@ case class ButtonClick[T <: String](
     value: T,
 )
 
+trait CommandParser[T] {
+  def parse(text: String): Either[String, T]
+}
+
+object CommandParser {
+  given CommandParser[String] with {
+    def parse(text: String): Either[String, String] = Right(text)
+  }
+}
+
+case class Command[T](
+    args: T,
+    userId: String,
+    channelId: String,
+    text: String,
+)
+
+sealed trait CommandResponse
+object CommandResponse {
+  case class Ephemeral(text: String) extends CommandResponse
+  case class InChannel(text: String) extends CommandResponse
+}
+
+case class CommandDef(command: String, description: String)
+
 case class SlackApiException(error: String, details: List[String] = Nil)
     extends RuntimeException(s"Slack API error: $error${if (details.nonEmpty) s". ${details.mkString("; ")}" else ""}")

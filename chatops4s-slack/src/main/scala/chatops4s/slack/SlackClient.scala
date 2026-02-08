@@ -43,6 +43,17 @@ private[slack] class SlackClient[F[_]: Async](token: String, backend: Backend[F]
     }
   }
 
+  def respondToCommand(responseUrl: String, text: String, responseType: String): F[Unit] = {
+    val body = CommandResponsePayload(response_type = responseType, text = text)
+
+    val req = basicRequest
+      .post(uri"$responseUrl")
+      .contentType("application/json")
+      .body(body.asJson.noSpaces)
+
+    backend.send(req).void
+  }
+
   def updateMessage(messageId: MessageId, text: String, blocks: Option[List[Block]]): F[MessageId] = {
     val request = UpdateMessageRequest(
       channel = messageId.channel,
