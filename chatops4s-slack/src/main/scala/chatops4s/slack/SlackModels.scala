@@ -4,32 +4,6 @@ import io.circe.{Codec, Json}
 
 private[slack] object SlackModels {
 
-  case class PostMessageRequest(
-      channel: String,
-      text: String,
-      blocks: Option[List[Block]] = None,
-      thread_ts: Option[String] = None,
-  ) derives Codec.AsObject
-
-  case class UpdateMessageRequest(
-      channel: String,
-      ts: String,
-      text: String,
-      blocks: Option[List[Block]] = None,
-  ) derives Codec.AsObject
-
-  case class ResponseMetadata(
-      messages: Option[List[String]] = None,
-  ) derives Codec.AsObject
-
-  case class PostMessageResponse(
-      ok: Boolean,
-      channel: Option[String] = None,
-      ts: Option[String] = None,
-      error: Option[String] = None,
-      response_metadata: Option[ResponseMetadata] = None,
-  ) derives Codec.AsObject
-
   case class Block(
       `type`: String,
       text: Option[TextObject] = None,
@@ -63,12 +37,6 @@ private[slack] object SlackModels {
   case class InteractionMessage(thread_ts: Option[String] = None) derives Codec.AsObject
   case class Action(action_id: String, value: Option[String] = None) derives Codec.AsObject
 
-  case class ConnectionsOpenResponse(
-      ok: Boolean,
-      url: Option[String] = None,
-      error: Option[String] = None,
-  ) derives Codec.AsObject
-
   case class SocketEnvelope(
       envelope_id: String,
       `type`: String,
@@ -90,27 +58,5 @@ private[slack] object SlackModels {
   case class CommandResponsePayload(
       response_type: String,
       text: String,
-  ) derives Codec.AsObject
-
-  case class DeleteMessageRequest(
-      channel: String,
-      ts: String,
-  ) derives Codec.AsObject
-
-  case class ReactionRequest(
-      channel: String,
-      timestamp: String,
-      name: String,
-  ) derives Codec.AsObject
-
-  case class PostEphemeralRequest(
-      channel: String,
-      user: String,
-      text: String,
-  ) derives Codec.AsObject
-
-  case class OkResponse(
-      ok: Boolean,
-      error: Option[String] = None,
   ) derives Codec.AsObject
 }

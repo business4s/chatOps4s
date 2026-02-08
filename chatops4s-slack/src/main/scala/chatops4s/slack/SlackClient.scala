@@ -2,44 +2,27 @@ package chatops4s.slack
 
 import cats.effect.kernel.Async
 import cats.syntax.all.*
+import chatops4s.slack.api.{SlackApi, chat, reactions}
 import io.circe.syntax.*
 import sttp.client4.*
-import sttp.client4.circe.*
 
 import SlackModels.*
 
 private[slack] class SlackClient[F[_]: Async](token: String, backend: Backend[F]) {
 
-  private val baseUrl = "https://slack.com/api"
+  private val api = new SlackApi[F](backend, token)
 
   def postMessage(channel: String, text: String, blocks: Option[List[Block]], threadTs: Option[String]): F[MessageId] = {
-    val request = PostMessageRequest(
+    val request = chat.PostMessageRequest(
       channel = channel,
       text = text,
-      blocks = blocks,
+      blocks = blocks.map(_.map(_.asJson)),
       thread_ts = threadTs,
     )
 
-    val req = basicRequest
-      .post(uri"$baseUrl/chat.postMessage")
-      .header("Authorization", s"Bearer $token")
-      .contentType("application/json")
-      .body(request.asJson.deepDropNullValues.noSpaces)
-      .response(asJson[PostMessageResponse])
-
-    backend.send(req).flatMap { response =>
-      response.body match {
-        case Right(slackResp) if slackResp.ok =>
-          slackResp.ts match {
-            case Some(ts0) => Async[F].pure(MessageId(channel, ts0))
-            case None      => Async[F].raiseError(SlackApiException("no_timestamp", List("No timestamp in response")))
-          }
-        case Right(slackResp) =>
-          val details = slackResp.response_metadata.flatMap(_.messages).getOrElse(Nil)
-          Async[F].raiseError(SlackApiException(slackResp.error.getOrElse("unknown"), details))
-        case Left(err) =>
-          Async[F].raiseError(SlackApiException("parse_error", List(s"Failed to parse response: $err")))
-      }
+    api.chat.postMessage(request).map { resp =>
+      val r = resp.okOrThrow
+      MessageId(channel, r.ts)
     }
   }
 
@@ -54,70 +37,33 @@ private[slack] class SlackClient[F[_]: Async](token: String, backend: Backend[F]
     backend.send(req).void
   }
 
-  def deleteMessage(messageId: MessageId): F[Unit] = {
-    val request = DeleteMessageRequest(channel = messageId.channel, ts = messageId.ts)
-    sendOkRequest(uri"$baseUrl/chat.delete", request.asJson)
-  }
+  def deleteMessage(messageId: MessageId): F[Unit] =
+    api.chat.delete(chat.DeleteRequest(channel = messageId.channel, ts = messageId.ts))
+      .map(_.okOrThrow).void
 
-  def addReaction(messageId: MessageId, emoji: String): F[Unit] = {
-    val request = ReactionRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji)
-    sendOkRequest(uri"$baseUrl/reactions.add", request.asJson)
-  }
+  def addReaction(messageId: MessageId, emoji: String): F[Unit] =
+    api.reactions.add(reactions.AddRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
+      .map(_.okOrThrow).void
 
-  def removeReaction(messageId: MessageId, emoji: String): F[Unit] = {
-    val request = ReactionRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji)
-    sendOkRequest(uri"$baseUrl/reactions.remove", request.asJson)
-  }
+  def removeReaction(messageId: MessageId, emoji: String): F[Unit] =
+    api.reactions.remove(reactions.RemoveRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
+      .map(_.okOrThrow).void
 
-  def postEphemeral(channel: String, userId: String, text: String): F[Unit] = {
-    val request = PostEphemeralRequest(channel = channel, user = userId, text = text)
-    sendOkRequest(uri"$baseUrl/chat.postEphemeral", request.asJson)
-  }
-
-  private def sendOkRequest(url: sttp.model.Uri, body: io.circe.Json): F[Unit] = {
-    val req = basicRequest
-      .post(url)
-      .header("Authorization", s"Bearer $token")
-      .contentType("application/json")
-      .body(body.noSpaces)
-      .response(asJson[OkResponse])
-
-    backend.send(req).flatMap { response =>
-      response.body match {
-        case Right(r) if r.ok => Async[F].unit
-        case Right(r) =>
-          Async[F].raiseError(SlackApiException(r.error.getOrElse("unknown")))
-        case Left(err) =>
-          Async[F].raiseError(SlackApiException("parse_error", List(s"Failed to parse response: $err")))
-      }
-    }
-  }
+  def postEphemeral(channel: String, userId: String, text: String): F[Unit] =
+    api.chat.postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
+      .map(_.okOrThrow).void
 
   def updateMessage(messageId: MessageId, text: String, blocks: Option[List[Block]]): F[MessageId] = {
-    val request = UpdateMessageRequest(
+    val request = chat.UpdateRequest(
       channel = messageId.channel,
       ts = messageId.ts,
-      text = text,
-      blocks = blocks,
+      text = Some(text),
+      blocks = blocks.map(_.map(_.asJson)),
     )
 
-    val req = basicRequest
-      .post(uri"$baseUrl/chat.update")
-      .header("Authorization", s"Bearer $token")
-      .contentType("application/json")
-      .body(request.asJson.deepDropNullValues.noSpaces)
-      .response(asJson[PostMessageResponse])
-
-    backend.send(req).flatMap { response =>
-      response.body match {
-        case Right(slackResp) if slackResp.ok =>
-          Async[F].pure(messageId)
-        case Right(slackResp) =>
-          val details = slackResp.response_metadata.flatMap(_.messages).getOrElse(Nil)
-          Async[F].raiseError(SlackApiException(slackResp.error.getOrElse("unknown"), details))
-        case Left(err) =>
-          Async[F].raiseError(SlackApiException("parse_error", List(s"Failed to parse response: $err")))
-      }
+    api.chat.update(request).map { resp =>
+      resp.okOrThrow
+      messageId
     }
   }
 }

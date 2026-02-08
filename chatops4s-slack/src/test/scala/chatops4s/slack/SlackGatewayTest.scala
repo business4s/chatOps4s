@@ -4,17 +4,12 @@ import cats.effect.IO
 import cats.effect.kernel.Ref
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
-import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
-  private val okResponse = SlackModels.PostMessageResponse(
-    ok = true,
-    channel = Some("C123"),
-    ts = Some("1234567890.123"),
-  )
+  private val okPostMessage = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
 
   private def createGateway(
       backend: sttp.client4.testing.BackendStub[IO],
@@ -29,7 +24,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "send" - {
       "should send a simple message" in {
-        val backend = MockBackend.withPostMessage(okResponse.asJson.noSpaces)
+        val backend = MockBackend.withPostMessage(okPostMessage)
         val gateway = createGateway(backend)
 
         val result = gateway.send("C123", "Hello World").unsafeRunSync()
@@ -38,7 +33,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should send a message with buttons" in {
-        val backend = MockBackend.withPostMessage(okResponse.asJson.noSpaces)
+        val backend = MockBackend.withPostMessage(okPostMessage)
         val gateway = createGateway(backend)
         val approve = gateway.onButton[String](_ => IO.unit).unsafeRunSync()
         val reject = gateway.onButton[String](_ => IO.unit).unsafeRunSync()
@@ -52,35 +47,21 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should handle API errors" in {
-        val errorResponse = SlackModels.PostMessageResponse(ok = false, error = Some("invalid_auth"))
-        val backend = MockBackend.withPostMessage(errorResponse.asJson.noSpaces)
+        val errorBody = """{"ok":false,"error":"invalid_auth"}"""
+        val backend = MockBackend.withPostMessage(errorBody)
         val gateway = createGateway(backend)
 
-        val ex = intercept[SlackApiException] {
+        val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.send("C123", "Test").unsafeRunSync()
         }
         ex.error shouldBe "invalid_auth"
-      }
-
-      "should handle missing timestamp" in {
-        val noTsResponse = SlackModels.PostMessageResponse(ok = true, ts = None)
-        val backend = MockBackend.withPostMessage(noTsResponse.asJson.noSpaces)
-        val gateway = createGateway(backend)
-
-        assertThrows[SlackApiException] {
-          gateway.send("C123", "Test").unsafeRunSync()
-        }
       }
     }
 
     "reply" - {
       "should reply in thread" in {
-        val threadResponse = SlackModels.PostMessageResponse(
-          ok = true,
-          channel = Some("C123"),
-          ts = Some("1234567891.456"),
-        )
-        val backend = MockBackend.withPostMessage(threadResponse.asJson.noSpaces)
+        val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
+        val backend = MockBackend.withPostMessage(body)
         val gateway = createGateway(backend)
 
         val result = gateway.reply(MessageId("C123", "1234567890.123"), "Thread reply").unsafeRunSync()
@@ -89,12 +70,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should reply in thread with buttons" in {
-        val threadResponse = SlackModels.PostMessageResponse(
-          ok = true,
-          channel = Some("C123"),
-          ts = Some("1234567891.456"),
-        )
-        val backend = MockBackend.withPostMessage(threadResponse.asJson.noSpaces)
+        val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
+        val backend = MockBackend.withPostMessage(body)
         val gateway = createGateway(backend)
         val btn = gateway.onButton[String](_ => IO.unit).unsafeRunSync()
 
@@ -110,8 +87,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "update" - {
       "should update a message" in {
-        val updateResponse = SlackModels.PostMessageResponse(ok = true, channel = Some("C123"), ts = Some("1234567890.123"))
-        val backend = MockBackend.withUpdate(updateResponse.asJson.noSpaces)
+        val body = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
+        val backend = MockBackend.withUpdate(body)
         val gateway = createGateway(backend)
 
         val msgId = MessageId("C123", "1234567890.123")
@@ -121,12 +98,12 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should handle API errors on update" in {
-        val errorResponse = SlackModels.PostMessageResponse(ok = false, error = Some("message_not_found"))
-        val backend = MockBackend.withUpdate(errorResponse.asJson.noSpaces)
+        val errorBody = """{"ok":false,"error":"message_not_found"}"""
+        val backend = MockBackend.withUpdate(errorBody)
         val gateway = createGateway(backend)
 
         val msgId = MessageId("C123", "1234567890.123")
-        val ex = intercept[SlackApiException] {
+        val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.update(msgId, "Updated text").unsafeRunSync()
         }
         ex.error shouldBe "message_not_found"
@@ -202,19 +179,21 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "delete" - {
       "should delete a message" in {
-        val backend = MockBackend.withOkApi()
+        val body = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
+        val backend = MockBackend.create()
+          .whenAnyRequest.thenRespondAdjust(body)
         val gateway = createGateway(backend)
 
         gateway.delete(MessageId("C123", "1234567890.123")).unsafeRunSync()
       }
 
       "should handle API errors on delete" in {
-        val errorBody = SlackModels.OkResponse(ok = false, error = Some("message_not_found")).asJson.noSpaces
+        val errorBody = """{"ok":false,"error":"message_not_found"}"""
         val backend = MockBackend.create()
           .whenAnyRequest.thenRespondAdjust(errorBody)
         val gateway = createGateway(backend)
 
-        val ex = intercept[SlackApiException] {
+        val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.delete(MessageId("C123", "1234567890.123")).unsafeRunSync()
         }
         ex.error shouldBe "message_not_found"
@@ -239,7 +218,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "sendEphemeral" - {
       "should send an ephemeral message" in {
-        val backend = MockBackend.withOkApi()
+        val body = """{"ok":true,"message_ts":"1234567890.123"}"""
+        val backend = MockBackend.create()
+          .whenAnyRequest.thenRespondAdjust(body)
         val gateway = createGateway(backend)
 
         gateway.sendEphemeral("C123", "U456", "Only you can see this").unsafeRunSync()

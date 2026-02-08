@@ -4,8 +4,21 @@ lazy val `chatops4s` = (project in file("."))
     publish / skip := true,
   )
   .aggregate(
+    `chatops4s-slack-api`,
     `chatops4s-slack`,
     `chatops4s-examples`,
+  )
+
+lazy val `chatops4s-slack-api` = (project in file("chatops4s-slack-api"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "io.circe"                      %% "circe-core"    % "0.14.14",
+      "io.circe"                      %% "circe-generic" % "0.14.14",
+      "io.circe"                      %% "circe-parser"  % "0.14.14",
+      "com.softwaremill.sttp.client4" %% "core"          % "4.0.9",
+      "com.softwaremill.sttp.client4" %% "circe"         % "4.0.9",
+    ),
   )
 
 lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
@@ -13,15 +26,11 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel"                 %% "cats-effect"      % "3.6.3",
-      "io.circe"                      %% "circe-core"       % "0.14.14",
-      "io.circe"                      %% "circe-generic"    % "0.14.14",
-      "io.circe"                      %% "circe-parser"     % "0.14.14",
-      "com.softwaremill.sttp.client4" %% "core"             % "4.0.9",
-      "com.softwaremill.sttp.client4" %% "circe"            % "4.0.9",
       "com.softwaremill.sttp.client4" %% "cats"             % "4.0.9"  % Test,
     ),
     Test / parallelExecution := false,
   )
+  .dependsOn(`chatops4s-slack-api`)
 
 lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)

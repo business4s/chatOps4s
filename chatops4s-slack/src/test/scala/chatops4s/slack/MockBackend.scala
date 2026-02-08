@@ -36,7 +36,7 @@ object MockBackend {
       .whenRequestMatches(_.uri.toString().contains("hooks.slack.com"))
       .thenRespondAdjust("ok", statusCode)
 
-  private val okBody = SlackModels.OkResponse(ok = true).asJson.noSpaces
+  private val okBody = """{"ok":true}"""
 
   def withOkApi(): BackendStub[IO] =
     create()

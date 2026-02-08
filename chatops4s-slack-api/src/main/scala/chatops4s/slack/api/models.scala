@@ -1,0 +1,114 @@
+package chatops4s.slack.api
+
+import io.circe.{Codec, Decoder, Json}
+
+sealed trait SlackResponse[+T] {
+  def okOrThrow: T
+}
+
+object SlackResponse {
+  case class Ok[+T](value: T) extends SlackResponse[T] {
+    def okOrThrow: T = value
+  }
+  case class Err(error: String) extends SlackResponse[Nothing] {
+    def okOrThrow: Nothing = throw SlackApiError(error)
+  }
+
+  given [T: Decoder]: Decoder[SlackResponse[T]] = Decoder.instance { cursor =>
+    cursor.get[Boolean]("ok").flatMap {
+      case true  => cursor.as[T].map(Ok(_))
+      case false => cursor.getOrElse[String]("error")("unknown").map(Err(_))
+    }
+  }
+}
+
+object chat {
+
+  case class PostMessageRequest(
+      channel: String,
+      text: String,
+      blocks: Option[List[Json]] = None,
+      thread_ts: Option[String] = None,
+      unfurl_links: Option[Boolean] = None,
+      unfurl_media: Option[Boolean] = None,
+      mrkdwn: Option[Boolean] = None,
+      metadata: Option[Json] = None,
+      reply_broadcast: Option[Boolean] = None,
+  ) derives Codec.AsObject
+
+  case class PostMessageResponse(
+      channel: String,
+      ts: String,
+      message: Option[Json] = None,
+      response_metadata: Option[ResponseMetadata] = None,
+  ) derives Codec.AsObject
+
+  case class UpdateRequest(
+      channel: String,
+      ts: String,
+      text: Option[String] = None,
+      blocks: Option[List[Json]] = None,
+      attachments: Option[List[Json]] = None,
+      reply_broadcast: Option[Boolean] = None,
+      metadata: Option[Json] = None,
+  ) derives Codec.AsObject
+
+  case class UpdateResponse(
+      channel: String,
+      ts: String,
+      text: Option[String] = None,
+      message: Option[Json] = None,
+  ) derives Codec.AsObject
+
+  case class DeleteRequest(
+      channel: String,
+      ts: String,
+  ) derives Codec.AsObject
+
+  case class DeleteResponse(
+      channel: String,
+      ts: String,
+  ) derives Codec.AsObject
+
+  case class PostEphemeralRequest(
+      channel: String,
+      user: String,
+      text: String,
+      blocks: Option[List[Json]] = None,
+      thread_ts: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class PostEphemeralResponse(
+      message_ts: String,
+  ) derives Codec.AsObject
+}
+
+case class ResponseMetadata(
+    messages: Option[List[String]] = None,
+) derives Codec.AsObject
+
+object reactions {
+
+  case class AddRequest(
+      channel: String,
+      timestamp: String,
+      name: String,
+  ) derives Codec.AsObject
+
+  case class AddResponse() derives Codec.AsObject
+
+  case class RemoveRequest(
+      channel: String,
+      timestamp: String,
+      name: String,
+  ) derives Codec.AsObject
+
+  case class RemoveResponse() derives Codec.AsObject
+}
+
+object apps {
+
+  case class ConnectionsOpenResponse(
+      url: String,
+  ) derives Codec.AsObject
+}

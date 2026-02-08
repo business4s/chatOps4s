@@ -2,10 +2,10 @@ package chatops4s.slack
 
 import cats.effect.kernel.{Async, Temporal}
 import cats.syntax.all.*
+import chatops4s.slack.api.SlackApi
 import io.circe.parser
 import io.circe.syntax.*
 import sttp.client4.*
-import sttp.client4.circe.*
 import sttp.client4.ws.async.*
 
 import scala.concurrent.duration.*
@@ -34,24 +34,7 @@ private[slack] object SocketMode {
       appToken: String,
       backend: Backend[F],
   ): F[String] = {
-    val req = basicRequest
-      .post(uri"https://slack.com/api/apps.connections.open")
-      .header("Authorization", s"Bearer $appToken")
-      .contentType("application/x-www-form-urlencoded")
-      .response(asJson[ConnectionsOpenResponse])
-
-    backend.send(req).flatMap { response =>
-      response.body match {
-        case Right(r) if r.ok => r.url match {
-          case Some(url) => Async[F].pure(url)
-          case None      => Async[F].raiseError(SlackApiException("no_url", List("No URL in connections.open response")))
-        }
-        case Right(r) =>
-          Async[F].raiseError(SlackApiException(r.error.getOrElse("unknown"), List("connections.open failed")))
-        case Left(err) =>
-          Async[F].raiseError(SlackApiException("parse_error", List(s"Failed to parse connections.open response: $err")))
-      }
-    }
+    SlackApi.apps.connectionsOpen(backend, appToken).map(_.okOrThrow.url)
   }
 
   private def connectAndHandle[F[_]: Async](

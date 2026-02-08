@@ -45,6 +45,3 @@ object CommandResponse {
 }
 
 case class CommandDef(command: String, description: String)
-
-case class SlackApiException(error: String, details: List[String] = Nil)
-    extends RuntimeException(s"Slack API error: $error${if (details.nonEmpty) s". ${details.mkString("; ")}" else ""}")
