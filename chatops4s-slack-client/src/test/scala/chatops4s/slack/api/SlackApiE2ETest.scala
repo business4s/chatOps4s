@@ -38,7 +38,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
     "chat.postMessage should post a message" in {
       val resp = api.chat.postMessage(chat.PostMessageRequest(
         channel = channel.get,
-        text = "chatops4s-slack-api E2E test message",
+        text = "chatops4s-slack-client E2E test message",
       ))
       val result = resp.okOrThrow
       info(s"postMessage response: channel=${result.channel}, ts=${result.ts}")
@@ -73,7 +73,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
       val resp = api.chat.update(chat.UpdateRequest(
         channel = channelId,
         ts = messageTs,
-        text = Some("chatops4s-slack-api E2E test message (updated)"),
+        text = Some("chatops4s-slack-client E2E test message (updated)"),
       ))
       val result = resp.okOrThrow
       info(s"update response: channel=${result.channel}, ts=${result.ts}")
@@ -107,7 +107,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
       val result = api.chat.postEphemeral(chat.PostEphemeralRequest(
         channel = channelId,
         user = userId.get,
-        text = "chatops4s-slack-api E2E ephemeral test",
+        text = "chatops4s-slack-client E2E ephemeral test",
       )).okOrThrow
       info(s"postEphemeral response: message_ts=${result.message_ts}")
     }

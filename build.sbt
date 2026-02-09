@@ -4,12 +4,12 @@ lazy val `chatops4s` = (project in file("."))
     publish / skip := true,
   )
   .aggregate(
-    `chatops4s-slack-api`,
+    `chatops4s-slack-client`,
     `chatops4s-slack`,
     `chatops4s-examples`,
   )
 
-lazy val `chatops4s-slack-api` = (project in file("chatops4s-slack-api"))
+lazy val `chatops4s-slack-client` = (project in file("chatops4s-slack-client"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -30,7 +30,7 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
     ),
     Test / parallelExecution := false,
   )
-  .dependsOn(`chatops4s-slack-api`)
+  .dependsOn(`chatops4s-slack-client`)
 
 lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)

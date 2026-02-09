@@ -8,7 +8,7 @@ import java.nio.file.{Files, Path, Paths}
 object ResponseCollector {
 
   private val outputDir: Path =
-    Paths.get("chatops4s-slack-api/src/test/resources/responses")
+    Paths.get("chatops4s-slack-client/src/test/resources/responses")
 
   def main(args: Array[String]): Unit = {
     val botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", sys.error("SLACK_BOT_TOKEN is required"))
