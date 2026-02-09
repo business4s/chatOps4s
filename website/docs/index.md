@@ -23,7 +23,7 @@ You also need an [sttp](https://sttp.softwaremill.com/en/latest/backends/summary
 ChatOps4s uses [Socket Mode](https://api.slack.com/apis/socket-mode), so no public URL is needed.
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app **from a manifest**.
-2. Use `SlackSetup.manifest(appName = "MyApp")` to generate the manifest YAML.
+2. Use `slack.manifest("MyApp")` (after registering handlers) to generate the manifest YAML.
 3. After creating the app, grab two tokens:
    - **Bot Token** (`xoxb-...`): found under *OAuth & Permissions*
    - **App-Level Token** (`xapp-...`): create one under *Basic Information → App-Level Tokens* with `connections:write` scope.
@@ -49,12 +49,14 @@ The `SlackGateway[F]` trait provides four operations:
 | `send`   | Send a message to a channel, optionally with buttons |
 | `reply`  | Reply in a thread under an existing message          |
 | `update` | Edit an existing message (e.g. to remove buttons)    |
-| `listen` | Start the Socket Mode event loop (blocks)            |
+| `listen`   | Start the Socket Mode event loop (takes `appToken`)  |
 
 `SlackSetup[F]` (mixed in by `SlackGateway.create`) adds:
 
-| Method     | Description                                          |
-|------------|------------------------------------------------------|
-| `onButton` | Register a typed button handler, returns a `ButtonId[T]` |
+| Method      | Description                                              |
+|-------------|----------------------------------------------------------|
+| `onButton`  | Register a typed button handler, returns a `ButtonId[T]` |
+| `onCommand` | Register a slash command handler with optional description |
+| `manifest`  | Generate app manifest YAML from registered handlers      |
 
 Use `ButtonId[T].toButton(label, value)` to create `Button` instances for `send`/`reply`/`update`.

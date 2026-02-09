@@ -43,5 +43,3 @@ object CommandResponse {
   case class InChannel(text: String) extends CommandResponse
   case object Silent extends CommandResponse
 }
-
-case class CommandDef(command: String, description: String)

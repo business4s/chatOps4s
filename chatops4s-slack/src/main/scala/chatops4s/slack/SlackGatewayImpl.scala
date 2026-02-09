@@ -2,6 +2,7 @@ package chatops4s.slack
 
 import cats.effect.kernel.{Async, Ref}
 import cats.syntax.all.*
+import sttp.client4.WebSocketBackend
 
 import java.util.UUID
 
@@ -10,11 +11,16 @@ import SlackModels.*
 private[slack] type ErasedHandler[F[_]] = ButtonClick[String] => F[Unit]
 private[slack] type ErasedCommandHandler[F[_]] = SlackModels.SlashCommandPayload => F[CommandResponse]
 
+private[slack] case class CommandEntry[F[_]](
+    handler: ErasedCommandHandler[F],
+    description: String,
+)
+
 private[slack] class SlackGatewayImpl[F[_]: Async](
     client: SlackClient[F],
     handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
-    commandHandlersRef: Ref[F, Map[String, ErasedCommandHandler[F]]],
-    val listen: F[Unit],
+    commandHandlersRef: Ref[F, Map[String, CommandEntry[F]]],
+    backend: WebSocketBackend[F],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
   override def onButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
@@ -23,7 +29,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     handlersRef.update(_ + (id.value -> erased)).as(id)
   }
 
-  override def onCommand[T: {CommandParser as parser}](name: String)(handler: Command[T] => F[CommandResponse]): F[Unit] = {
+  override def onCommand[T: {CommandParser as parser}](name: String, description: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
     val normalized = normalizeCommandName(name)
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
@@ -39,8 +45,21 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
           handler(cmd)
       }
     }
-    commandHandlersRef.update(_ + (normalized -> erased))
+    commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description)))
   }
+
+  override def manifest(appName: String): F[String] = {
+    for {
+      handlers <- handlersRef.get
+      commands <- commandHandlersRef.get
+    } yield {
+      val commandDefs = commands.view.mapValues(_.description).toMap
+      SlackManifest.generate(appName, commandDefs, hasButtons = handlers.nonEmpty)
+    }
+  }
+
+  override def listen(appToken: String): F[Unit] =
+    SocketMode.runLoop(appToken, backend, handleInteractionPayload, handleSlashCommandPayload)
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
     client.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None)
@@ -87,9 +106,9 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
   private[slack] def handleSlashCommandPayload(payload: SlackModels.SlashCommandPayload): F[Unit] = {
     val normalized = normalizeCommandName(payload.command)
     // fox-comp would be cleaner
-    commandHandlersRef.get.flatMap { handlers =>
-      handlers.get(normalized).traverse_ { handler =>
-        handler(payload).flatMap {
+    commandHandlersRef.get.flatMap { commands =>
+      commands.get(normalized).traverse_ { entry =>
+        entry.handler(payload).flatMap {
           case CommandResponse.Silent => Async[F].unit
           case CommandResponse.Ephemeral(t) =>
             client.respondToCommand(payload.response_url, t, "ephemeral")

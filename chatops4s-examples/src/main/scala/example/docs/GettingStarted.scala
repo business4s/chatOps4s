@@ -1,13 +1,11 @@
 package example.docs
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{SlackGateway, SlackSetup}
+import chatops4s.slack.SlackGateway
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 // start_minimal
 object SendMessage extends IOApp.Simple {
-
-  println(SlackSetup.manifest(appName = "MyApp"))
 
   private val token    = sys.env("SLACK_BOT_TOKEN")
   private val appToken = sys.env("SLACK_APP_TOKEN")
@@ -16,9 +14,11 @@ object SendMessage extends IOApp.Simple {
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack <- SlackGateway.create(token, appToken, backend)
-        _     <- slack.send(channel, "Hello from ChatOps4s!")
-        _     <- slack.listen
+        slack    <- SlackGateway.create(token, backend)
+        _        <- slack.send(channel, "Hello from ChatOps4s!")
+        manifest <- slack.manifest("MyApp")
+        _        <- IO.println(manifest)
+        _        <- slack.listen(appToken)
       } yield ()
     }
 }
@@ -34,7 +34,7 @@ object InteractiveButtons extends IOApp.Simple {
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack      <- SlackGateway.create(token, appToken, backend)
+        slack      <- SlackGateway.create(token, backend)
         approveBtn <- slack.onButton[String] { click =>
                         slack.update(click.messageId, s"Approved by <@${click.userId}>")
                           .void
@@ -51,7 +51,7 @@ object InteractiveButtons extends IOApp.Simple {
                           rejectBtn.toButton("Reject", "v1.2.3"),
                         ),
                       )
-        _          <- slack.listen
+        _          <- slack.listen(appToken)
       } yield ()
     }
 }
