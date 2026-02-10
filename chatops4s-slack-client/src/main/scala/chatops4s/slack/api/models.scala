@@ -7,7 +7,7 @@ sealed trait SlackResponse[+T] {
 }
 
 object SlackResponse {
-  case class Ok[+T](value: T) extends SlackResponse[T] {
+  case class Ok[+T](value: T)   extends SlackResponse[T]       {
     def okOrThrow: T = value
   }
   case class Err(error: String) extends SlackResponse[Nothing] {

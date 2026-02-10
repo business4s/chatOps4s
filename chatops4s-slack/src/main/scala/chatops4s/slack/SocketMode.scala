@@ -53,16 +53,16 @@ private[slack] object SocketMode {
           ws.receiveText().flatMap { text =>
             parser.decode[SocketEnvelope](text) match {
               case Right(envelope) =>
-                val ack = ws.sendText(SocketAck(envelope.envelope_id).asJson.noSpaces)
+                val ack      = ws.sendText(SocketAck(envelope.envelope_id).asJson.noSpaces)
                 val dispatch = envelope.`type` match {
-                  case "interactive" =>
+                  case "interactive"    =>
                     envelope.payload match {
                       case Some(json) =>
                         json.as[InteractionPayload] match {
                           case Right(payload) => onInteraction(payload).map(_ => ()).handleError { case _ => monad.unit(()) }
                           case Left(_)        => monad.unit(())
                         }
-                      case None => monad.unit(())
+                      case None       => monad.unit(())
                     }
                   case "slash_commands" =>
                     envelope.payload match {
@@ -71,12 +71,12 @@ private[slack] object SocketMode {
                           case Right(payload) => onSlashCommand(payload).map(_ => ()).handleError { case _ => monad.unit(()) }
                           case Left(_)        => monad.unit(())
                         }
-                      case None => monad.unit(())
+                      case None       => monad.unit(())
                     }
-                  case _ => monad.unit(())
+                  case _                => monad.unit(())
                 }
                 ack >> dispatch >> loop
-              case Left(_) => loop
+              case Left(_)         => loop
             }
           }
         loop

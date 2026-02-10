@@ -25,7 +25,7 @@ object SlackGateway {
       handlersRef        <- Ref.of[F, Map[String, ErasedHandler[F]]](Map.empty)
       commandHandlersRef <- Ref.of[F, Map[String, CommandEntry[F]]](Map.empty)
     } yield {
-      val client = new SlackClient[F](token, backend)
+      val client  = new SlackClient[F](token, backend)
       val gateway = new SlackGatewayImpl[F](client, handlersRef, commandHandlersRef, backend)
       gateway: SlackGateway[F] & SlackSetup[F]
     }

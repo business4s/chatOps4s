@@ -38,7 +38,6 @@ object MockBackend {
   private val okBody = """{"ok":true}"""
 
   def withOkApi(): WebSocketBackendStub[IO] =
-    create()
-      .whenAnyRequest
+    create().whenAnyRequest
       .thenRespondAdjust(okBody)
 }

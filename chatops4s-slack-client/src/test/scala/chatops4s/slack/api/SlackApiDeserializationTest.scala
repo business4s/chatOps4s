@@ -16,7 +16,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     }
 
   private def parseOk[T: Decoder](name: String)(checks: T => Unit): Unit = {
-    val json = loadFixture(name)
+    val json   = loadFixture(name)
     assume(json.isDefined, s"Fixture $name not found — run ResponseCollector first")
     val result = decode[SlackResponse[T]](json.get)
     result match {
@@ -70,33 +70,33 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     }
 
     "error response parses as Err" in {
-      val json = loadFixture("error.json")
+      val json   = loadFixture("error.json")
       assume(json.isDefined, "Fixture error.json not found — run ResponseCollector first")
       val result = decode[SlackResponse[chat.DeleteResponse]](json.get)
       result match {
         case Right(SlackResponse.Err(error)) =>
           error should not be empty
-        case Right(SlackResponse.Ok(_)) =>
+        case Right(SlackResponse.Ok(_))      =>
           fail("Expected Err but got Ok")
-        case Left(err) =>
+        case Left(err)                       =>
           fail(s"Failed to decode: $err")
       }
     }
 
     "okOrThrow works on success" in {
-      val json = loadFixture("chat.postMessage.json")
+      val json     = loadFixture("chat.postMessage.json")
       assume(json.isDefined, "Fixture chat.postMessage.json not found — run ResponseCollector first")
       val response = decode[SlackResponse[chat.PostMessageResponse]](json.get).toOption.get
-      val value = response.okOrThrow
+      val value    = response.okOrThrow
       value.channel should not be empty
       value.ts should not be empty
     }
 
     "okOrThrow throws SlackApiError on error" in {
-      val json = loadFixture("error.json")
+      val json     = loadFixture("error.json")
       assume(json.isDefined, "Fixture error.json not found — run ResponseCollector first")
       val response = decode[SlackResponse[chat.DeleteResponse]](json.get).toOption.get
-      val ex = intercept[SlackApiError] {
+      val ex       = intercept[SlackApiError] {
         response.okOrThrow
       }
       ex.error should not be empty

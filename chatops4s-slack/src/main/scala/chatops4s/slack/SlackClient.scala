@@ -40,20 +40,28 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
   }
 
   def deleteMessage(messageId: MessageId): F[Unit] =
-    api.chat.delete(chat.DeleteRequest(channel = messageId.channel, ts = messageId.ts))
-      .map(_.okOrThrow).void
+    api.chat
+      .delete(chat.DeleteRequest(channel = messageId.channel, ts = messageId.ts))
+      .map(_.okOrThrow)
+      .void
 
   def addReaction(messageId: MessageId, emoji: String): F[Unit] =
-    api.reactions.add(reactions.AddRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
-      .map(_.okOrThrow).void
+    api.reactions
+      .add(reactions.AddRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
+      .map(_.okOrThrow)
+      .void
 
   def removeReaction(messageId: MessageId, emoji: String): F[Unit] =
-    api.reactions.remove(reactions.RemoveRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
-      .map(_.okOrThrow).void
+    api.reactions
+      .remove(reactions.RemoveRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
+      .map(_.okOrThrow)
+      .void
 
   def postEphemeral(channel: String, userId: String, text: String): F[Unit] =
-    api.chat.postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
-      .map(_.okOrThrow).void
+    api.chat
+      .postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
+      .map(_.okOrThrow)
+      .void
 
   def updateMessage(messageId: MessageId, text: String, blocks: Option[List[Block]]): F[MessageId] = {
     val request = chat.UpdateRequest(

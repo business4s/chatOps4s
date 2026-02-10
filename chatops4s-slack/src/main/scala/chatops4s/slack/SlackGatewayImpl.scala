@@ -9,7 +9,7 @@ import java.util.UUID
 
 import SlackModels.*
 
-private[slack] type ErasedHandler[F[_]] = ButtonClick[String] => F[Unit]
+private[slack] type ErasedHandler[F[_]]        = ButtonClick[String] => F[Unit]
 private[slack] type ErasedCommandHandler[F[_]] = SlackModels.SlashCommandPayload => F[CommandResponse]
 
 private[slack] case class CommandEntry[F[_]](
@@ -22,18 +22,21 @@ private[slack] class SlackGatewayImpl[F[_]](
     handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[String, CommandEntry[F]]],
     backend: WebSocketBackend[F],
-) extends SlackGateway[F] with SlackSetup[F] {
+) extends SlackGateway[F]
+    with SlackSetup[F] {
 
   private given monad: MonadError[F] = backend.monad
 
   override def registerButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
-    val id = ButtonId[T](UUID.randomUUID().toString)
+    val id     = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
     handlersRef.update(_ + (id.value -> erased)).as(id)
   }
 
-  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
-    val normalized = normalizeCommandName(name)
+  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "")(
+      handler: Command[T] => F[CommandResponse],
+  ): F[Unit] = {
+    val normalized                      = normalizeCommandName(name)
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
         case Left(error) =>
@@ -91,7 +94,7 @@ private[slack] class SlackGatewayImpl[F[_]](
         channel = payload.channel.id,
         ts = payload.container.message_ts.getOrElse(""),
       )
-      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(payload.channel.id, ts))
+      val threadId  = payload.message.flatMap(_.thread_ts).map(ts => MessageId(payload.channel.id, ts))
 
       payload.actions.getOrElse(Nil).traverse_ { action =>
         val click = ButtonClick[String](
@@ -111,7 +114,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.get.flatMap { commands =>
       commands.get(normalized).traverse_ { entry =>
         entry.handler(payload).flatMap {
-          case CommandResponse.Silent      => monad.unit(())
+          case CommandResponse.Silent       => monad.unit(())
           case CommandResponse.Ephemeral(t) =>
             client.respondToCommand(payload.response_url, t, "ephemeral")
           case CommandResponse.InChannel(t) =>
@@ -126,16 +129,18 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private def buildBlocks(text: String, buttons: Seq[Button]): Option[List[Block]] =
     if (buttons.nonEmpty) {
-      Some(List(
-        Block(
-          `type` = "section",
-          text = Some(TextObject(`type` = "mrkdwn", text = text)),
+      Some(
+        List(
+          Block(
+            `type` = "section",
+            text = Some(TextObject(`type` = "mrkdwn", text = text)),
+          ),
+          Block(
+            `type` = "actions",
+            elements = Some(buttons.map(buttonToElement).toList),
+          ),
         ),
-        Block(
-          `type` = "actions",
-          elements = Some(buttons.map(buttonToElement).toList),
-        ),
-      ))
+      )
     } else None
 
   private def buttonToElement(button: Button): BlockElement =

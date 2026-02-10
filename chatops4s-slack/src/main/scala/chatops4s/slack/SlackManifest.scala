@@ -10,11 +10,14 @@ private[slack] object SlackManifest {
     val commandScopes = if (commands.nonEmpty) "\n      - commands" else ""
 
     val slashCommands = if (commands.nonEmpty) {
-      val entries = commands.toList.sortBy(_._1).map { case (name, desc) =>
-        s"""    - command: /$name
-           |      description: $desc
-           |      should_escape: false""".stripMargin
-      }.mkString("\n")
+      val entries = commands.toList
+        .sortBy(_._1)
+        .map { case (name, desc) =>
+          s"""    - command: /$name
+             |      description: $desc
+             |      should_escape: false""".stripMargin
+        }
+        .mkString("\n")
       s"""
          |  slash_commands:
          |$entries""".stripMargin

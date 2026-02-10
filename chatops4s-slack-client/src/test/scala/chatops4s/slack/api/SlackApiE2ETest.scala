@@ -14,12 +14,12 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
 
   private val botToken = sys.env.get("SLACK_BOT_TOKEN")
   private val appToken = sys.env.get("SLACK_APP_TOKEN")
-  private val channel = sys.env.get("SLACK_CHANNEL")
+  private val channel  = sys.env.get("SLACK_CHANNEL")
 
   assume(botToken.isDefined && channel.isDefined, "SLACK_BOT_TOKEN and SLACK_CHANNEL required")
 
   private val backend = DefaultSyncBackend()
-  private val api = new SlackApi[Identity](backend, botToken.get)
+  private val api     = new SlackApi[Identity](backend, botToken.get)
 
   "SlackApi E2E" - {
 
@@ -29,17 +29,19 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
 
     "apps.connections.open should return a websocket URL" in {
       assume(appToken.isDefined, "SLACK_APP_TOKEN required")
-      val resp = SlackApi.apps.connectionsOpen[Identity](backend, appToken.get)
+      val resp   = SlackApi.apps.connectionsOpen[Identity](backend, appToken.get)
       val result = resp.okOrThrow
       info(s"connections.open url: ${result.url}")
       result.url.should(startWith("wss://"))
     }
 
     "chat.postMessage should post a message" in {
-      val resp = api.chat.postMessage(chat.PostMessageRequest(
-        channel = channel.get,
-        text = "chatops4s-slack-client E2E test message",
-      ))
+      val resp   = api.chat.postMessage(
+        chat.PostMessageRequest(
+          channel = channel.get,
+          text = "chatops4s-slack-client E2E test message",
+        ),
+      )
       val result = resp.okOrThrow
       info(s"postMessage response: channel=${result.channel}, ts=${result.ts}")
       channelId = result.channel
@@ -60,7 +62,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
         .body
       info(s"conversations.join response: $resp")
       resp match {
-        case Right(r) =>
+        case Right(r)  =>
           withClue(s"Slack error: ${r.error.getOrElse("none")}") {
             r.ok.shouldBe(true)
           }
@@ -70,11 +72,13 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
 
     "chat.update should update the message" in {
       assume(messageTs != null, "postMessage must run first")
-      val resp = api.chat.update(chat.UpdateRequest(
-        channel = channelId,
-        ts = messageTs,
-        text = Some("chatops4s-slack-client E2E test message (updated)"),
-      ))
+      val resp   = api.chat.update(
+        chat.UpdateRequest(
+          channel = channelId,
+          ts = messageTs,
+          text = Some("chatops4s-slack-client E2E test message (updated)"),
+        ),
+      )
       val result = resp.okOrThrow
       info(s"update response: channel=${result.channel}, ts=${result.ts}")
     }
@@ -82,21 +86,29 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
     "reactions.add should add a reaction" in {
       assume(messageTs != null, "postMessage must run first")
       // okOrThrow is sufficient — AddResponse is empty
-      api.reactions.add(reactions.AddRequest(
-        channel = channelId,
-        timestamp = messageTs,
-        name = "white_check_mark",
-      )).okOrThrow
+      api.reactions
+        .add(
+          reactions.AddRequest(
+            channel = channelId,
+            timestamp = messageTs,
+            name = "white_check_mark",
+          ),
+        )
+        .okOrThrow
       info("reactions.add succeeded")
     }
 
     "reactions.remove should remove the reaction" in {
       assume(messageTs != null, "postMessage must run first")
-      api.reactions.remove(reactions.RemoveRequest(
-        channel = channelId,
-        timestamp = messageTs,
-        name = "white_check_mark",
-      )).okOrThrow
+      api.reactions
+        .remove(
+          reactions.RemoveRequest(
+            channel = channelId,
+            timestamp = messageTs,
+            name = "white_check_mark",
+          ),
+        )
+        .okOrThrow
       info("reactions.remove succeeded")
     }
 
@@ -104,20 +116,28 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
       assume(messageTs != null, "postMessage must run first")
       val userId = sys.env.get("SLACK_TEST_USER_ID")
       assume(userId.isDefined, "SLACK_TEST_USER_ID required for ephemeral test")
-      val result = api.chat.postEphemeral(chat.PostEphemeralRequest(
-        channel = channelId,
-        user = userId.get,
-        text = "chatops4s-slack-client E2E ephemeral test",
-      )).okOrThrow
+      val result = api.chat
+        .postEphemeral(
+          chat.PostEphemeralRequest(
+            channel = channelId,
+            user = userId.get,
+            text = "chatops4s-slack-client E2E ephemeral test",
+          ),
+        )
+        .okOrThrow
       info(s"postEphemeral response: message_ts=${result.message_ts}")
     }
 
     "chat.delete should delete the message" in {
       assume(messageTs != null, "postMessage must run first")
-      val result = api.chat.delete(chat.DeleteRequest(
-        channel = channelId,
-        ts = messageTs,
-      )).okOrThrow
+      val result = api.chat
+        .delete(
+          chat.DeleteRequest(
+            channel = channelId,
+            ts = messageTs,
+          ),
+        )
+        .okOrThrow
       info(s"delete response: channel=${result.channel}, ts=${result.ts}")
     }
   }

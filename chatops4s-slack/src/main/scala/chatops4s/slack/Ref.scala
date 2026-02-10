@@ -5,7 +5,7 @@ import sttp.monad.MonadError
 import java.util.concurrent.atomic.AtomicReference
 
 private[slack] class Ref[F[_], A](ref: AtomicReference[A])(using monad: MonadError[F]) {
-  def get: F[A] = monad.eval(ref.get())
+  def get: F[A]                  = monad.eval(ref.get())
   def update(f: A => A): F[Unit] = monad.eval { ref.updateAndGet(a => f(a)); () }
 }
 

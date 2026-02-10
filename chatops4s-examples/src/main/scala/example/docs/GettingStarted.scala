@@ -36,12 +36,10 @@ object InteractiveButtons extends IOApp.Simple {
       for {
         slack      <- SlackGateway.create(token, backend)
         approveBtn <- slack.registerButton[String] { click =>
-                        slack.update(click.messageId, s"Approved by <@${click.userId}>")
-                          .void
+                        slack.update(click.messageId, s"Approved by <@${click.userId}>").void
                       }
         rejectBtn  <- slack.registerButton[String] { click =>
-                        slack.update(click.messageId, s"Rejected by <@${click.userId}>")
-                          .void
+                        slack.update(click.messageId, s"Rejected by <@${click.userId}>").void
                       }
         _          <- slack.send(
                         channel,

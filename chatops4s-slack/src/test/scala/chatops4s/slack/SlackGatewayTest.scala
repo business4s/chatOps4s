@@ -15,9 +15,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
-    val handlersRef = Ref.of[IO, Map[String, ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef = Ref.of[IO, Map[String, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val client = new SlackClient[IO]("test-token", backend)
+    val handlersRef                 = Ref.of[IO, Map[String, ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef          = Ref.of[IO, Map[String, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val client                      = new SlackClient[IO]("test-token", backend)
     new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, backend)
   }
 
@@ -35,19 +35,25 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "should send a message with buttons" in {
         val gateway = createGateway(MockBackend.withPostMessage(okPostMessage))
         val approve = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
-        val reject = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
+        val reject  = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
 
-        val result = gateway.send("C123", "Deploy?", Seq(
-          Button("Approve", approve, approve.value),
-          Button("Reject", reject, reject.value),
-        )).unsafeRunSync()
+        val result = gateway
+          .send(
+            "C123",
+            "Deploy?",
+            Seq(
+              Button("Approve", approve, approve.value),
+              Button("Reject", reject, reject.value),
+            ),
+          )
+          .unsafeRunSync()
 
         result shouldBe MessageId("C123", "1234567890.123")
       }
 
       "should handle API errors" in {
         val errorBody = """{"ok":false,"error":"invalid_auth"}"""
-        val gateway = createGateway(MockBackend.withPostMessage(errorBody))
+        val gateway   = createGateway(MockBackend.withPostMessage(errorBody))
 
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.send("C123", "Test").unsafeRunSync()
@@ -58,7 +64,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "reply" - {
       "should reply in thread" in {
-        val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
+        val body    = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
         val gateway = createGateway(MockBackend.withPostMessage(body))
 
         val result = gateway.reply(MessageId("C123", "1234567890.123"), "Thread reply").unsafeRunSync()
@@ -67,15 +73,17 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should reply in thread with buttons" in {
-        val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
+        val body    = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
         val gateway = createGateway(MockBackend.withPostMessage(body))
-        val btn = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
+        val btn     = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
 
-        val result = gateway.reply(
-          MessageId("C123", "1234567890.123"),
-          "Confirm?",
-          Seq(Button("OK", btn, btn.value)),
-        ).unsafeRunSync()
+        val result = gateway
+          .reply(
+            MessageId("C123", "1234567890.123"),
+            "Confirm?",
+            Seq(Button("OK", btn, btn.value)),
+          )
+          .unsafeRunSync()
 
         result shouldBe MessageId("C123", "1234567891.456")
       }
@@ -83,11 +91,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "update" - {
       "should update a message" in {
-        val gateway = createGateway(MockBackend.withUpdate(
-          """{"ok":true,"channel":"C123","ts":"1234567890.123"}""",
-        ))
+        val gateway = createGateway(
+          MockBackend.withUpdate(
+            """{"ok":true,"channel":"C123","ts":"1234567890.123"}""",
+          ),
+        )
 
-        val msgId = MessageId("C123", "1234567890.123")
+        val msgId  = MessageId("C123", "1234567890.123")
         val result = gateway.update(msgId, "Updated text").unsafeRunSync()
 
         result shouldBe msgId
@@ -95,10 +105,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should handle API errors on update" in {
         val errorBody = """{"ok":false,"error":"message_not_found"}"""
-        val gateway = createGateway(MockBackend.withUpdate(errorBody))
+        val gateway   = createGateway(MockBackend.withUpdate(errorBody))
 
         val msgId = MessageId("C123", "1234567890.123")
-        val ex = intercept[chatops4s.slack.api.SlackApiError] {
+        val ex    = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.update(msgId, "Updated text").unsafeRunSync()
         }
         ex.error shouldBe "message_not_found"
@@ -117,12 +127,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "interaction handling" - {
       "should dispatch button click to registered handler" in {
-        val gateway = createGateway()
+        val gateway                               = createGateway()
         var captured: Option[ButtonClick[String]] = None
 
-        val btnId = gateway.registerButton[String] { click =>
-          IO { captured = Some(click) }
-        }.unsafeRunSync()
+        val btnId = gateway
+          .registerButton[String] { click =>
+            IO { captured = Some(click) }
+          }
+          .unsafeRunSync()
 
         val payload = interactionPayload(btnId.value, "my-value")
         gateway.handleInteractionPayload(payload).unsafeRunSync()
@@ -135,7 +147,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should ignore unknown action IDs" in {
         val gateway = createGateway()
-        var called = false
+        var called  = false
 
         gateway.registerButton[String] { _ => IO { called = true } }.unsafeRunSync()
 
@@ -147,7 +159,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should dispatch multiple actions in one payload" in {
         val gateway = createGateway()
-        var count = 0
+        var count   = 0
 
         val btn1 = gateway.registerButton[String] { _ => IO { count += 1 } }.unsafeRunSync()
         val btn2 = gateway.registerButton[String] { _ => IO { count += 10 } }.unsafeRunSync()
@@ -157,10 +169,12 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           user = SlackModels.User("U123"),
           channel = SlackModels.Channel("C123"),
           container = SlackModels.Container(Some("1234567890.123")),
-          actions = Some(List(
-            SlackModels.Action(btn1.value, Some("v1")),
-            SlackModels.Action(btn2.value, Some("v2")),
-          )),
+          actions = Some(
+            List(
+              SlackModels.Action(btn1.value, Some("v1")),
+              SlackModels.Action(btn2.value, Some("v2")),
+            ),
+          ),
         )
         gateway.handleInteractionPayload(payload).unsafeRunSync()
 
@@ -170,7 +184,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "delete" - {
       "should delete a message" in {
-        val body = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
+        val body    = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
         gateway.delete(MessageId("C123", "1234567890.123")).unsafeRunSync()
@@ -178,7 +192,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should handle API errors on delete" in {
         val errorBody = """{"ok":false,"error":"message_not_found"}"""
-        val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(errorBody))
+        val gateway   = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(errorBody))
 
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.delete(MessageId("C123", "1234567890.123")).unsafeRunSync()
@@ -203,7 +217,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "sendEphemeral" - {
       "should send an ephemeral message" in {
-        val body = """{"ok":true,"message_ts":"1234567890.123"}"""
+        val body    = """{"ok":true,"message_ts":"1234567890.123"}"""
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
         gateway.sendEphemeral("C123", "U456", "Only you can see this").unsafeRunSync()
@@ -212,12 +226,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "onCommand" - {
       "should dispatch slash command to registered handler" in {
-        val gateway = createGateway(MockBackend.withResponseUrl())
+        val gateway                           = createGateway(MockBackend.withResponseUrl())
         var captured: Option[Command[String]] = None
 
-        gateway.registerCommand[String]("/deploy") { cmd =>
-          IO { captured = Some(cmd) }.as(CommandResponse.InChannel(s"Deploying ${cmd.args}"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("/deploy") { cmd =>
+            IO { captured = Some(cmd) }.as(CommandResponse.InChannel(s"Deploying ${cmd.args}"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/deploy", "v1.2.3")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -231,11 +247,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should normalize command names (strip / and lowercase)" in {
         val gateway = createGateway(MockBackend.withResponseUrl())
-        var called = false
+        var called  = false
 
-        gateway.registerCommand[String]("Deploy") { _ =>
-          IO { called = true }.as(CommandResponse.Ephemeral("ok"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("Deploy") { _ =>
+            IO { called = true }.as(CommandResponse.Ephemeral("ok"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/deploy", "test")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -245,11 +263,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should ignore unregistered commands" in {
         val gateway = createGateway()
-        var called = false
+        var called  = false
 
-        gateway.registerCommand[String]("/deploy") { _ =>
-          IO { called = true }.as(CommandResponse.Ephemeral("ok"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("/deploy") { _ =>
+            IO { called = true }.as(CommandResponse.Ephemeral("ok"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/rollback", "test")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -265,9 +285,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             text.toIntOption.toRight(s"'$text' is not a number")
         }
 
-        gateway.registerCommand[Int]("/count") { cmd =>
-          IO.pure(CommandResponse.InChannel(s"Count: ${cmd.args}"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[Int]("/count") { cmd =>
+            IO.pure(CommandResponse.InChannel(s"Count: ${cmd.args}"))
+          }
+          .unsafeRunSync()
 
         // This should not throw - parse error is handled internally
         val payload = slashCommandPayload("/count", "not-a-number")
@@ -287,9 +309,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "with commands" in {
         val gateway = createGateway()
 
-        gateway.registerCommand[String]("deploy", "Deploy to prod") { _ =>
-          IO.pure(CommandResponse.Silent)
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("deploy", "Deploy to prod") { _ =>
+            IO.pure(CommandResponse.Silent)
+          }
+          .unsafeRunSync()
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
@@ -323,8 +347,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       user = SlackModels.User("U123"),
       channel = SlackModels.Channel("C123"),
       container = SlackModels.Container(Some("1234567890.123")),
-      actions = Some(List(
-        SlackModels.Action(actionId, Some(value)),
-      )),
+      actions = Some(
+        List(
+          SlackModels.Action(actionId, Some(value)),
+        ),
+      ),
     )
 }
