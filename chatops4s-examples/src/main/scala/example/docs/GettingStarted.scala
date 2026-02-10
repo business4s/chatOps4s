@@ -35,11 +35,11 @@ object InteractiveButtons extends IOApp.Simple {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack      <- SlackGateway.create(token, backend)
-        approveBtn <- slack.onButton[String] { click =>
+        approveBtn <- slack.registerButton[String] { click =>
                         slack.update(click.messageId, s"Approved by <@${click.userId}>")
                           .void
                       }
-        rejectBtn  <- slack.onButton[String] { click =>
+        rejectBtn  <- slack.registerButton[String] { click =>
                         slack.update(click.messageId, s"Rejected by <@${click.userId}>")
                           .void
                       }

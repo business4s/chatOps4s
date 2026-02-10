@@ -15,9 +15,9 @@ object Main extends IOApp.Simple {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack      <- SlackGateway.create(token, backend)
-        approveBtn <- slack.onButton[Version](onApprove(slack))
-        rejectBtn  <- slack.onButton[Version](onReject(slack))
-        _          <- slack.onCommand[Version]("deploy", "Deploy a version to production")(onDeploy(slack, approveBtn, rejectBtn))
+        approveBtn <- slack.registerButton[Version](onApprove(slack))
+        rejectBtn  <- slack.registerButton[Version](onReject(slack))
+        _          <- slack.registerCommand[Version]("deploy", "Deploy a version to production")(onDeploy(slack, approveBtn, rejectBtn))
         manifest   <- slack.manifest("ChatOps4sExample")
         _          <- IO.println(manifest)
         slackFiber <- slack.listen(appToken).start

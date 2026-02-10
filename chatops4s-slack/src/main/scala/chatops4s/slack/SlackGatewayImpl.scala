@@ -26,13 +26,13 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private given monad: MonadError[F] = backend.monad
 
-  override def onButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
+  override def registerButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
     val id = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
     handlersRef.update(_ + (id.value -> erased)).as(id)
   }
 
-  override def onCommand[T: {CommandParser as parser}](name: String, description: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
+  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
     val normalized = normalizeCommandName(name)
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
