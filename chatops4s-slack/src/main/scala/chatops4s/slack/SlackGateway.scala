@@ -1,8 +1,7 @@
 package chatops4s.slack
 
-import cats.effect.kernel.{Async, Ref}
-import cats.syntax.all.*
 import sttp.client4.WebSocketBackend
+import sttp.monad.syntax.*
 
 trait SlackGateway[F[_]] {
   def send(channel: String, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
@@ -17,10 +16,11 @@ trait SlackGateway[F[_]] {
 
 object SlackGateway {
 
-  def create[F[_]: Async](
+  def create[F[_]](
       token: String,
       backend: WebSocketBackend[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
+    given sttp.monad.MonadError[F] = backend.monad
     for {
       handlersRef        <- Ref.of[F, Map[String, ErasedHandler[F]]](Map.empty)
       commandHandlersRef <- Ref.of[F, Map[String, CommandEntry[F]]](Map.empty)

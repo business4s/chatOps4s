@@ -1,14 +1,16 @@
 package chatops4s.slack
 
-import cats.effect.kernel.Async
-import cats.syntax.all.*
 import chatops4s.slack.api.{SlackApi, chat, reactions}
 import io.circe.syntax.*
 import sttp.client4.*
+import sttp.monad.syntax.*
+import chatops4s.slack.monadSyntax.*
 
 import SlackModels.*
 
-private[slack] class SlackClient[F[_]: Async](token: String, backend: Backend[F]) {
+private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
+
+  private given sttp.monad.MonadError[F] = backend.monad
 
   private val api = new SlackApi[F](backend, token)
 

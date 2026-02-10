@@ -1,8 +1,9 @@
 package chatops4s.slack
 
-import cats.effect.kernel.{Async, Ref}
-import cats.syntax.all.*
 import sttp.client4.WebSocketBackend
+import sttp.monad.MonadError
+import sttp.monad.syntax.*
+import chatops4s.slack.monadSyntax.*
 
 import java.util.UUID
 
@@ -16,12 +17,14 @@ private[slack] case class CommandEntry[F[_]](
     description: String,
 )
 
-private[slack] class SlackGatewayImpl[F[_]: Async](
+private[slack] class SlackGatewayImpl[F[_]](
     client: SlackClient[F],
     handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[String, CommandEntry[F]]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F] with SlackSetup[F] {
+
+  private given monad: MonadError[F] = backend.monad
 
   override def onButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
     val id = ButtonId[T](UUID.randomUUID().toString)
@@ -34,7 +37,7 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
         case Left(error) =>
-          Async[F].pure(CommandResponse.Ephemeral(s"Invalid command arguments: $error"))
+          monad.unit(CommandResponse.Ephemeral(s"Invalid command arguments: $error"))
         case Right(args) =>
           val cmd = Command(
             args = args,
@@ -105,11 +108,10 @@ private[slack] class SlackGatewayImpl[F[_]: Async](
 
   private[slack] def handleSlashCommandPayload(payload: SlackModels.SlashCommandPayload): F[Unit] = {
     val normalized = normalizeCommandName(payload.command)
-    // fox-comp would be cleaner
     commandHandlersRef.get.flatMap { commands =>
       commands.get(normalized).traverse_ { entry =>
         entry.handler(payload).flatMap {
-          case CommandResponse.Silent => Async[F].unit
+          case CommandResponse.Silent      => monad.unit(())
           case CommandResponse.Ephemeral(t) =>
             client.respondToCommand(payload.response_url, t, "ephemeral")
           case CommandResponse.InChannel(t) =>

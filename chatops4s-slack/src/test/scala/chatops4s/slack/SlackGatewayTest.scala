@@ -1,7 +1,6 @@
 package chatops4s.slack
 
 import cats.effect.IO
-import cats.effect.kernel.Ref
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import org.scalatest.freespec.AnyFreeSpec
@@ -15,6 +14,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
   private def createGateway(
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
   ): SlackGatewayImpl[IO] = {
+    given sttp.monad.MonadError[IO] = backend.monad
     val handlersRef = Ref.of[IO, Map[String, ErasedHandler[IO]]](Map.empty).unsafeRunSync()
     val commandHandlersRef = Ref.of[IO, Map[String, CommandEntry[IO]]](Map.empty).unsafeRunSync()
     val client = new SlackClient[IO]("test-token", backend)

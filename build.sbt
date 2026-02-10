@@ -25,7 +25,7 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
+      "org.typelevel"                 %% "cats-effect"      % "3.6.3"  % Test,
       "com.softwaremill.sttp.client4" %% "cats"             % "4.0.9"  % Test,
     ),
     Test / parallelExecution := false,
@@ -36,7 +36,8 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.9",
+      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
+      "com.softwaremill.sttp.client4" %% "fs2"              % "4.0.9",
       "ch.qos.logback"                 % "logback-classic"  % "1.5.18",
     ),
     Test / parallelExecution := false,
