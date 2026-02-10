@@ -13,9 +13,9 @@ lazy val `chatops4s-slack-client` = (project in file("chatops4s-slack-client"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "io.circe"                      %% "circe-core"    % "0.14.14",
-      "io.circe"                      %% "circe-generic" % "0.14.14",
-      "io.circe"                      %% "circe-parser"  % "0.14.14",
+      "io.circe"                      %% "circe-core"    % "0.14.15",
+      "io.circe"                      %% "circe-generic" % "0.14.15",
+      "io.circe"                      %% "circe-parser"  % "0.14.15",
       "com.softwaremill.sttp.client4" %% "core"          % "4.0.9",
       "com.softwaremill.sttp.client4" %% "circe"         % "4.0.9",
     ),
@@ -25,8 +25,8 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"                 %% "cats-effect"      % "3.6.3"  % Test,
-      "com.softwaremill.sttp.client4" %% "cats"             % "4.0.9"  % Test,
+      "org.typelevel"                 %% "cats-effect" % "3.6.3" % Test,
+      "com.softwaremill.sttp.client4" %% "cats"        % "4.0.9" % Test,
     ),
     Test / parallelExecution := false,
   )
@@ -36,9 +36,9 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
-      "com.softwaremill.sttp.client4" %% "fs2"              % "4.0.9",
-      "ch.qos.logback"                 % "logback-classic"  % "1.5.18",
+      "org.typelevel"                 %% "cats-effect"     % "3.6.3",
+      "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.9",
+      "ch.qos.logback"                 % "logback-classic" % "1.5.18",
     ),
     Test / parallelExecution := false,
     publish / skip           := true,
@@ -48,7 +48,6 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
 
 lazy val commonSettings = Seq(
   scalaVersion         := "3.7.1",
-
   scalacOptions ++= Seq(
     "-deprecation",
     "-feature",
