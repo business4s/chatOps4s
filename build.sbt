@@ -25,8 +25,8 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"                 %% "cats-effect"      % "3.6.3"  % Test,
-      "com.softwaremill.sttp.client4" %% "cats"             % "4.0.9"  % Test,
+      "org.typelevel"                 %% "cats-effect" % "3.6.3" % Test,
+      "com.softwaremill.sttp.client4" %% "cats"        % "4.0.9" % Test,
     ),
     Test / parallelExecution := false,
   )
@@ -36,9 +36,9 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"                 %% "cats-effect"      % "3.6.3",
-      "com.softwaremill.sttp.client4" %% "fs2"              % "4.0.9",
-      "ch.qos.logback"                 % "logback-classic"  % "1.5.18",
+      "org.typelevel"                 %% "cats-effect"     % "3.6.3",
+      "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.9",
+      "ch.qos.logback"                 % "logback-classic" % "1.5.18",
     ),
     Test / parallelExecution := false,
     publish / skip           := true,
@@ -48,7 +48,6 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
 
 lazy val commonSettings = Seq(
   scalaVersion         := "3.7.1",
-
   scalacOptions ++= Seq(
     "-deprecation",
     "-feature",
@@ -63,7 +62,7 @@ lazy val commonSettings = Seq(
   Test / scalacOptions := (Test / scalacOptions).value.filterNot(_ == "-Wunused:all"),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest"                     % "3.2.19" % Test,
-    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0"  % Test,
+    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.7.0"  % Test,
   ),
   organization         := "org.business4s",
   homepage             := Some(url("https://business4s.github.io/chatops4s/")),
