@@ -18,8 +18,10 @@ private[slack] object SocketMode {
       backend: WebSocketBackend[F],
       onInteraction: InteractionPayload => F[Unit],
       onSlashCommand: SlashCommandPayload => F[Unit],
+      retryDelay: Option[F[Unit]] = None,
   ): F[Unit] = {
     given monad: MonadError[F] = backend.monad
+    val delay = retryDelay.getOrElse(monad.blocking(Thread.sleep(2000)))
 
     val loop: F[Unit] = for {
       url <- openSocketUrl(appToken, backend)
@@ -27,7 +29,7 @@ private[slack] object SocketMode {
     } yield ()
 
     loop.handleError { case _ =>
-      monad.blocking(Thread.sleep(2000)) >> runLoop(appToken, backend, onInteraction, onSlashCommand)
+      delay >> runLoop(appToken, backend, onInteraction, onSlashCommand, Some(delay))
     }
   }
 
