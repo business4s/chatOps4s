@@ -2,7 +2,7 @@ package example
 
 import cats.effect.{IO, IOApp}
 import cats.syntax.all.*
-import chatops4s.slack.{ButtonClick, ButtonId, CommandParser, CommandResponse, SlackGateway}
+import chatops4s.slack.{ButtonClick, ButtonId, CommandParser, CommandResponse, FormDef, FormSubmission, SlackGateway}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
@@ -11,13 +11,48 @@ object Main extends IOApp.Simple {
   private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
   private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
+  // -- Typed button values: buttons carry a ServiceVersion so handlers are guaranteed the format
+  opaque type ServiceVersion <: String = String
+  object ServiceVersion {
+    def apply(service: String, version: String): ServiceVersion = s"$service@$version"
+    def unapply(sv: ServiceVersion): (String, String) = {
+      val Array(s, v) = sv.split("@", 2): @unchecked
+      (s, v)
+    }
+  }
+
+  // -- Typed command argument: /status only accepts known service names
+  opaque type ServiceName <: String = String
+  object ServiceName {
+    private val valid = Set("api", "web", "worker")
+    def parse(text: String): Either[String, ServiceName] = {
+      val name = text.trim.toLowerCase
+      if (valid.contains(name)) Right(name)
+      else Left(s"Unknown service '$text'. Valid: ${valid.mkString(", ")}")
+    }
+  }
+  given CommandParser[ServiceName] with {
+    def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
+  }
+
+  // -- Form for the /deploy modal
+  case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
+
   override def run: IO[Unit] = {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack      <- SlackGateway.create(token, backend)
-        approveBtn <- slack.registerButton[Version](onApprove(slack))
-        rejectBtn  <- slack.registerButton[Version](onReject(slack))
-        _          <- slack.registerCommand[Version]("deploy", "Deploy a version to production")(onDeploy(slack, approveBtn, rejectBtn))
+        approveBtn <- slack.registerButton[ServiceVersion](onApprove(slack))
+        rejectBtn  <- slack.registerButton[ServiceVersion](onReject(slack))
+        deployForm <- slack.registerForm[DeployForm](onDeploySubmit(slack, approveBtn, rejectBtn))
+        // /deploy → opens a form → posts approval message with typed buttons
+        _          <- slack.registerCommand[String]("deploy", "Deploy a service") { cmd =>
+                        slack.openForm(cmd.triggerId, deployForm, "Deploy Service").as(CommandResponse.Silent)
+                      }
+        // /status <service> → typed command with CommandParser[ServiceName]
+        _          <- slack.registerCommand[ServiceName]("service-status", "Check service status") { cmd =>
+                        IO.pure(CommandResponse.Ephemeral(s"Service *${cmd.args}* is healthy."))
+                      }
         manifest   <- slack.manifest("ChatOps4sExample")
         _          <- IO.println(manifest)
         slackFiber <- slack.listen(appToken).start
@@ -26,29 +61,44 @@ object Main extends IOApp.Simple {
     }
   }
 
-  opaque type Version <: String = String
-
-  object Version {
-    def apply(v: String): Version = v
+  // Form submission → approval message with typed ServiceVersion buttons
+  private def onDeploySubmit(
+      slack: SlackGateway[IO],
+      approveBtn: ButtonId[ServiceVersion],
+      rejectBtn: ButtonId[ServiceVersion],
+  )(submission: FormSubmission[DeployForm]): IO[Unit] = {
+    val form = submission.values
+    val dryRunStr = if (form.dryRun) " (dry run)" else ""
+    val label = s"*${form.service}* *${form.version}*$dryRunStr"
+    val sv = ServiceVersion(form.service, form.version)
+    for {
+      msg <- slack.send(channel, s"<@${submission.userId}> requested deploy of $label")
+      _   <- slack.addReaction(msg, "hourglass_flowing_sand")
+      resp   <- slack.reply(
+               msg,
+               s"Approve deployment of $label?",
+               Seq(
+                 approveBtn.toButton("Approve", sv),
+                 rejectBtn.toButton("Reject", sv),
+               ),
+             )
+      _ = println(s"Deploy request reply: $resp")
+    } yield ()
   }
 
-  given CommandParser[Version] with {
-    def parse(text: String): Either[String, Version] =
-      if (text.matches("""v?\d+(\.\d+)*""")) Right(Version(text))
-      else Left(s"'$text' is not a valid version (expected e.g. v1.2.3)")
-  }
-
-  private def onApprove(slack: SlackGateway[IO])(click: ButtonClick[Version]): IO[Unit] =
+  // Button handlers receive ServiceVersion — can destructure safely
+  private def onApprove(slack: SlackGateway[IO])(click: ButtonClick[ServiceVersion]): IO[Unit] =
     click.threadId.traverse_ { parent =>
+      val (service, version) = ServiceVersion.unapply(click.value)
       for {
         _ <- slack.update(click.messageId, s":white_check_mark: *Approved* by <@${click.userId}>")
         _ <- slack.removeReaction(parent, "hourglass_flowing_sand")
         _ <- slack.addReaction(parent, "white_check_mark")
-        _ <- slack.reply(parent, "Deploying to production...")
+        _ <- slack.reply(parent, s"Deploying *$service* *$version* to production...")
       } yield ()
     }
 
-  private def onReject(slack: SlackGateway[IO])(click: ButtonClick[Version]): IO[Unit] =
+  private def onReject(slack: SlackGateway[IO])(click: ButtonClick[ServiceVersion]): IO[Unit] =
     click.threadId.traverse_ { parent =>
       for {
         _ <- slack.update(click.messageId, s":x: *Rejected* by <@${click.userId}>")
@@ -56,22 +106,4 @@ object Main extends IOApp.Simple {
         _ <- slack.addReaction(parent, "x")
       } yield ()
     }
-
-  private def onDeploy(
-      slack: SlackGateway[IO],
-      approveBtn: ButtonId[Version],
-      rejectBtn: ButtonId[Version],
-  )(cmd: chatops4s.slack.Command[Version]): IO[CommandResponse] =
-    for {
-      msg <- slack.send(cmd.channelId, s"Deploying *${cmd.args}* to production")
-      _   <- slack.addReaction(msg, "hourglass_flowing_sand")
-      _   <- slack.reply(
-               msg,
-               s"Approve deployment of *${cmd.args}*?",
-               Seq(
-                 approveBtn.toButton("Approve", cmd.args),
-                 rejectBtn.toButton("Reject", cmd.args),
-               ),
-             )
-    } yield CommandResponse.Silent
 }

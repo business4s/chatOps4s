@@ -30,21 +30,21 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
 
     "chat.postMessage" in {
       parseOk[chat.PostMessageResponse]("chat.postMessage.json") { r =>
-        r.channel should not be empty
+        r.channel.value should not be empty
         r.ts should not be empty
       }
     }
 
     "chat.update" in {
       parseOk[chat.UpdateResponse]("chat.update.json") { r =>
-        r.channel should not be empty
+        r.channel.value should not be empty
         r.ts should not be empty
       }
     }
 
     "chat.delete" in {
       parseOk[chat.DeleteResponse]("chat.delete.json") { r =>
-        r.channel should not be empty
+        r.channel.value should not be empty
         r.ts should not be empty
       }
     }
@@ -88,7 +88,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
       assume(json.isDefined, "Fixture chat.postMessage.json not found — run ResponseCollector first")
       val response = decode[SlackResponse[chat.PostMessageResponse]](json.get).toOption.get
       val value = response.okOrThrow
-      value.channel should not be empty
+      value.channel.value should not be empty
       value.ts should not be empty
     }
 

@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{SlackApi, chat, reactions}
+import chatops4s.slack.api.{ChannelId, SlackApi, chat, reactions, views}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.monad.syntax.*
@@ -24,7 +24,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
 
     api.chat.postMessage(request).map { resp =>
       val r = resp.okOrThrow
-      MessageId(channel, r.ts)
+      MessageId(r.channel, r.ts)
     }
   }
 
@@ -53,6 +53,10 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
 
   def postEphemeral(channel: String, userId: String, text: String): F[Unit] =
     api.chat.postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
+      .map(_.okOrThrow).void
+
+  def openView(triggerId: String, view: io.circe.Json): F[Unit] =
+    api.views.open(views.OpenRequest(trigger_id = triggerId, view = view))
       .map(_.okOrThrow).void
 
   def updateMessage(messageId: MessageId, text: String, blocks: Option[List[Block]]): F[MessageId] = {

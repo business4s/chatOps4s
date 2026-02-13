@@ -41,6 +41,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
           container = Container(Some("1770813738.876949")),
           message = Some(InteractionMessage(None)),
           actions = Some(List(Action("collector-test-btn", Some("test-value")))),
+          trigger_id = Some("10501237082865.5534214501223.48e1216dab3421ad85dcfb49cea8c8f2"),
         ))
       }
 
@@ -63,6 +64,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
           user_id = "U05GUDS0A48",
           channel_id = "C0ADN3WUR8D",
           response_url = "https://hooks.slack.com/commands/T05FQ6AER6K/10472872949175/cpDA6yXHpAZg0Le5snF4LYma",
+          trigger_id = Some("10484895534197.5534214501223.19b967da015b9de9d9f92ba8403cc639"),
         ))
       }
 
@@ -179,11 +181,12 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       envelopeText: String,
       onInteraction: InteractionPayload => IO[Unit] = _ => IO.unit,
       onSlashCommand: SlashCommandPayload => IO[Unit] = _ => IO.unit,
+      onViewSubmission: ViewSubmissionPayload => IO[Unit] = _ => IO.unit,
   ): Unit = {
     val wsStub = WebSocketStub
       .initialReceive(List(WebSocketFrame.text(envelopeText)))
       .thenRespond(_ => List.empty)
-    runRaw(wsStub, onInteraction, onSlashCommand)
+    runRaw(wsStub, onInteraction, onSlashCommand, onViewSubmission)
   }
 
   /** Runs SocketMode.runLoop with the given WebSocket stub and a no-op retry delay. */
@@ -191,6 +194,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       wsStub: WebSocketStub[?],
       onInteraction: InteractionPayload => IO[Unit] = _ => IO.unit,
       onSlashCommand: SlashCommandPayload => IO[Unit] = _ => IO.unit,
+      onViewSubmission: ViewSubmissionPayload => IO[Unit] = _ => IO.unit,
   ): Unit = {
     val backend = MockBackend
       .create()
@@ -200,7 +204,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       .thenRespondAdjust(wsStub, StatusCode.SwitchingProtocols)
 
     SocketMode
-      .runLoop("app-token", backend, onInteraction, onSlashCommand, retryDelay = Some(IO.unit))
+      .runLoop("app-token", backend, onInteraction, onSlashCommand, onViewSubmission, retryDelay = Some(IO.unit))
       .timeout(1.second)
       .attempt
       .unsafeRunSync()

@@ -1,6 +1,12 @@
 package chatops4s.slack.api
 
-import io.circe.{Codec, Decoder, Json}
+import io.circe.{Codec, Decoder, Encoder, Json}
+
+case class ChannelId(value: String)
+object ChannelId {
+  given Encoder[ChannelId] = Encoder[String].contramap(_.value)
+  given Decoder[ChannelId] = Decoder[String].map(ChannelId(_))
+}
 
 sealed trait SlackResponse[+T] {
   def okOrThrow: T
@@ -37,14 +43,14 @@ object chat {
   ) derives Codec.AsObject
 
   case class PostMessageResponse(
-      channel: String,
+      channel: ChannelId,
       ts: String,
       message: Option[Json] = None,
       response_metadata: Option[ResponseMetadata] = None,
   ) derives Codec.AsObject
 
   case class UpdateRequest(
-      channel: String,
+      channel: ChannelId,
       ts: String,
       text: Option[String] = None,
       blocks: Option[List[Json]] = None,
@@ -54,19 +60,19 @@ object chat {
   ) derives Codec.AsObject
 
   case class UpdateResponse(
-      channel: String,
+      channel: ChannelId,
       ts: String,
       text: Option[String] = None,
       message: Option[Json] = None,
   ) derives Codec.AsObject
 
   case class DeleteRequest(
-      channel: String,
+      channel: ChannelId,
       ts: String,
   ) derives Codec.AsObject
 
   case class DeleteResponse(
-      channel: String,
+      channel: ChannelId,
       ts: String,
   ) derives Codec.AsObject
 
@@ -90,7 +96,7 @@ case class ResponseMetadata(
 object reactions {
 
   case class AddRequest(
-      channel: String,
+      channel: ChannelId,
       timestamp: String,
       name: String,
   ) derives Codec.AsObject
@@ -98,7 +104,7 @@ object reactions {
   case class AddResponse() derives Codec.AsObject
 
   case class RemoveRequest(
-      channel: String,
+      channel: ChannelId,
       timestamp: String,
       name: String,
   ) derives Codec.AsObject
@@ -110,5 +116,17 @@ object apps {
 
   case class ConnectionsOpenResponse(
       url: String,
+  ) derives Codec.AsObject
+}
+
+object views {
+
+  case class OpenRequest(
+      trigger_id: String,
+      view: Json,
+  ) derives Codec.AsObject
+
+  case class OpenResponse(
+      id: Option[String] = None,
   ) derives Codec.AsObject
 }

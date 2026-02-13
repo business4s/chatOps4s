@@ -35,6 +35,11 @@ object MockBackend {
       .whenRequestMatches(_.uri.toString().contains("hooks.slack.com"))
       .thenRespondAdjust("ok", statusCode)
 
+  def withViewsOpen(responseBody: String = okBody, statusCode: StatusCode = StatusCode.Ok): WebSocketBackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("views.open"))
+      .thenRespondAdjust(responseBody, statusCode)
+
   private val okBody = """{"ok":true}"""
 
   def withOkApi(): WebSocketBackendStub[IO] =

@@ -5,7 +5,7 @@ private[slack] object SlackManifest {
   def generate(
       appName: String,
       commands: Map[String, String],
-      hasButtons: Boolean,
+      hasInteractivity: Boolean,
   ): String = {
     val commandScopes = if (commands.nonEmpty) "\n      - commands" else ""
 
@@ -20,7 +20,7 @@ private[slack] object SlackManifest {
          |$entries""".stripMargin
     } else ""
 
-    val interactivity = if (hasButtons) {
+    val interactivity = if (hasInteractivity) {
       s"""
          |  interactivity:
          |    is_enabled: true""".stripMargin

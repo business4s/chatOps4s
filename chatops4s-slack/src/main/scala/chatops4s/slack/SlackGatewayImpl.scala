@@ -1,5 +1,7 @@
 package chatops4s.slack
 
+import chatops4s.slack.api.ChannelId
+import io.circe.syntax.*
 import sttp.client4.WebSocketBackend
 import sttp.monad.MonadError
 import sttp.monad.syntax.*
@@ -17,10 +19,16 @@ private[slack] case class CommandEntry[F[_]](
     description: String,
 )
 
+private[slack] case class FormEntry[F[_]](
+    formDef: FormDef[Any],
+    handler: FormSubmission[Any] => F[Unit],
+)
+
 private[slack] class SlackGatewayImpl[F[_]](
     client: SlackClient[F],
     handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[String, CommandEntry[F]]],
+    formHandlersRef: Ref[F, Map[String, FormEntry[F]]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
@@ -42,8 +50,11 @@ private[slack] class SlackGatewayImpl[F[_]](
           val cmd = Command(
             args = args,
             userId = payload.user_id,
-            channelId = payload.channel_id,
+            channelId = ChannelId(payload.channel_id),
             text = payload.text,
+            triggerId = TriggerId(payload.trigger_id.getOrElse(
+              throw new IllegalStateException(s"Missing trigger_id in slash command payload for /$normalized")
+            )),
           )
           handler(cmd)
       }
@@ -51,24 +62,34 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description)))
   }
 
+  override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T] => F[Unit]): F[FormId[T]] = {
+    val id = FormId[T](UUID.randomUUID().toString)
+    val entry = FormEntry[F](
+      formDef = fd.asInstanceOf[FormDef[Any]],
+      handler = handler.asInstanceOf[FormSubmission[Any] => F[Unit]],
+    )
+    formHandlersRef.update(_ + (id.value -> entry)).as(id)
+  }
+
   override def manifest(appName: String): F[String] = {
     for {
       handlers <- handlersRef.get
       commands <- commandHandlersRef.get
+      forms    <- formHandlersRef.get
     } yield {
       val commandDefs = commands.view.mapValues(_.description).toMap
-      SlackManifest.generate(appName, commandDefs, hasButtons = handlers.nonEmpty)
+      SlackManifest.generate(appName, commandDefs, hasInteractivity = handlers.nonEmpty || forms.nonEmpty)
     }
   }
 
   override def listen(appToken: String): F[Unit] =
-    SocketMode.runLoop(appToken, backend, handleInteractionPayload, handleSlashCommandPayload)
+    SocketMode.runLoop(appToken, backend, handleInteractionPayload, handleSlashCommandPayload, handleViewSubmissionPayload)
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
     client.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None)
 
   override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
-    client.postMessage(to.channel, text, buildBlocks(text, buttons), threadTs = Some(to.ts))
+    client.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts))
 
   override def update(messageId: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
     client.updateMessage(messageId, text, buildBlocks(text, buttons))
@@ -85,19 +106,41 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def sendEphemeral(channel: String, userId: String, text: String): F[Unit] =
     client.postEphemeral(channel, userId, text)
 
+  override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit"): F[Unit] = {
+    formHandlersRef.get.flatMap { forms =>
+      forms.get(formId.value) match {
+        case None => monad.error(new RuntimeException(s"Form not found: ${formId.value}"))
+        case Some(entry) =>
+          val viewBlocks = buildViewBlocks(entry.formDef)
+          val view = View(
+            `type` = "modal",
+            callback_id = formId.value,
+            title = TextObject(`type` = "plain_text", text = title),
+            submit = Some(TextObject(`type` = "plain_text", text = submitLabel)),
+            blocks = viewBlocks,
+          )
+          client.openView(triggerId.value, view.asJson.deepDropNullValues)
+      }
+    }
+  }
+
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
     handlersRef.get.flatMap { handlers =>
+      val channelId = ChannelId(payload.channel.id)
       val messageId = MessageId(
-        channel = payload.channel.id,
+        channel = channelId,
         ts = payload.container.message_ts.getOrElse(""),
       )
-      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(payload.channel.id, ts))
+      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(channelId, ts))
 
       payload.actions.getOrElse(Nil).traverse_ { action =>
         val click = ButtonClick[String](
           userId = payload.user.id,
           messageId = messageId,
           value = action.value.getOrElse(""),
+          triggerId = TriggerId(payload.trigger_id.getOrElse(
+            throw new IllegalStateException("Missing trigger_id in interaction payload")
+          )),
           threadId = threadId,
         )
 
@@ -116,6 +159,22 @@ private[slack] class SlackGatewayImpl[F[_]](
             client.respondToCommand(payload.response_url, t, "ephemeral")
           case CommandResponse.InChannel(t) =>
             client.respondToCommand(payload.response_url, t, "in_channel")
+        }
+      }
+    }
+  }
+
+  private[slack] def handleViewSubmissionPayload(payload: ViewSubmissionPayload): F[Unit] = {
+    val callbackId = payload.view.callback_id.getOrElse("")
+    formHandlersRef.get.flatMap { forms =>
+      forms.get(callbackId).traverse_ { entry =>
+        val values = payload.view.state.map(_.values).getOrElse(Map.empty)
+        entry.formDef.parse(values) match {
+          case Left(error) =>
+            monad.error(new RuntimeException(s"Form parse error: $error"))
+          case Right(parsed) =>
+            val submission = FormSubmission(userId = payload.user.id, values = parsed)
+            entry.handler(submission)
         }
       }
     }
@@ -145,4 +204,45 @@ private[slack] class SlackGatewayImpl[F[_]](
       action_id = Some(button.actionId),
       value = Some(button.value),
     )
+
+  private def buildViewBlocks(formDef: FormDef[?]): List[Block] =
+    formDef.fields.map { field =>
+      val element = field.fieldType match {
+        case FormFieldType.PlainText =>
+          BlockElement(
+            `type` = "plain_text_input",
+            action_id = Some(field.id),
+          )
+        case FormFieldType.Integer =>
+          BlockElement(
+            `type` = "number_input",
+            action_id = Some(field.id),
+            is_decimal_allowed = Some(false),
+          )
+        case FormFieldType.Decimal =>
+          BlockElement(
+            `type` = "number_input",
+            action_id = Some(field.id),
+            is_decimal_allowed = Some(true),
+          )
+        case FormFieldType.Checkbox =>
+          BlockElement(
+            `type` = "checkboxes",
+            action_id = Some(field.id),
+            options = Some(List(
+              BlockOption(
+                text = TextObject(`type` = "plain_text", text = "Yes"),
+                value = "true",
+              ),
+            )),
+          )
+      }
+      Block(
+        `type` = "input",
+        block_id = Some(field.id),
+        label = Some(TextObject(`type` = "plain_text", text = field.label)),
+        element = Some(element),
+        optional = if (field.optional) Some(true) else None,
+      )
+    }
 }

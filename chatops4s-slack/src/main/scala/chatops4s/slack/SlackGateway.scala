@@ -11,6 +11,7 @@ trait SlackGateway[F[_]] {
   def addReaction(messageId: MessageId, emoji: String): F[Unit]
   def removeReaction(messageId: MessageId, emoji: String): F[Unit]
   def sendEphemeral(channel: String, userId: String, text: String): F[Unit]
+  def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit"): F[Unit]
   def listen(appToken: String): F[Unit]
 }
 
@@ -24,9 +25,10 @@ object SlackGateway {
     for {
       handlersRef        <- Ref.of[F, Map[String, ErasedHandler[F]]](Map.empty)
       commandHandlersRef <- Ref.of[F, Map[String, CommandEntry[F]]](Map.empty)
+      formHandlersRef    <- Ref.of[F, Map[String, FormEntry[F]]](Map.empty)
     } yield {
       val client = new SlackClient[F](token, backend)
-      val gateway = new SlackGatewayImpl[F](client, handlersRef, commandHandlersRef, backend)
+      val gateway = new SlackGatewayImpl[F](client, handlersRef, commandHandlersRef, formHandlersRef, backend)
       gateway: SlackGateway[F] & SlackSetup[F]
     }
   }

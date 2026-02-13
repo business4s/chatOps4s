@@ -1,7 +1,7 @@
 package example.docs
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.SlackGateway
+import chatops4s.slack.{CommandResponse, FormDef, SlackGateway}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 // start_minimal
@@ -56,3 +56,31 @@ object InteractiveButtons extends IOApp.Simple {
     }
 }
 // end_buttons
+
+// start_forms
+object InteractiveForms extends IOApp.Simple {
+
+  private val token    = sys.env("SLACK_BOT_TOKEN")
+  private val appToken = sys.env("SLACK_APP_TOKEN")
+  private val channel  = sys.env("SLACK_CHANNEL")
+
+  case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
+
+  override def run: IO[Unit] =
+    HttpClientFs2Backend.resource[IO]().use { backend =>
+      for {
+        slack      <- SlackGateway.create(token, backend)
+        deployForm <- slack.registerForm[DeployForm] { submission =>
+                        val form = submission.values
+                        slack.send(channel, s"Deploying ${form.service} ${form.version}")
+                          .void
+                      }
+        _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
+                        slack.openForm(cmd.triggerId, deployForm, "Deploy Service")
+                          .as(CommandResponse.Silent)
+                      }
+        _          <- slack.listen(appToken)
+      } yield ()
+    }
+}
+// end_forms

@@ -34,6 +34,12 @@ class SlackApi[F[_]](backend: Backend[F], token: String) {
       post("reactions.remove", req)
   }
 
+  object views {
+
+    def open(req: chatops4s.slack.api.views.OpenRequest): F[SlackResponse[chatops4s.slack.api.views.OpenResponse]] =
+      post("views.open", req)
+  }
+
   private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =
     backend
       .send(

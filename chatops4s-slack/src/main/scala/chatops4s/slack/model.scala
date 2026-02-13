@@ -1,6 +1,10 @@
 package chatops4s.slack
 
-case class MessageId(channel: String, ts: String)
+import chatops4s.slack.api.ChannelId
+
+case class MessageId(channel: ChannelId, ts: String)
+
+case class TriggerId(value: String)
 
 case class ButtonId[T <: String](value: String) {
   def toButton(label: String, value: T): Button = Button(label, this, value)
@@ -17,6 +21,7 @@ case class ButtonClick[T <: String](
     userId: String,
     messageId: MessageId,
     value: T,
+    triggerId: TriggerId,
     threadId: Option[MessageId] = None,
 )
 
@@ -33,8 +38,9 @@ object CommandParser {
 case class Command[T](
     args: T,
     userId: String,
-    channelId: String,
+    channelId: ChannelId,
     text: String,
+    triggerId: TriggerId,
 )
 
 sealed trait CommandResponse

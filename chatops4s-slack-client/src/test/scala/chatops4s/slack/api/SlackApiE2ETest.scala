@@ -24,7 +24,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
   "SlackApi E2E" - {
 
     // Populated by postMessage, used by subsequent tests
-    var channelId: String = null
+    var channelId: ChannelId = null
     var messageTs: String = null
 
     "apps.connections.open should return a websocket URL" in {
@@ -54,7 +54,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
         .post(uri"https://slack.com/api/conversations.join")
         .header("Authorization", s"Bearer ${botToken.get}")
         .contentType("application/json")
-        .body(s"""{"channel":"$channelId"}""")
+        .body(s"""{"channel":"${channelId.value}"}""")
         .response(asJsonAlways[OkErrorResponse])
         .send(backend)
         .body
@@ -105,7 +105,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
       val userId = sys.env.get("SLACK_TEST_USER_ID")
       assume(userId.isDefined, "SLACK_TEST_USER_ID required for ephemeral test")
       val result = api.chat.postEphemeral(chat.PostEphemeralRequest(
-        channel = channelId,
+        channel = channelId.value,
         user = userId.get,
         text = "chatops4s-slack-client E2E ephemeral test",
       )).okOrThrow

@@ -8,6 +8,10 @@ private[slack] object SlackModels {
       `type`: String,
       text: Option[TextObject] = None,
       elements: Option[List[BlockElement]] = None,
+      block_id: Option[String] = None,
+      element: Option[BlockElement] = None,
+      label: Option[TextObject] = None,
+      optional: Option[Boolean] = None,
   ) derives Codec.AsObject
 
   case class TextObject(
@@ -20,6 +24,13 @@ private[slack] object SlackModels {
       text: Option[TextObject] = None,
       action_id: Option[String] = None,
       value: Option[String] = None,
+      is_decimal_allowed: Option[Boolean] = None,
+      options: Option[List[BlockOption]] = None,
+  ) derives Codec.AsObject
+
+  case class BlockOption(
+      text: TextObject,
+      value: String,
   ) derives Codec.AsObject
 
   case class InteractionPayload(
@@ -29,6 +40,7 @@ private[slack] object SlackModels {
       container: Container,
       message: Option[InteractionMessage] = None,
       actions: Option[List[Action]] = None,
+      trigger_id: Option[String] = None,
   ) derives Codec.AsObject
 
   case class User(id: String) derives Codec.AsObject
@@ -53,10 +65,37 @@ private[slack] object SlackModels {
       user_id: String,
       channel_id: String,
       response_url: String,
+      trigger_id: Option[String] = None,
   ) derives Codec.AsObject
 
   case class CommandResponsePayload(
       response_type: String,
       text: String,
+  ) derives Codec.AsObject
+
+  // View submission types
+  case class ViewSubmissionPayload(
+      `type`: String,
+      user: User,
+      view: ViewPayload,
+  ) derives Codec.AsObject
+
+  case class ViewPayload(
+      id: String,
+      callback_id: Option[String] = None,
+      state: Option[ViewState] = None,
+  ) derives Codec.AsObject
+
+  case class ViewState(
+      values: Map[String, Map[String, Json]],
+  ) derives Codec.AsObject
+
+  // View model for opening modals
+  case class View(
+      `type`: String,
+      callback_id: String,
+      title: TextObject,
+      submit: Option[TextObject] = None,
+      blocks: List[Block],
   ) derives Codec.AsObject
 }

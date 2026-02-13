@@ -1,7 +1,7 @@
 package chatops4s.slack
 
 import chatops4s.slack.api.SlackApi
-import io.circe.parser
+import io.circe.{Decoder, Json, parser}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.ws.async.*
@@ -18,6 +18,7 @@ private[slack] object SocketMode {
       backend: WebSocketBackend[F],
       onInteraction: InteractionPayload => F[Unit],
       onSlashCommand: SlashCommandPayload => F[Unit],
+      onViewSubmission: ViewSubmissionPayload => F[Unit],
       retryDelay: Option[F[Unit]] = None,
   ): F[Unit] = {
     given monad: MonadError[F] = backend.monad
@@ -25,11 +26,11 @@ private[slack] object SocketMode {
 
     val loop: F[Unit] = for {
       url <- openSocketUrl(appToken, backend)
-      _   <- connectAndHandle(url, backend, onInteraction, onSlashCommand)
+      _   <- connectAndHandle(url, backend, onInteraction, onSlashCommand, onViewSubmission)
     } yield ()
 
     loop.handleError { case _ =>
-      delay >> runLoop(appToken, backend, onInteraction, onSlashCommand, Some(delay))
+      delay >> runLoop(appToken, backend, onInteraction, onSlashCommand, onViewSubmission, Some(delay))
     }
   }
 
@@ -46,6 +47,7 @@ private[slack] object SocketMode {
       backend: WebSocketBackend[F],
       onInteraction: InteractionPayload => F[Unit],
       onSlashCommand: SlashCommandPayload => F[Unit],
+      onViewSubmission: ViewSubmissionPayload => F[Unit],
   ): F[Unit] = {
     given monad: MonadError[F] = backend.monad
     basicRequest
@@ -60,20 +62,15 @@ private[slack] object SocketMode {
                   case "interactive" =>
                     envelope.payload match {
                       case Some(json) =>
-                        json.as[InteractionPayload] match {
-                          case Right(payload) => onInteraction(payload).map(_ => ()).handleError { case _ => monad.unit(()) }
-                          case Left(_)        => monad.unit(())
-                        }
+                        val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
+                        if (payloadType == "view_submission") dispatchPayload(json, onViewSubmission)
+                        else dispatchPayload(json, onInteraction)
                       case None => monad.unit(())
                     }
                   case "slash_commands" =>
                     envelope.payload match {
-                      case Some(json) =>
-                        json.as[SlashCommandPayload] match {
-                          case Right(payload) => onSlashCommand(payload).map(_ => ()).handleError { case _ => monad.unit(()) }
-                          case Left(_)        => monad.unit(())
-                        }
-                      case None => monad.unit(())
+                      case Some(json) => dispatchPayload(json, onSlashCommand)
+                      case None       => monad.unit(())
                     }
                   case _ => monad.unit(())
                 }
@@ -86,4 +83,12 @@ private[slack] object SocketMode {
       .send(backend)
       .void
   }
+
+  private def dispatchPayload[F[_], A: Decoder](json: Json, handler: A => F[Unit])(using monad: MonadError[F]): F[Unit] =
+    json.as[A] match {
+      case Right(a) => handler(a).handleError { case e =>
+        monad.blocking(System.err.println(s"[chatops4s] Handler error: ${e.getMessage}"))
+      }
+      case Left(_)  => monad.unit(())
+    }
 }
