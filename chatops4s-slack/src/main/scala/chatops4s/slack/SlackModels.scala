@@ -26,6 +26,7 @@ private[slack] object SlackModels {
       value: Option[String] = None,
       is_decimal_allowed: Option[Boolean] = None,
       options: Option[List[BlockOption]] = None,
+      initial_value: Option[String] = None,
   ) derives Codec.AsObject
 
   case class BlockOption(
@@ -40,7 +41,7 @@ private[slack] object SlackModels {
       container: Container,
       message: Option[InteractionMessage] = None,
       actions: Option[List[Action]] = None,
-      trigger_id: Option[String] = None,
+      trigger_id: String,
   ) derives Codec.AsObject
 
   case class User(id: String) derives Codec.AsObject
@@ -65,7 +66,7 @@ private[slack] object SlackModels {
       user_id: String,
       channel_id: String,
       response_url: String,
-      trigger_id: Option[String] = None,
+      trigger_id: String,
   ) derives Codec.AsObject
 
   case class CommandResponsePayload(

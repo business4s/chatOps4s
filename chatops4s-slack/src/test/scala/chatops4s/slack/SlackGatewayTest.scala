@@ -20,7 +20,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     given sttp.monad.MonadError[IO] = backend.monad
     val handlersRef = Ref.of[IO, Map[String, ErasedHandler[IO]]](Map.empty).unsafeRunSync()
     val commandHandlersRef = Ref.of[IO, Map[String, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef = Ref.of[IO, Map[String, FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val client = new SlackClient[IO]("test-token", backend)
     new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, formHandlersRef, backend)
   }
@@ -165,7 +165,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             SlackModels.Action(btn1.value, Some("v1")),
             SlackModels.Action(btn2.value, Some("v2")),
           )),
-          trigger_id = Some("test-trigger-id"),
+          trigger_id = "test-trigger-id",
         )
         gateway.handleInteractionPayload(payload).unsafeRunSync()
 
@@ -501,7 +501,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       user_id = "U123",
       channel_id = "C123",
       response_url = "https://hooks.slack.com/commands/T123/456/789",
-      trigger_id = Some("test-trigger-id"),
+      trigger_id = "test-trigger-id",
     )
 
   private def interactionPayload(actionId: String, value: String): SlackModels.InteractionPayload =
@@ -513,7 +513,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       actions = Some(List(
         SlackModels.Action(actionId, Some(value)),
       )),
-      trigger_id = Some("test-trigger-id"),
+      trigger_id = "test-trigger-id",
     )
 
   private def viewSubmissionPayload(

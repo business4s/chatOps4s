@@ -28,7 +28,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     client: SlackClient[F],
     handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[String, CommandEntry[F]]],
-    formHandlersRef: Ref[F, Map[String, FormEntry[F]]],
+    formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
@@ -52,9 +52,7 @@ private[slack] class SlackGatewayImpl[F[_]](
             userId = payload.user_id,
             channelId = ChannelId(payload.channel_id),
             text = payload.text,
-            triggerId = TriggerId(payload.trigger_id.getOrElse(
-              throw new IllegalStateException(s"Missing trigger_id in slash command payload for /$normalized")
-            )),
+            triggerId = TriggerId(payload.trigger_id),
           )
           handler(cmd)
       }
@@ -68,7 +66,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       formDef = fd.asInstanceOf[FormDef[Any]],
       handler = handler.asInstanceOf[FormSubmission[Any] => F[Unit]],
     )
-    formHandlersRef.update(_ + (id.value -> entry)).as(id)
+    formHandlersRef.update(_ + (id -> entry)).as(id)
   }
 
   override def manifest(appName: String): F[String] = {
@@ -106,12 +104,12 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def sendEphemeral(channel: String, userId: String, text: String): F[Unit] =
     client.postEphemeral(channel, userId, text)
 
-  override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit"): F[Unit] = {
+  override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: Map[String, String] = Map.empty): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>
-      forms.get(formId.value) match {
+      forms.get(formId) match {
         case None => monad.error(new RuntimeException(s"Form not found: ${formId.value}"))
         case Some(entry) =>
-          val viewBlocks = buildViewBlocks(entry.formDef)
+          val viewBlocks = buildViewBlocks(entry.formDef, initialValues)
           val view = View(
             `type` = "modal",
             callback_id = formId.value,
@@ -138,9 +136,7 @@ private[slack] class SlackGatewayImpl[F[_]](
           userId = payload.user.id,
           messageId = messageId,
           value = action.value.getOrElse(""),
-          triggerId = TriggerId(payload.trigger_id.getOrElse(
-            throw new IllegalStateException("Missing trigger_id in interaction payload")
-          )),
+          triggerId = TriggerId(payload.trigger_id),
           threadId = threadId,
         )
 
@@ -165,7 +161,7 @@ private[slack] class SlackGatewayImpl[F[_]](
   }
 
   private[slack] def handleViewSubmissionPayload(payload: ViewSubmissionPayload): F[Unit] = {
-    val callbackId = payload.view.callback_id.getOrElse("")
+    val callbackId = FormId[Any](payload.view.callback_id.getOrElse(""))
     formHandlersRef.get.flatMap { forms =>
       forms.get(callbackId).traverse_ { entry =>
         val values = payload.view.state.map(_.values).getOrElse(Map.empty)
@@ -205,25 +201,29 @@ private[slack] class SlackGatewayImpl[F[_]](
       value = Some(button.value),
     )
 
-  private def buildViewBlocks(formDef: FormDef[?]): List[Block] =
+  private def buildViewBlocks(formDef: FormDef[?], initialValues: Map[String, String]): List[Block] =
     formDef.fields.map { field =>
+      val initial = initialValues.get(field.id)
       val element = field.fieldType match {
         case FormFieldType.PlainText =>
           BlockElement(
             `type` = "plain_text_input",
             action_id = Some(field.id),
+            initial_value = initial,
           )
         case FormFieldType.Integer =>
           BlockElement(
             `type` = "number_input",
             action_id = Some(field.id),
             is_decimal_allowed = Some(false),
+            initial_value = initial,
           )
         case FormFieldType.Decimal =>
           BlockElement(
             `type` = "number_input",
             action_id = Some(field.id),
             is_decimal_allowed = Some(true),
+            initial_value = initial,
           )
         case FormFieldType.Checkbox =>
           BlockElement(

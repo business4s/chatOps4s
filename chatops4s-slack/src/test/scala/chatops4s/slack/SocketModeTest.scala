@@ -41,7 +41,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
           container = Container(Some("1770813738.876949")),
           message = Some(InteractionMessage(None)),
           actions = Some(List(Action("collector-test-btn", Some("test-value")))),
-          trigger_id = Some("10501237082865.5534214501223.48e1216dab3421ad85dcfb49cea8c8f2"),
+          trigger_id = "10501237082865.5534214501223.48e1216dab3421ad85dcfb49cea8c8f2",
         ))
       }
 
@@ -64,7 +64,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
           user_id = "U05GUDS0A48",
           channel_id = "C0ADN3WUR8D",
           response_url = "https://hooks.slack.com/commands/T05FQ6AER6K/10472872949175/cpDA6yXHpAZg0Le5snF4LYma",
-          trigger_id = Some("10484895534197.5534214501223.19b967da015b9de9d9f92ba8403cc639"),
+          trigger_id = "10484895534197.5534214501223.19b967da015b9de9d9f92ba8403cc639",
         ))
       }
 
@@ -222,6 +222,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
     channel = Channel("C123"),
     container = Container(Some("1234567890.123")),
     actions = Some(List(Action("btn-1", Some("approve")))),
+    trigger_id = "test-trigger-id",
   )
 
   private val syntheticSlashCommandPayload = SlashCommandPayload(
@@ -230,6 +231,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
     user_id = "U123",
     channel_id = "C123",
     response_url = "https://hooks.slack.com/commands/T123/456/789",
+    trigger_id = "test-trigger-id",
   )
 
   private def syntheticInteractionEnvelope(envelopeId: String = "env-123"): String =

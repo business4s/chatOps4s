@@ -45,9 +45,11 @@ object Main extends IOApp.Simple {
         approveBtn <- slack.registerButton[ServiceVersion](onApprove(slack))
         rejectBtn  <- slack.registerButton[ServiceVersion](onReject(slack))
         deployForm <- slack.registerForm[DeployForm](onDeploySubmit(slack, approveBtn, rejectBtn))
-        // /deploy → opens a form → posts approval message with typed buttons
+        // /deploy [service] → opens a form, pre-populating service name if provided
         _          <- slack.registerCommand[String]("deploy", "Deploy a service") { cmd =>
-                        slack.openForm(cmd.triggerId, deployForm, "Deploy Service").as(CommandResponse.Silent)
+                        val initial = if (cmd.args.trim.nonEmpty) Map("service" -> cmd.args.trim) else Map.empty
+                        slack.openForm(cmd.triggerId, deployForm, "Deploy Service", initialValues = initial)
+                          .as(CommandResponse.Silent)
                       }
         // /status <service> → typed command with CommandParser[ServiceName]
         _          <- slack.registerCommand[ServiceName]("service-status", "Check service status") { cmd =>

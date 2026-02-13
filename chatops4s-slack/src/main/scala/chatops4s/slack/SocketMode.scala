@@ -10,8 +10,11 @@ import sttp.monad.syntax.*
 import chatops4s.slack.monadSyntax.*
 
 import SlackModels.*
+import org.slf4j.LoggerFactory
 
 private[slack] object SocketMode {
+
+  private val logger = LoggerFactory.getLogger("chatops4s.slack.SocketMode")
 
   def runLoop[F[_]](
       appToken: String,
@@ -87,7 +90,7 @@ private[slack] object SocketMode {
   private def dispatchPayload[F[_], A: Decoder](json: Json, handler: A => F[Unit])(using monad: MonadError[F]): F[Unit] =
     json.as[A] match {
       case Right(a) => handler(a).handleError { case e =>
-        monad.blocking(System.err.println(s"[chatops4s] Handler error: ${e.getMessage}"))
+        monad.blocking(logger.error("Handler error", e))
       }
       case Left(_)  => monad.unit(())
     }
