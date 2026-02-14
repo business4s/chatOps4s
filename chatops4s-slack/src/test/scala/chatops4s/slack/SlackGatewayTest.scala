@@ -3,11 +3,13 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
+import chatops4s.slack.api
 import chatops4s.slack.api.ChannelId
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
 import io.circe.parser
+import chatops4s.slack.api.socket.ViewStateValue
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.client4.testing.WebSocketBackendStub
@@ -452,8 +454,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val payload = viewSubmissionPayload(
           callbackId = formId.value,
           values = Map(
-            "name" -> Map("name" -> Json.obj("value" -> Json.fromString("my-service"))),
-            "count" -> Map("count" -> Json.obj("value" -> Json.fromString("42"))),
+            "name" -> Map("name" -> ViewStateValue(value = Some("my-service"))),
+            "count" -> Map("count" -> ViewStateValue(value = Some("42"))),
           ),
         )
         gateway.handleViewSubmissionPayload(payload).unsafeRunSync()
@@ -539,9 +541,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val fd = summon[FormDef[SampleForm]]
         val values = Map(
-          "name" -> Map("name" -> Json.obj("value" -> Json.fromString("test"))),
-          "count" -> Map("count" -> Json.obj("value" -> Json.fromString("5"))),
-          "active" -> Map("active" -> Json.obj("selected_options" -> Json.arr(Json.obj("value" -> Json.fromString("true"))))),
+          "name" -> Map("name" -> ViewStateValue(value = Some("test"))),
+          "count" -> Map("count" -> ViewStateValue(value = Some("5"))),
+          "active" -> Map("active" -> ViewStateValue(selected_options = Some(List(api.socket.SelectedOption(value = "true"))))),
         )
 
         val result = fd.parse(values)
@@ -553,7 +555,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val fd = summon[FormDef[BoolForm]]
         val values = Map(
-          "flag" -> Map("flag" -> Json.obj("selected_options" -> Json.arr())),
+          "flag" -> Map("flag" -> ViewStateValue(selected_options = Some(List.empty))),
         )
 
         fd.parse(values) shouldBe Right(BoolForm(false))
@@ -564,7 +566,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val fd = summon[FormDef[OptForm]]
         val values = Map(
-          "note" -> Map("note" -> Json.Null),
+          "note" -> Map("note" -> ViewStateValue()),
         )
 
         fd.parse(values) shouldBe Right(OptForm(None))
@@ -575,7 +577,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val fd = summon[FormDef[OptForm]]
         val values = Map(
-          "note" -> Map("note" -> Json.obj("value" -> Json.fromString("hello"))),
+          "note" -> Map("note" -> ViewStateValue(value = Some("hello"))),
         )
 
         fd.parse(values) shouldBe Right(OptForm(Some("hello")))
@@ -613,7 +615,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
   private def viewSubmissionPayload(
       callbackId: String,
-      values: Map[String, Map[String, Json]],
+      values: Map[String, Map[String, ViewStateValue]],
   ): ViewSubmissionPayload =
     ViewSubmissionPayload(
       `type` = "view_submission",

@@ -107,7 +107,7 @@ object SlackApi {
                 case Right(envelope) =>
                   val ack = ws.sendText(socket.Ack(envelope.envelope_id).asJson.noSpaces)
                   ack.flatMap(_ => handler(envelope)).flatMap(_ => loop)
-                case Left(_) => loop // TODO raise error, this is not expected
+                case Left(_) => loop // Malformed frames skipped to avoid killing the connection
               }
             }
           loop

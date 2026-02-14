@@ -4,7 +4,6 @@ import chatops4s.slack.api.ChannelId
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.{Decoder, Json}
-import io.circe.syntax.*
 import sttp.client4.WebSocketBackend
 import sttp.monad.MonadError
 import sttp.monad.syntax.*
@@ -126,7 +125,7 @@ private[slack] class SlackGatewayImpl[F[_]](
             submit = Some(TextObject(`type` = "plain_text", text = submitLabel)),
             blocks = viewBlocks,
           )
-          client.openView(triggerId.value, view.asJson.deepDropNullValues)
+          client.openView(triggerId.value, view)
       }
     }
   }
@@ -155,7 +154,7 @@ private[slack] class SlackGatewayImpl[F[_]](
         channel = channelId,
         ts = payload.container.message_ts.getOrElse(""),
       )
-      val threadId = payload.message.flatMap(_.hcursor.downField("thread_ts").as[String].toOption).map(ts => MessageId(channelId, ts))
+      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(channelId, ts))
 
       payload.actions.traverse_ { action =>
         val click = ButtonClick[String](
@@ -214,12 +213,12 @@ private[slack] class SlackGatewayImpl[F[_]](
       ))
     } else None
 
-  private def buttonToElement(button: Button): Json =
-    (ButtonElement(
+  private def buttonToElement(button: Button): BlockElement =
+    ButtonElement(
       text = TextObject(`type` = "plain_text", text = button.label),
       action_id = Some(button.actionId),
       value = Some(button.value),
-    ): BlockElement).asJson.deepDropNullValues
+    )
 
   private def buildViewBlocks(formDef: FormDef[?], initialValues: Map[String, String]): List[Block] =
     formDef.fields.map { field =>
@@ -256,7 +255,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       InputBlock(
         block_id = Some(field.id),
         label = TextObject(`type` = "plain_text", text = field.label),
-        element = element.asJson.deepDropNullValues,
+        element = element,
         optional = if (field.optional) Some(true) else None,
       )
     }

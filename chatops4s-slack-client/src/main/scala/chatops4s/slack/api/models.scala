@@ -2,11 +2,24 @@ package chatops4s.slack.api
 
 import io.circe.{Codec, Decoder, Encoder, Json}
 
+private type Block = chatops4s.slack.api.blocks.Block
+private type View = chatops4s.slack.api.blocks.View
+
 case class ChannelId(value: String)
 object ChannelId {
   given Encoder[ChannelId] = Encoder[String].contramap(_.value)
   given Decoder[ChannelId] = Decoder[String].map(ChannelId(_))
 }
+
+case class Message(
+    text: Option[String] = None,
+    ts: Option[String] = None,
+    thread_ts: Option[String] = None,
+    user: Option[String] = None,
+    subtype: Option[String] = None,
+    bot_id: Option[String] = None,
+    blocks: Option[List[Block]] = None,
+) derives Codec.AsObject
 
 sealed trait SlackResponse[+T] {
   def okOrThrow: T
@@ -33,7 +46,7 @@ object chat {
   case class PostMessageRequest(
       channel: String,
       text: String,
-      blocks: Option[List[Json]] = None,
+      blocks: Option[List[Block]] = None,
       attachments: Option[List[Json]] = None,
       thread_ts: Option[String] = None,
       unfurl_links: Option[Boolean] = None,
@@ -50,7 +63,7 @@ object chat {
   case class PostMessageResponse(
       channel: ChannelId,
       ts: String,
-      message: Option[Json] = None,
+      message: Option[Message] = None,
       response_metadata: Option[ResponseMetadata] = None,
   ) derives Codec.AsObject
 
@@ -58,7 +71,7 @@ object chat {
       channel: ChannelId,
       ts: String,
       text: Option[String] = None,
-      blocks: Option[List[Json]] = None,
+      blocks: Option[List[Block]] = None,
       attachments: Option[List[Json]] = None,
       reply_broadcast: Option[Boolean] = None,
       metadata: Option[Json] = None,
@@ -87,7 +100,7 @@ object chat {
       channel: String,
       user: String,
       text: String,
-      blocks: Option[List[Json]] = None,
+      blocks: Option[List[Block]] = None,
       attachments: Option[List[Json]] = None,
       thread_ts: Option[String] = None,
       parse: Option[String] = None,
@@ -135,7 +148,7 @@ object views {
 
   case class OpenRequest(
       trigger_id: String,
-      view: Json,
+      view: View,
   ) derives Codec.AsObject
 
   case class OpenResponse(

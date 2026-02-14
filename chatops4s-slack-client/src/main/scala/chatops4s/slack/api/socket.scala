@@ -4,6 +4,9 @@ import io.circe.{Codec, Json}
 
 object socket {
 
+  private type Block = chatops4s.slack.api.blocks.Block
+  private type TextObject = chatops4s.slack.api.blocks.TextObject
+
   case class Envelope(
       envelope_id: String,
       `type`: String,
@@ -30,8 +33,8 @@ object socket {
       team: Option[Team] = None,
       enterprise: Option[Json] = None,
       channel: Option[Channel] = None,
-      message: Option[Json] = None,
-      view: Option[Json] = None,
+      message: Option[Message] = None,
+      view: Option[ViewPayload] = None,
       state: Option[Json] = None,
       response_url: Option[String] = None,
       hash: Option[String] = None,
@@ -70,9 +73,9 @@ object socket {
       `type`: String,
       action_ts: String,
       value: Option[String] = None,
-      text: Option[Json] = None,
-      selected_option: Option[Json] = None,
-      selected_options: Option[List[Json]] = None,
+      text: Option[TextObject] = None,
+      selected_option: Option[SelectedOption] = None,
+      selected_options: Option[List[SelectedOption]] = None,
       selected_date: Option[String] = None,
       selected_time: Option[String] = None,
   ) derives Codec.AsObject
@@ -114,20 +117,41 @@ object socket {
       callback_id: Option[String] = None,
       state: Option[ViewState] = None,
       hash: Option[String] = None,
-      title: Option[Json] = None,
-      blocks: Option[List[Json]] = None,
+      title: Option[TextObject] = None,
+      blocks: Option[List[Block]] = None,
       private_metadata: Option[String] = None,
   ) derives Codec.AsObject
 
   case class ViewState(
-      values: Map[String, Map[String, Json]],
+      values: Map[String, Map[String, ViewStateValue]],
+  ) derives Codec.AsObject
+
+  case class ViewStateValue(
+      `type`: Option[String] = None,
+      value: Option[String] = None,
+      selected_date: Option[String] = None,
+      selected_time: Option[String] = None,
+      selected_date_time: Option[Int] = None,
+      selected_option: Option[SelectedOption] = None,
+      selected_options: Option[List[SelectedOption]] = None,
+      selected_conversation: Option[String] = None,
+      selected_conversations: Option[List[String]] = None,
+      selected_channel: Option[String] = None,
+      selected_channels: Option[List[String]] = None,
+      selected_user: Option[String] = None,
+      selected_users: Option[List[String]] = None,
+  ) derives Codec.AsObject
+
+  case class SelectedOption(
+      text: Option[TextObject] = None,
+      value: String,
   ) derives Codec.AsObject
 
   // https://docs.slack.dev/interactivity/handling-user-interaction
   case class CommandResponsePayload(
       response_type: String,
       text: String,
-      blocks: Option[List[Json]] = None,
+      blocks: Option[List[Block]] = None,
       replace_original: Option[Boolean] = None,
       delete_original: Option[Boolean] = None,
   ) derives Codec.AsObject

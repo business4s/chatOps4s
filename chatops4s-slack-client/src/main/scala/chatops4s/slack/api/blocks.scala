@@ -1,6 +1,6 @@
 package chatops4s.slack.api
 
-import io.circe.{Codec, Decoder, DecodingFailure, Encoder, Json}
+import io.circe.{Codec, Decoder, Encoder, Json, JsonObject}
 
 object blocks {
 
@@ -15,20 +15,20 @@ object blocks {
       text: Option[TextObject] = None,
       block_id: Option[String] = None,
       fields: Option[List[TextObject]] = None,
-      accessory: Option[Json] = None,
+      accessory: Option[BlockElement] = None,
       expand: Option[Boolean] = None,
   ) extends Block derives Codec.AsObject
 
   // https://docs.slack.dev/reference/block-kit/blocks/actions-block
   case class ActionsBlock(
-      elements: List[Json],
+      elements: List[BlockElement],
       block_id: Option[String] = None,
   ) extends Block derives Codec.AsObject
 
   // https://docs.slack.dev/reference/block-kit/blocks/input-block
   case class InputBlock(
       label: TextObject,
-      element: Json,
+      element: BlockElement,
       block_id: Option[String] = None,
       optional: Option[Boolean] = None,
       dispatch_action: Option[Boolean] = None,
@@ -56,10 +56,12 @@ object blocks {
   case class ImageBlock(
       alt_text: String,
       image_url: Option[String] = None,
-      slack_file: Option[Json] = None,
+      slack_file: Option[SlackFileObject] = None,
       title: Option[TextObject] = None,
       block_id: Option[String] = None,
   ) extends Block derives Codec.AsObject
+
+  case class UnknownBlock(raw: Json) extends Block
 
   private val blockTypeMap: Map[String, Decoder[Block]] = Map(
     "section" -> Decoder[SectionBlock].map(identity[Block]),
@@ -79,26 +81,31 @@ object blocks {
     case _: ContextBlock => "context"
     case _: DividerBlock => "divider"
     case _: ImageBlock   => "image"
+    case _: UnknownBlock => ""
   }
 
-  given Encoder.AsObject[Block] = Encoder.AsObject.instance { block =>
-    val base = block match {
-      case b: SectionBlock => Encoder.AsObject[SectionBlock].encodeObject(b)
-      case b: ActionsBlock => Encoder.AsObject[ActionsBlock].encodeObject(b)
-      case b: InputBlock   => Encoder.AsObject[InputBlock].encodeObject(b)
-      case b: HeaderBlock  => Encoder.AsObject[HeaderBlock].encodeObject(b)
-      case b: ContextBlock => Encoder.AsObject[ContextBlock].encodeObject(b)
-      case b: DividerBlock => Encoder.AsObject[DividerBlock].encodeObject(b)
-      case b: ImageBlock   => Encoder.AsObject[ImageBlock].encodeObject(b)
-    }
-    ("type" -> Json.fromString(blockTypeName(block))) +: base
+  given Encoder.AsObject[Block] = Encoder.AsObject.instance {
+    case b: UnknownBlock =>
+      b.raw.asObject.getOrElse(JsonObject.empty)
+    case block =>
+      val base = block match {
+        case b: SectionBlock => Encoder.AsObject[SectionBlock].encodeObject(b)
+        case b: ActionsBlock => Encoder.AsObject[ActionsBlock].encodeObject(b)
+        case b: InputBlock => Encoder.AsObject[InputBlock].encodeObject(b)
+        case b: HeaderBlock => Encoder.AsObject[HeaderBlock].encodeObject(b)
+        case b: ContextBlock => Encoder.AsObject[ContextBlock].encodeObject(b)
+        case b: DividerBlock => Encoder.AsObject[DividerBlock].encodeObject(b)
+        case b: ImageBlock => Encoder.AsObject[ImageBlock].encodeObject(b)
+        case _: UnknownBlock => JsonObject.empty
+      }
+      ("type" -> Json.fromString(blockTypeName(block))) +: base
   }
 
   given Decoder[Block] = Decoder.instance { cursor =>
     cursor.get[String]("type").flatMap { tpe =>
       blockTypeMap.get(tpe) match {
         case Some(decoder) => decoder(cursor)
-        case None          => Left(DecodingFailure(s"Unknown block type: $tpe", cursor.history))
+        case None          => cursor.as[Json].map(UnknownBlock(_))
       }
     }
   }
@@ -115,7 +122,7 @@ object blocks {
       value: Option[String] = None,
       url: Option[String] = None,
       style: Option[String] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       accessibility_label: Option[String] = None,
   ) extends BlockElement derives Codec.AsObject
 
@@ -126,7 +133,7 @@ object blocks {
       multiline: Option[Boolean] = None,
       min_length: Option[Int] = None,
       max_length: Option[Int] = None,
-      dispatch_action_config: Option[Json] = None,
+      dispatch_action_config: Option[DispatchActionConfig] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -138,7 +145,7 @@ object blocks {
       initial_value: Option[String] = None,
       min_value: Option[String] = None,
       max_value: Option[String] = None,
-      dispatch_action_config: Option[Json] = None,
+      dispatch_action_config: Option[DispatchActionConfig] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -148,7 +155,7 @@ object blocks {
       options: List[BlockOption],
       action_id: Option[String] = None,
       initial_options: Option[List[BlockOption]] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       focus_on_load: Option[Boolean] = None,
   ) extends BlockElement derives Codec.AsObject
 
@@ -157,7 +164,7 @@ object blocks {
       options: List[BlockOption],
       action_id: Option[String] = None,
       initial_option: Option[BlockOption] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       focus_on_load: Option[Boolean] = None,
   ) extends BlockElement derives Codec.AsObject
 
@@ -165,9 +172,9 @@ object blocks {
   case class StaticSelectElement(
       action_id: Option[String] = None,
       options: Option[List[BlockOption]] = None,
-      option_groups: Option[List[Json]] = None,
+      option_groups: Option[List[OptionGroupObject]] = None,
       initial_option: Option[BlockOption] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -176,9 +183,9 @@ object blocks {
   case class MultiStaticSelectElement(
       action_id: Option[String] = None,
       options: Option[List[BlockOption]] = None,
-      option_groups: Option[List[Json]] = None,
+      option_groups: Option[List[OptionGroupObject]] = None,
       initial_options: Option[List[BlockOption]] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       max_selected_items: Option[Int] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
@@ -188,14 +195,14 @@ object blocks {
   case class OverflowMenuElement(
       options: List[BlockOption],
       action_id: Option[String] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
   ) extends BlockElement derives Codec.AsObject
 
   // https://docs.slack.dev/reference/block-kit/block-elements/date-picker-element
   case class DatePickerElement(
       action_id: Option[String] = None,
       initial_date: Option[String] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -204,7 +211,7 @@ object blocks {
   case class TimePickerElement(
       action_id: Option[String] = None,
       initial_time: Option[String] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
       timezone: Option[String] = None,
@@ -214,7 +221,7 @@ object blocks {
   case class DatetimePickerElement(
       action_id: Option[String] = None,
       initial_date_time: Option[Int] = None,
-      confirm: Option[Json] = None,
+      confirm: Option[ConfirmationDialogObject] = None,
       focus_on_load: Option[Boolean] = None,
   ) extends BlockElement derives Codec.AsObject
 
@@ -222,7 +229,7 @@ object blocks {
   case class EmailInputElement(
       action_id: Option[String] = None,
       initial_value: Option[String] = None,
-      dispatch_action_config: Option[Json] = None,
+      dispatch_action_config: Option[DispatchActionConfig] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -231,7 +238,7 @@ object blocks {
   case class UrlInputElement(
       action_id: Option[String] = None,
       initial_value: Option[String] = None,
-      dispatch_action_config: Option[Json] = None,
+      dispatch_action_config: Option[DispatchActionConfig] = None,
       focus_on_load: Option[Boolean] = None,
       placeholder: Option[TextObject] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -240,8 +247,10 @@ object blocks {
   case class ImageElement(
       alt_text: String,
       image_url: Option[String] = None,
-      slack_file: Option[Json] = None,
+      slack_file: Option[SlackFileObject] = None,
   ) extends BlockElement derives Codec.AsObject
+
+  case class UnknownBlockElement(raw: Json) extends BlockElement
 
   private val elementTypeMap: Map[String, Decoder[BlockElement]] = Map(
     "button"              -> Decoder[ButtonElement].map(identity[BlockElement]),
@@ -275,33 +284,38 @@ object blocks {
     case _: EmailInputElement        => "email_text_input"
     case _: UrlInputElement          => "url_text_input"
     case _: ImageElement             => "image"
+    case _: UnknownBlockElement      => ""
   }
 
-  given Encoder.AsObject[BlockElement] = Encoder.AsObject.instance { elem =>
-    val base = elem match {
-      case e: ButtonElement            => Encoder.AsObject[ButtonElement].encodeObject(e)
-      case e: PlainTextInputElement    => Encoder.AsObject[PlainTextInputElement].encodeObject(e)
-      case e: NumberInputElement       => Encoder.AsObject[NumberInputElement].encodeObject(e)
-      case e: CheckboxesElement        => Encoder.AsObject[CheckboxesElement].encodeObject(e)
-      case e: RadioButtonGroupElement  => Encoder.AsObject[RadioButtonGroupElement].encodeObject(e)
-      case e: StaticSelectElement      => Encoder.AsObject[StaticSelectElement].encodeObject(e)
-      case e: MultiStaticSelectElement => Encoder.AsObject[MultiStaticSelectElement].encodeObject(e)
-      case e: OverflowMenuElement      => Encoder.AsObject[OverflowMenuElement].encodeObject(e)
-      case e: DatePickerElement        => Encoder.AsObject[DatePickerElement].encodeObject(e)
-      case e: TimePickerElement        => Encoder.AsObject[TimePickerElement].encodeObject(e)
-      case e: DatetimePickerElement    => Encoder.AsObject[DatetimePickerElement].encodeObject(e)
-      case e: EmailInputElement        => Encoder.AsObject[EmailInputElement].encodeObject(e)
-      case e: UrlInputElement          => Encoder.AsObject[UrlInputElement].encodeObject(e)
-      case e: ImageElement             => Encoder.AsObject[ImageElement].encodeObject(e)
-    }
-    ("type" -> Json.fromString(elementTypeName(elem))) +: base
+  given Encoder.AsObject[BlockElement] = Encoder.AsObject.instance {
+    case e: UnknownBlockElement =>
+      e.raw.asObject.getOrElse(JsonObject.empty)
+    case elem =>
+      val base = elem match {
+        case e: ButtonElement => Encoder.AsObject[ButtonElement].encodeObject(e)
+        case e: PlainTextInputElement => Encoder.AsObject[PlainTextInputElement].encodeObject(e)
+        case e: NumberInputElement => Encoder.AsObject[NumberInputElement].encodeObject(e)
+        case e: CheckboxesElement => Encoder.AsObject[CheckboxesElement].encodeObject(e)
+        case e: RadioButtonGroupElement => Encoder.AsObject[RadioButtonGroupElement].encodeObject(e)
+        case e: StaticSelectElement => Encoder.AsObject[StaticSelectElement].encodeObject(e)
+        case e: MultiStaticSelectElement => Encoder.AsObject[MultiStaticSelectElement].encodeObject(e)
+        case e: OverflowMenuElement => Encoder.AsObject[OverflowMenuElement].encodeObject(e)
+        case e: DatePickerElement => Encoder.AsObject[DatePickerElement].encodeObject(e)
+        case e: TimePickerElement => Encoder.AsObject[TimePickerElement].encodeObject(e)
+        case e: DatetimePickerElement => Encoder.AsObject[DatetimePickerElement].encodeObject(e)
+        case e: EmailInputElement => Encoder.AsObject[EmailInputElement].encodeObject(e)
+        case e: UrlInputElement => Encoder.AsObject[UrlInputElement].encodeObject(e)
+        case e: ImageElement => Encoder.AsObject[ImageElement].encodeObject(e)
+        case _: UnknownBlockElement => JsonObject.empty
+      }
+      ("type" -> Json.fromString(elementTypeName(elem))) +: base
   }
 
   given Decoder[BlockElement] = Decoder.instance { cursor =>
     cursor.get[String]("type").flatMap { tpe =>
       elementTypeMap.get(tpe) match {
         case Some(decoder) => decoder(cursor)
-        case None          => Left(DecodingFailure(s"Unknown element type: $tpe", cursor.history))
+        case None          => cursor.as[Json].map(UnknownBlockElement(_))
       }
     }
   }
@@ -322,6 +336,31 @@ object blocks {
       text: TextObject,
       value: String,
       description: Option[TextObject] = None,
+      url: Option[String] = None,
+  ) derives Codec.AsObject
+
+  // https://docs.slack.dev/reference/block-kit/composition-objects/confirmation-dialog-object
+  case class ConfirmationDialogObject(
+      title: TextObject,
+      text: TextObject,
+      confirm: TextObject,
+      deny: TextObject,
+      style: Option[String] = None,
+  ) derives Codec.AsObject
+
+  // https://docs.slack.dev/reference/block-kit/composition-objects/dispatch-action-configuration-object
+  case class DispatchActionConfig(
+      trigger_actions_on: Option[List[String]] = None,
+  ) derives Codec.AsObject
+
+  // https://docs.slack.dev/reference/block-kit/composition-objects/option-group-object
+  case class OptionGroupObject(
+      label: TextObject,
+      options: List[BlockOption],
+  ) derives Codec.AsObject
+
+  case class SlackFileObject(
+      id: Option[String] = None,
       url: Option[String] = None,
   ) derives Codec.AsObject
 

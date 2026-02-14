@@ -2,7 +2,7 @@ package chatops4s.slack
 
 import chatops4s.slack.api.{SlackApi, chat, reactions, views}
 import chatops4s.slack.api.socket.CommandResponsePayload
-import chatops4s.slack.api.blocks.Block
+import chatops4s.slack.api.blocks.{Block, View}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.monad.syntax.*
@@ -18,7 +18,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     val request = chat.PostMessageRequest(
       channel = channel,
       text = text,
-      blocks = blocks.map(_.map(_.asJson.deepDropNullValues)),
+      blocks = blocks,
       thread_ts = threadTs,
     )
 
@@ -55,7 +55,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     api.chat.postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
       .map(_.okOrThrow).void
 
-  def openView(triggerId: String, view: io.circe.Json): F[Unit] =
+  def openView(triggerId: String, view: View): F[Unit] =
     api.views.open(views.OpenRequest(trigger_id = triggerId, view = view))
       .map(_.okOrThrow).void
 
@@ -64,7 +64,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
       channel = messageId.channel,
       ts = messageId.ts,
       text = Some(text),
-      blocks = blocks.map(_.map(_.asJson.deepDropNullValues)), // TODO why its json and not our block abstraction?
+      blocks = blocks,
     )
 
     api.chat.update(request).map { resp =>

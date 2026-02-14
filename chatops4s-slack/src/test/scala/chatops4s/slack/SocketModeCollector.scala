@@ -55,11 +55,11 @@ object SocketModeCollector extends IOApp.Simple {
       ),
       ActionsBlock(
         elements = List(
-          (ButtonElement(
+          ButtonElement(
             text = TextObject(`type` = "plain_text", text = "Test Button"),
             action_id = Some("collector-test-btn"),
             value = Some("test-value"),
-          ): BlockElement).asJson.deepDropNullValues,
+          ),
         ),
       ),
     )
