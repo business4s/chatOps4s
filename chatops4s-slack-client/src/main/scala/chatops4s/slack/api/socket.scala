@@ -1,6 +1,7 @@
 package chatops4s.slack.api
 
 import io.circe.{Codec, Json}
+import chatops4s.slack.api.blocks.given
 
 object socket {
 

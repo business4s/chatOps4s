@@ -51,13 +51,13 @@ object SocketModeCollector extends IOApp.Simple {
   private def sendTestMessage(client: SlackClient[IO], channel: String): IO[Unit] = {
     val blocks: List[Block] = List(
       SectionBlock(
-        text = Some(TextObject(`type` = "mrkdwn", text = "SocketModeCollector — click the button to capture an interactive event")),
+        text = Some(MarkdownTextObject(text = "SocketModeCollector — click the button to capture an interactive event")),
       ),
       ActionsBlock(
         elements = List(
           ButtonElement(
-            text = TextObject(`type` = "plain_text", text = "Test Button"),
-            action_id = Some("collector-test-btn"),
+            text = PlainTextObject(text = "Test Button"),
+            action_id = "collector-test-btn",
             value = Some("test-value"),
           ),
         ),

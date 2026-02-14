@@ -11,14 +11,45 @@ object ChannelId {
   given Decoder[ChannelId] = Decoder[String].map(ChannelId(_))
 }
 
+// https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/Message.java
 case class Message(
+    `type`: Option[String] = None,
+    subtype: Option[String] = None,
+    team: Option[String] = None,
+    channel: Option[String] = None,
+    user: Option[String] = None,
+    username: Option[String] = None,
     text: Option[String] = None,
+    blocks: Option[List[Block]] = None,
+    attachments: Option[List[Json]] = None,
     ts: Option[String] = None,
     thread_ts: Option[String] = None,
-    user: Option[String] = None,
-    subtype: Option[String] = None,
+    app_id: Option[String] = None,
     bot_id: Option[String] = None,
-    blocks: Option[List[Block]] = None,
+    bot_profile: Option[Json] = None,
+    display_as_bot: Option[Boolean] = None,
+    icons: Option[Json] = None,
+    file: Option[Json] = None,
+    files: Option[List[Json]] = None,
+    upload: Option[Boolean] = None,
+    parent_user_id: Option[String] = None,
+    client_msg_id: Option[String] = None,
+    edited: Option[Json] = None,
+    unfurl_links: Option[Boolean] = None,
+    unfurl_media: Option[Boolean] = None,
+    is_thread_broadcast: Option[Boolean] = None,
+    is_locked: Option[Boolean] = None,
+    reply_count: Option[Int] = None,
+    reply_users: Option[List[String]] = None,
+    reply_users_count: Option[Int] = None,
+    latest_reply: Option[String] = None,
+    subscribed: Option[Boolean] = None,
+    hidden: Option[Boolean] = None,
+    is_starred: Option[Boolean] = None,
+    pinned_to: Option[List[String]] = None,
+    reactions: Option[List[Json]] = None,
+    metadata: Option[Json] = None,
+    room: Option[Json] = None,
 ) derives Codec.AsObject
 
 sealed trait SlackResponse[+T] {

@@ -121,8 +121,8 @@ private[slack] class SlackGatewayImpl[F[_]](
           val view = View(
             `type` = "modal",
             callback_id = Some(formId.value),
-            title = TextObject(`type` = "plain_text", text = title),
-            submit = Some(TextObject(`type` = "plain_text", text = submitLabel)),
+            title = PlainTextObject(text = title),
+            submit = Some(PlainTextObject(text = submitLabel)),
             blocks = viewBlocks,
           )
           client.openView(triggerId.value, view)
@@ -205,7 +205,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     if (buttons.nonEmpty) {
       Some(List(
         SectionBlock(
-          text = Some(TextObject(`type` = "mrkdwn", text = text)),
+          text = Some(MarkdownTextObject(text = text)),
         ),
         ActionsBlock(
           elements = buttons.map(buttonToElement).toList,
@@ -215,8 +215,8 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private def buttonToElement(button: Button): BlockElement =
     ButtonElement(
-      text = TextObject(`type` = "plain_text", text = button.label),
-      action_id = Some(button.actionId),
+      text = PlainTextObject(text = button.label),
+      action_id = button.actionId,
       value = Some(button.value),
     )
 
@@ -226,27 +226,27 @@ private[slack] class SlackGatewayImpl[F[_]](
       val element: BlockElement = field.fieldType match {
         case FormFieldType.PlainText =>
           PlainTextInputElement(
-            action_id = Some(field.id),
+            action_id = field.id,
             initial_value = initial,
           )
         case FormFieldType.Integer =>
           NumberInputElement(
             is_decimal_allowed = false,
-            action_id = Some(field.id),
+            action_id = field.id,
             initial_value = initial,
           )
         case FormFieldType.Decimal =>
           NumberInputElement(
             is_decimal_allowed = true,
-            action_id = Some(field.id),
+            action_id = field.id,
             initial_value = initial,
           )
         case FormFieldType.Checkbox =>
           CheckboxesElement(
-            action_id = Some(field.id),
+            action_id = field.id,
             options = List(
               BlockOption(
-                text = TextObject(`type` = "plain_text", text = "Yes"),
+                text = PlainTextObject(text = "Yes"),
                 value = "true",
               ),
             ),
@@ -254,7 +254,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
       InputBlock(
         block_id = Some(field.id),
-        label = TextObject(`type` = "plain_text", text = field.label),
+        label = PlainTextObject(text = field.label),
         element = element,
         optional = if (field.optional) Some(true) else None,
       )
