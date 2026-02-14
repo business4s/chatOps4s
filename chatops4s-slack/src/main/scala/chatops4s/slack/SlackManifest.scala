@@ -4,15 +4,16 @@ private[slack] object SlackManifest {
 
   def generate(
       appName: String,
-      commands: Map[String, String],
+      commands: Map[String, (String, String)],
       hasInteractivity: Boolean,
   ): String = {
     val commandScopes = if (commands.nonEmpty) "\n      - commands" else ""
 
     val slashCommands = if (commands.nonEmpty) {
-      val entries = commands.toList.sortBy(_._1).map { case (name, desc) =>
+      val entries = commands.toList.sortBy(_._1).map { case (name, (desc, hint)) =>
+        val usageHintLine = if (hint.nonEmpty) s"\n      usage_hint: $hint" else ""
         s"""    - command: /$name
-           |      description: $desc
+           |      description: $desc$usageHintLine
            |      should_escape: false""".stripMargin
       }.mkString("\n")
       s"""

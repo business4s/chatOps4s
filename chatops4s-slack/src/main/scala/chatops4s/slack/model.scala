@@ -1,6 +1,8 @@
 package chatops4s.slack
 
 import chatops4s.slack.api.ChannelId
+import scala.compiletime.{constValue, erasedValue, summonInline}
+import scala.deriving.Mirror
 
 case class MessageId(channel: ChannelId, ts: String)
 
@@ -25,14 +27,108 @@ case class ButtonClick[T <: String](
     threadId: Option[MessageId] = None,
 )
 
+trait CommandArgCodec[T] {
+  def parse(text: String): Either[String, T]
+  def show(value: T): String
+}
+
+object CommandArgCodec {
+  given CommandArgCodec[String] with {
+    def parse(text: String): Either[String, String] = Right(text)
+    def show(value: String): String = value
+  }
+
+  given CommandArgCodec[Int] with {
+    def parse(text: String): Either[String, Int] =
+      text.toIntOption.toRight(s"'$text' is not a valid integer")
+    def show(value: Int): String = value.toString
+  }
+
+  given CommandArgCodec[Long] with {
+    def parse(text: String): Either[String, Long] =
+      text.toLongOption.toRight(s"'$text' is not a valid long")
+    def show(value: Long): String = value.toString
+  }
+
+  given CommandArgCodec[Double] with {
+    def parse(text: String): Either[String, Double] =
+      text.toDoubleOption.toRight(s"'$text' is not a valid double")
+    def show(value: Double): String = value.toString
+  }
+
+  given CommandArgCodec[Float] with {
+    def parse(text: String): Either[String, Float] =
+      text.toFloatOption.toRight(s"'$text' is not a valid float")
+    def show(value: Float): String = value.toString
+  }
+
+  given CommandArgCodec[BigDecimal] with {
+    def parse(text: String): Either[String, BigDecimal] =
+      try Right(BigDecimal(text))
+      catch { case _: NumberFormatException => Left(s"'$text' is not a valid decimal") }
+    def show(value: BigDecimal): String = value.toString
+  }
+
+  given CommandArgCodec[Boolean] with {
+    def parse(text: String): Either[String, Boolean] =
+      text.toBooleanOption.toRight(s"'$text' is not a valid boolean")
+    def show(value: Boolean): String = value.toString
+  }
+
+  given [T](using inner: CommandArgCodec[T]): CommandArgCodec[Option[T]] with {
+    def parse(text: String): Either[String, Option[T]] =
+      if (text.isEmpty) Right(None) else inner.parse(text).map(Some(_))
+    def show(value: Option[T]): String = value.map(inner.show).getOrElse("")
+  }
+}
+
 trait CommandParser[T] {
   def parse(text: String): Either[String, T]
+  def usageHint: String = ""
 }
 
 object CommandParser {
   given CommandParser[String] with {
     def parse(text: String): Either[String, String] = Right(text)
   }
+
+  inline def derived[T](using m: Mirror.ProductOf[T]): CommandParser[T] = {
+    val fieldInfo = buildFieldInfo[m.MirroredElemTypes, m.MirroredElemLabels]
+    val hint = fieldInfo.map((name, _) => s"[$name]").mkString(" ")
+
+    new CommandParser[T] {
+      override def usageHint: String = hint
+      def parse(text: String): Either[String, T] = {
+        val parts =
+          if (text.trim.isEmpty) Array.empty[String]
+          else text.trim.split("\\s+", fieldInfo.size)
+        if (parts.length < fieldInfo.size)
+          Left(s"Expected ${fieldInfo.size} argument(s): $hint")
+        else {
+          val results = fieldInfo.zip(parts).map { case ((name, parser), value) =>
+            parser(value).left.map(e => s"$name: $e")
+          }
+          val errors = results.collect { case Left(e) => e }
+          if (errors.nonEmpty) Left(errors.mkString(", "))
+          else {
+            val tuple = Tuple.fromArray(results.map(_.toOption.get).toArray)
+            Right(m.fromTuple(tuple.asInstanceOf[m.MirroredElemTypes]))
+          }
+        }
+      }
+    }
+  }
+
+  private inline def buildFieldInfo[Types <: Tuple, Labels <: Tuple]: List[(String, String => Either[String, Any])] =
+    inline (erasedValue[Types], erasedValue[Labels]) match {
+      case (_: EmptyTuple, _) => Nil
+      case (_: (t *: ts), _: (l *: ls)) =>
+        val codec = summonInline[CommandArgCodec[t]]
+        val label = constValue[l].asInstanceOf[String]
+        val humanLabel = label.replaceAll("([A-Z])", " $1").trim.toLowerCase
+        val parser: String => Either[String, Any] = s => codec.parse(s)
+        (humanLabel, parser) :: buildFieldInfo[ts, ls]
+    }
 }
 
 case class Command[T](

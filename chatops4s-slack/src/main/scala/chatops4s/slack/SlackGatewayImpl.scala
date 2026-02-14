@@ -23,6 +23,7 @@ private[slack] object CommandName {
 private[slack] case class CommandEntry[F[_]](
     handler: ErasedCommandHandler[F],
     description: String,
+    usageHint: String,
 )
 
 private[slack] case class FormEntry[F[_]](
@@ -46,8 +47,9 @@ private[slack] class SlackGatewayImpl[F[_]](
     handlersRef.update(_ + (id -> erased)).as(id)
   }
 
-  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
+  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "", usageHint: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
     val normalized = CommandName(name)
+    val resolvedHint = if (usageHint.nonEmpty) usageHint else parser.usageHint
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
         case Left(error) =>
@@ -63,7 +65,7 @@ private[slack] class SlackGatewayImpl[F[_]](
           handler(cmd)
       }
     }
-    commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description)))
+    commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description, resolvedHint)))
   }
 
   override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T] => F[Unit]): F[FormId[T]] = {
@@ -81,7 +83,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       commands <- commandHandlersRef.get
       forms    <- formHandlersRef.get
     } yield {
-      val commandDefs = commands.map((name, entry) => name.value -> entry.description)
+      val commandDefs = commands.map((name, entry) => name.value -> (entry.description, entry.usageHint))
       SlackManifest.generate(appName, commandDefs, hasInteractivity = handlers.nonEmpty || forms.nonEmpty)
     }
   }

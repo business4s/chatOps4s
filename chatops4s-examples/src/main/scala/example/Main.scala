@@ -2,7 +2,7 @@ package example
 
 import cats.effect.{IO, IOApp}
 import cats.syntax.all.*
-import chatops4s.slack.{ButtonClick, ButtonId, CommandParser, CommandResponse, FormDef, FormSubmission, InitialValues, SlackGateway}
+import chatops4s.slack.{ButtonClick, ButtonId, CommandArgCodec, CommandParser, CommandResponse, FormDef, FormSubmission, InitialValues, SlackGateway}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
@@ -33,7 +33,15 @@ object Main extends IOApp.Simple {
   }
   given CommandParser[ServiceName] with {
     def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
+    override def usageHint: String = "[service name]"
   }
+
+  // -- Typed multi-arg command: /scale splits "api 3" into service + replica count
+  given CommandArgCodec[ServiceName] with {
+    def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
+    def show(value: ServiceName): String = value
+  }
+  case class ScaleArgs(service: ServiceName, replicas: Int) derives CommandParser
 
   // -- Form for the /deploy modal
   case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
@@ -57,6 +65,10 @@ object Main extends IOApp.Simple {
         // /status <service> → typed command with CommandParser[ServiceName]
         _          <- slack.registerCommand[ServiceName]("service-status", "Check service status") { cmd =>
                         IO.pure(CommandResponse.Ephemeral(s"Service *${cmd.args}* is healthy."))
+                      }
+        // /scale <service> <replicas> → derived case class CommandParser
+        _          <- slack.registerCommand[ScaleArgs]("scale", "Scale a service") { cmd =>
+                        IO.pure(CommandResponse.Ephemeral(s"Scaling *${cmd.args.service}* to *${cmd.args.replicas}* replicas."))
                       }
         manifest   <- slack.manifest("ChatOps4sExample")
         _          <- IO.println(manifest)

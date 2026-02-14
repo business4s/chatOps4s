@@ -10,6 +10,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.client4.testing.WebSocketBackendStub
 
+case class ScaleArgs(service: String, replicas: Int) derives CommandParser
+
 class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
   private val okPostMessage = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
@@ -278,6 +280,34 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val payload = slashCommandPayload("/count", "not-a-number")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
       }
+
+      "should dispatch derived case class command" in {
+        val gateway = createGateway(MockBackend.withResponseUrl())
+        var captured: Option[Command[ScaleArgs]] = None
+
+        gateway.registerCommand[ScaleArgs]("/scale") { cmd =>
+          IO { captured = Some(cmd) }.as(CommandResponse.Ephemeral("ok"))
+        }.unsafeRunSync()
+
+        val payload = slashCommandPayload("/scale", "api 3")
+        gateway.handleSlashCommandPayload(payload).unsafeRunSync()
+
+        captured shouldBe defined
+        captured.get.args.service shouldBe "api"
+        captured.get.args.replicas shouldBe 3
+      }
+
+      "should return error for derived parser when args are missing" in {
+        val gateway = createGateway(MockBackend.withResponseUrl())
+
+        gateway.registerCommand[ScaleArgs]("/scale") { _ =>
+          IO.pure(CommandResponse.Ephemeral("ok"))
+        }.unsafeRunSync()
+
+        val payload = slashCommandPayload("/scale", "api")
+        gateway.handleSlashCommandPayload(payload).unsafeRunSync()
+        // parse error is handled internally as ephemeral
+      }
     }
 
     "manifest" - {
@@ -299,6 +329,30 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
         SnapshotTest.testSnapshot(result, "snapshots/manifest-with-commands.yaml")
+      }
+
+      "with commands with usage hint" in {
+        val gateway = createGateway()
+
+        gateway.registerCommand[ScaleArgs]("scale", "Scale a service") { _ =>
+          IO.pure(CommandResponse.Silent)
+        }.unsafeRunSync()
+
+        val result = gateway.manifest("TestApp").unsafeRunSync()
+
+        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-commands-usage-hint.yaml")
+      }
+
+      "with explicit usage hint override" in {
+        val gateway = createGateway()
+
+        gateway.registerCommand[String]("search", "Search for something", usageHint = "[query]") { _ =>
+          IO.pure(CommandResponse.Silent)
+        }.unsafeRunSync()
+
+        val result = gateway.manifest("TestApp").unsafeRunSync()
+
+        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-explicit-usage-hint.yaml")
       }
 
       "with buttons" in {
@@ -423,6 +477,37 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.handleViewSubmissionPayload(payload).unsafeRunSync()
 
         called shouldBe false
+      }
+
+      "CommandParser.derived should produce correct usage hint" in {
+        val parser = summon[CommandParser[ScaleArgs]]
+        parser.usageHint shouldBe "[service] [replicas]"
+      }
+
+      "CommandParser.derived should parse space-separated args" in {
+        val parser = summon[CommandParser[ScaleArgs]]
+        parser.parse("api 3") shouldBe Right(ScaleArgs("api", 3))
+      }
+
+      "CommandParser.derived should give last field the remainder" in {
+        case class MsgArgs(target: String, message: String) derives CommandParser
+        val parser = summon[CommandParser[MsgArgs]]
+        parser.parse("user hello world") shouldBe Right(MsgArgs("user", "hello world"))
+      }
+
+      "CommandParser.derived should fail on too few arguments" in {
+        val parser = summon[CommandParser[ScaleArgs]]
+        parser.parse("api").isLeft shouldBe true
+      }
+
+      "CommandParser.derived should fail on invalid types" in {
+        val parser = summon[CommandParser[ScaleArgs]]
+        parser.parse("api abc").isLeft shouldBe true
+      }
+
+      "CommandParser.derived should convert camelCase to human-readable hint" in {
+        case class MyArgs(serviceName: String, replicaCount: Int) derives CommandParser
+        summon[CommandParser[MyArgs]].usageHint shouldBe "[service name] [replica count]"
       }
 
       "FormDef.derived should produce correct fields for a sample case class" in {
