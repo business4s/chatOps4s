@@ -14,6 +14,12 @@ import SlackModels.*
 private[slack] type ErasedHandler[F[_]] = ButtonClick[String] => F[Unit]
 private[slack] type ErasedCommandHandler[F[_]] = SlackModels.SlashCommandPayload => F[CommandResponse]
 
+private[slack] opaque type CommandName = String
+private[slack] object CommandName {
+  def apply(raw: String): CommandName = raw.stripPrefix("/").toLowerCase
+  extension (cn: CommandName) def value: String = cn
+}
+
 private[slack] case class CommandEntry[F[_]](
     handler: ErasedCommandHandler[F],
     description: String,
@@ -26,8 +32,8 @@ private[slack] case class FormEntry[F[_]](
 
 private[slack] class SlackGatewayImpl[F[_]](
     client: SlackClient[F],
-    handlersRef: Ref[F, Map[String, ErasedHandler[F]]],
-    commandHandlersRef: Ref[F, Map[String, CommandEntry[F]]],
+    handlersRef: Ref[F, Map[ButtonId[?], ErasedHandler[F]]],
+    commandHandlersRef: Ref[F, Map[CommandName, CommandEntry[F]]],
     formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F] with SlackSetup[F] {
@@ -37,11 +43,11 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def registerButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
     val id = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
-    handlersRef.update(_ + (id.value -> erased)).as(id)
+    handlersRef.update(_ + (id -> erased)).as(id)
   }
 
   override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
-    val normalized = normalizeCommandName(name)
+    val normalized = CommandName(name)
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
         case Left(error) =>
@@ -75,7 +81,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       commands <- commandHandlersRef.get
       forms    <- formHandlersRef.get
     } yield {
-      val commandDefs = commands.view.mapValues(_.description).toMap
+      val commandDefs = commands.map((name, entry) => name.value -> entry.description)
       SlackManifest.generate(appName, commandDefs, hasInteractivity = handlers.nonEmpty || forms.nonEmpty)
     }
   }
@@ -104,12 +110,12 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def sendEphemeral(channel: String, userId: String, text: String): F[Unit] =
     client.postEphemeral(channel, userId, text)
 
-  override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: Map[String, String] = Map.empty): F[Unit] = {
+  override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T]): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>
       forms.get(formId) match {
         case None => monad.error(new RuntimeException(s"Form not found: ${formId.value}"))
         case Some(entry) =>
-          val viewBlocks = buildViewBlocks(entry.formDef, initialValues)
+          val viewBlocks = buildViewBlocks(entry.formDef, initialValues.toMap)
           val view = View(
             `type` = "modal",
             callback_id = formId.value,
@@ -140,13 +146,13 @@ private[slack] class SlackGatewayImpl[F[_]](
           threadId = threadId,
         )
 
-        handlers.get(action.action_id).traverse_(handler => handler(click))
+        handlers.get(ButtonId[String](action.action_id)).traverse_(handler => handler(click))
       }
     }
   }
 
   private[slack] def handleSlashCommandPayload(payload: SlackModels.SlashCommandPayload): F[Unit] = {
-    val normalized = normalizeCommandName(payload.command)
+    val normalized = CommandName(payload.command)
     commandHandlersRef.get.flatMap { commands =>
       commands.get(normalized).traverse_ { entry =>
         entry.handler(payload).flatMap {
@@ -175,9 +181,6 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
     }
   }
-
-  private def normalizeCommandName(name: String): String =
-    name.stripPrefix("/").toLowerCase
 
   private def buildBlocks(text: String, buttons: Seq[Button]): Option[List[Block]] =
     if (buttons.nonEmpty) {

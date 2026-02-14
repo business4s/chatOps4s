@@ -2,7 +2,7 @@ package example
 
 import cats.effect.{IO, IOApp}
 import cats.syntax.all.*
-import chatops4s.slack.{ButtonClick, ButtonId, CommandParser, CommandResponse, FormDef, FormSubmission, SlackGateway}
+import chatops4s.slack.{ButtonClick, ButtonId, CommandParser, CommandResponse, FormDef, FormSubmission, InitialValues, SlackGateway}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
@@ -47,7 +47,10 @@ object Main extends IOApp.Simple {
         deployForm <- slack.registerForm[DeployForm](onDeploySubmit(slack, approveBtn, rejectBtn))
         // /deploy [service] → opens a form, pre-populating service name if provided
         _          <- slack.registerCommand[String]("deploy", "Deploy a service") { cmd =>
-                        val initial = if (cmd.args.trim.nonEmpty) Map("service" -> cmd.args.trim) else Map.empty
+                        val initial = {
+                          val base = InitialValues.of[DeployForm]
+                          if (cmd.args.trim.nonEmpty) base.set(_.service, cmd.args.trim) else base
+                        }
                         slack.openForm(cmd.triggerId, deployForm, "Deploy Service", initialValues = initial)
                           .as(CommandResponse.Silent)
                       }

@@ -18,8 +18,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
-    val handlersRef = Ref.of[IO, Map[String, ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef = Ref.of[IO, Map[String, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val handlersRef = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
     val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val client = new SlackClient[IO]("test-token", backend)
     new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, formHandlersRef, backend)
