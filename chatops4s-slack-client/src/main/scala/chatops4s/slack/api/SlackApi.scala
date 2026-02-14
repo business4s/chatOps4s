@@ -16,6 +16,8 @@ import chatops4s.slack.api.views.{OpenRequest, OpenResponse}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*
+import sttp.client4.ws.async.*
+import sttp.monad.MonadError
 import sttp.monad.syntax.*
 
 class SlackApi[F[_]](backend: Backend[F], token: String) {
@@ -89,6 +91,29 @@ object SlackApi {
           case Right(res) => res
           case Left(err)  => throw SlackApiError("deserialization_error", List(s"apps.connections.open: $err"))
         }
+    }
+
+    // https://docs.slack.dev/apis/events-api/using-socket-mode
+    def connectToSocket[F[_]](url: String, backend: WebSocketBackend[F])(
+        handler: socket.Envelope => F[Unit],
+    ): F[Unit] = {
+      given monad: MonadError[F] = backend.monad
+      basicRequest
+        .get(uri"$url")
+        .response(asWebSocket[F, Unit] { ws =>
+          def loop: F[Unit] =
+            ws.receiveText().flatMap { text =>
+              io.circe.parser.decode[socket.Envelope](text) match {
+                case Right(envelope) =>
+                  val ack = ws.sendText(socket.Ack(envelope.envelope_id).asJson.noSpaces)
+                  ack.flatMap(_ => handler(envelope)).flatMap(_ => loop)
+                case Left(_) => loop // TODO raise error, this is not expected
+              }
+            }
+          loop
+        })
+        .send(backend)
+        .map(_ => ())
     }
   }
 }

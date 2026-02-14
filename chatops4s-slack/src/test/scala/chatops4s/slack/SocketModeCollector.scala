@@ -2,6 +2,9 @@ package chatops4s.slack
 
 import cats.effect.{IO, IOApp}
 import chatops4s.slack.api.SlackApi
+import chatops4s.slack.api.socket.*
+import chatops4s.slack.api.blocks.*
+import io.circe.Json
 import io.circe.parser
 import io.circe.syntax.*
 import sttp.client4.*
@@ -9,8 +12,6 @@ import sttp.client4.httpclient.cats.HttpClientCatsBackend
 import sttp.client4.ws.async.*
 
 import java.nio.file.{Files, Path, Paths}
-
-import SlackModels.*
 
 /** Connects to Slack's SocketMode WebSocket and saves raw frames as test fixtures.
   *
@@ -48,21 +49,18 @@ object SocketModeCollector extends IOApp.Simple {
   }
 
   private def sendTestMessage(client: SlackClient[IO], channel: String): IO[Unit] = {
-    val blocks = List(
-      Block(
-        `type` = "section",
+    val blocks: List[Block] = List(
+      SectionBlock(
         text = Some(TextObject(`type` = "mrkdwn", text = "SocketModeCollector — click the button to capture an interactive event")),
       ),
-      Block(
-        `type` = "actions",
-        elements = Some(List(
-          BlockElement(
-            `type` = "button",
-            text = Some(TextObject(`type` = "plain_text", text = "Test Button")),
+      ActionsBlock(
+        elements = List(
+          (ButtonElement(
+            text = TextObject(`type` = "plain_text", text = "Test Button"),
             action_id = Some("collector-test-btn"),
             value = Some("test-value"),
-          ),
-        )),
+          ): BlockElement).asJson.deepDropNullValues,
+        ),
       ),
     )
     client.postMessage(channel, "SocketModeCollector test", Some(blocks), threadTs = None).flatMap { msgId =>
@@ -89,7 +87,7 @@ object SocketModeCollector extends IOApp.Simple {
 
             val ack = envelopeId match {
               case Some(id) =>
-                ws.sendText(SocketAck(id).asJson.noSpaces) *>
+                ws.sendText(Ack(id).asJson.noSpaces) *>
                   IO.println(s"  [$eventType] Acked envelope $id")
               case None => IO.unit
             }

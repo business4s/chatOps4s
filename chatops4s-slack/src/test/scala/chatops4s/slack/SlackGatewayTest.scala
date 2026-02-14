@@ -4,6 +4,8 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api.ChannelId
+import chatops4s.slack.api.socket.*
+import chatops4s.slack.api.blocks.*
 import io.circe.Json
 import io.circe.parser
 import org.scalatest.freespec.AnyFreeSpec
@@ -158,16 +160,18 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val btn1 = gateway.registerButton[String] { _ => IO { count += 1 } }.unsafeRunSync()
         val btn2 = gateway.registerButton[String] { _ => IO { count += 10 } }.unsafeRunSync()
 
-        val payload = SlackModels.InteractionPayload(
+        val payload = InteractionPayload(
           `type` = "block_actions",
-          user = SlackModels.User("U123"),
-          channel = SlackModels.Channel("C123"),
-          container = SlackModels.Container(Some("1234567890.123")),
-          actions = Some(List(
-            SlackModels.Action(btn1.value, Some("v1")),
-            SlackModels.Action(btn2.value, Some("v2")),
-          )),
+          user = User("U123"),
+          channel = Some(Channel("C123")),
+          container = Container(message_ts = Some("1234567890.123")),
+          actions = List(
+            Action(btn1.value, "blk-1", "button", "1234567890.123", value = Some("v1")),
+            Action(btn2.value, "blk-2", "button", "1234567890.123", value = Some("v2")),
+          ),
           trigger_id = "test-trigger-id",
+          api_app_id = "A123",
+          token = "tok",
         )
         gateway.handleInteractionPayload(payload).unsafeRunSync()
 
@@ -579,39 +583,46 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     }
   }
 
-  private def slashCommandPayload(command: String, text: String): SlackModels.SlashCommandPayload =
-    SlackModels.SlashCommandPayload(
+  private def slashCommandPayload(command: String, text: String): SlashCommandPayload =
+    SlashCommandPayload(
       command = command,
       text = text,
       user_id = "U123",
       channel_id = "C123",
       response_url = "https://hooks.slack.com/commands/T123/456/789",
       trigger_id = "test-trigger-id",
+      team_id = "T123",
+      team_domain = "test",
+      channel_name = "general",
+      api_app_id = "A123",
     )
 
-  private def interactionPayload(actionId: String, value: String): SlackModels.InteractionPayload =
-    SlackModels.InteractionPayload(
+  private def interactionPayload(actionId: String, value: String): InteractionPayload =
+    InteractionPayload(
       `type` = "block_actions",
-      user = SlackModels.User("U123"),
-      channel = SlackModels.Channel("C123"),
-      container = SlackModels.Container(Some("1234567890.123")),
-      actions = Some(List(
-        SlackModels.Action(actionId, Some(value)),
-      )),
+      user = User("U123"),
+      channel = Some(Channel("C123")),
+      container = Container(message_ts = Some("1234567890.123")),
+      actions = List(
+        Action(actionId, "blk-1", "button", "1234567890.123", value = Some(value)),
+      ),
       trigger_id = "test-trigger-id",
+      api_app_id = "A123",
+      token = "tok",
     )
 
   private def viewSubmissionPayload(
       callbackId: String,
       values: Map[String, Map[String, Json]],
-  ): SlackModels.ViewSubmissionPayload =
-    SlackModels.ViewSubmissionPayload(
+  ): ViewSubmissionPayload =
+    ViewSubmissionPayload(
       `type` = "view_submission",
-      user = SlackModels.User("U123"),
-      view = SlackModels.ViewPayload(
+      user = User("U123"),
+      view = ViewPayload(
         id = "V123",
         callback_id = Some(callbackId),
-        state = Some(SlackModels.ViewState(values)),
+        state = Some(ViewState(values)),
       ),
+      api_app_id = "A123",
     )
 }

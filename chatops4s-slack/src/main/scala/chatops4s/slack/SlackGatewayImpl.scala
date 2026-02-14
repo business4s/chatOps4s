@@ -1,6 +1,9 @@
 package chatops4s.slack
 
 import chatops4s.slack.api.ChannelId
+import chatops4s.slack.api.socket.*
+import chatops4s.slack.api.blocks.*
+import io.circe.{Decoder, Json}
 import io.circe.syntax.*
 import sttp.client4.WebSocketBackend
 import sttp.monad.MonadError
@@ -9,10 +12,8 @@ import chatops4s.slack.monadSyntax.*
 
 import java.util.UUID
 
-import SlackModels.*
-
 private[slack] type ErasedHandler[F[_]] = ButtonClick[String] => F[Unit]
-private[slack] type ErasedCommandHandler[F[_]] = SlackModels.SlashCommandPayload => F[CommandResponse]
+private[slack] type ErasedCommandHandler[F[_]] = SlashCommandPayload => F[CommandResponse]
 
 private[slack] opaque type CommandName = String
 private[slack] object CommandName {
@@ -89,7 +90,7 @@ private[slack] class SlackGatewayImpl[F[_]](
   }
 
   override def listen(appToken: String): F[Unit] =
-    SocketMode.runLoop(appToken, backend, handleInteractionPayload, handleSlashCommandPayload, handleViewSubmissionPayload)
+    SocketMode.runLoop(appToken, backend, handleEnvelope)
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
     client.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None)
@@ -120,7 +121,7 @@ private[slack] class SlackGatewayImpl[F[_]](
           val viewBlocks = buildViewBlocks(entry.formDef, initialValues.toMap)
           val view = View(
             `type` = "modal",
-            callback_id = formId.value,
+            callback_id = Some(formId.value),
             title = TextObject(`type` = "plain_text", text = title),
             submit = Some(TextObject(`type` = "plain_text", text = submitLabel)),
             blocks = viewBlocks,
@@ -130,16 +131,33 @@ private[slack] class SlackGatewayImpl[F[_]](
     }
   }
 
+  private def handleEnvelope(envelope: Envelope): F[Unit] =
+    envelope.`type` match {
+      case "interactive" => envelope.payload.traverse_ { json =>
+        val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
+        if (payloadType == "view_submission") dispatchPayload[ViewSubmissionPayload](json, handleViewSubmissionPayload)
+        else dispatchPayload[InteractionPayload](json, handleInteractionPayload)
+      }
+      case "slash_commands" => envelope.payload.traverse_(dispatchPayload[SlashCommandPayload](_, handleSlashCommandPayload))
+      case _ => monad.unit(())
+    }
+
+  private def dispatchPayload[A: Decoder](json: Json, handler: A => F[Unit]): F[Unit] =
+    json.as[A] match {
+      case Right(a) => handler(a)
+      case Left(_)  => monad.unit(())
+    }
+
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
     handlersRef.get.flatMap { handlers =>
-      val channelId = ChannelId(payload.channel.id)
+      val channelId = payload.channel.map(c => ChannelId(c.id)).getOrElse(ChannelId(""))
       val messageId = MessageId(
         channel = channelId,
         ts = payload.container.message_ts.getOrElse(""),
       )
-      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(channelId, ts))
+      val threadId = payload.message.flatMap(_.hcursor.downField("thread_ts").as[String].toOption).map(ts => MessageId(channelId, ts))
 
-      payload.actions.getOrElse(Nil).traverse_ { action =>
+      payload.actions.traverse_ { action =>
         val click = ButtonClick[String](
           userId = payload.user.id,
           messageId = messageId,
@@ -153,7 +171,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     }
   }
 
-  private[slack] def handleSlashCommandPayload(payload: SlackModels.SlashCommandPayload): F[Unit] = {
+  private[slack] def handleSlashCommandPayload(payload: SlashCommandPayload): F[Unit] = {
     val normalized = CommandName(payload.command)
     commandHandlersRef.get.flatMap { commands =>
       commands.get(normalized).traverse_ { entry =>
@@ -187,66 +205,58 @@ private[slack] class SlackGatewayImpl[F[_]](
   private def buildBlocks(text: String, buttons: Seq[Button]): Option[List[Block]] =
     if (buttons.nonEmpty) {
       Some(List(
-        Block(
-          `type` = "section",
+        SectionBlock(
           text = Some(TextObject(`type` = "mrkdwn", text = text)),
         ),
-        Block(
-          `type` = "actions",
-          elements = Some(buttons.map(buttonToElement).toList),
+        ActionsBlock(
+          elements = buttons.map(buttonToElement).toList,
         ),
       ))
     } else None
 
-  private def buttonToElement(button: Button): BlockElement =
-    BlockElement(
-      `type` = "button",
-      text = Some(TextObject(`type` = "plain_text", text = button.label)),
+  private def buttonToElement(button: Button): Json =
+    (ButtonElement(
+      text = TextObject(`type` = "plain_text", text = button.label),
       action_id = Some(button.actionId),
       value = Some(button.value),
-    )
+    ): BlockElement).asJson.deepDropNullValues
 
   private def buildViewBlocks(formDef: FormDef[?], initialValues: Map[String, String]): List[Block] =
     formDef.fields.map { field =>
       val initial = initialValues.get(field.id)
-      val element = field.fieldType match {
+      val element: BlockElement = field.fieldType match {
         case FormFieldType.PlainText =>
-          BlockElement(
-            `type` = "plain_text_input",
+          PlainTextInputElement(
             action_id = Some(field.id),
             initial_value = initial,
           )
         case FormFieldType.Integer =>
-          BlockElement(
-            `type` = "number_input",
+          NumberInputElement(
+            is_decimal_allowed = false,
             action_id = Some(field.id),
-            is_decimal_allowed = Some(false),
             initial_value = initial,
           )
         case FormFieldType.Decimal =>
-          BlockElement(
-            `type` = "number_input",
+          NumberInputElement(
+            is_decimal_allowed = true,
             action_id = Some(field.id),
-            is_decimal_allowed = Some(true),
             initial_value = initial,
           )
         case FormFieldType.Checkbox =>
-          BlockElement(
-            `type` = "checkboxes",
+          CheckboxesElement(
             action_id = Some(field.id),
-            options = Some(List(
+            options = List(
               BlockOption(
                 text = TextObject(`type` = "plain_text", text = "Yes"),
                 value = "true",
               ),
-            )),
+            ),
           )
       }
-      Block(
-        `type` = "input",
+      InputBlock(
         block_id = Some(field.id),
-        label = Some(TextObject(`type` = "plain_text", text = field.label)),
-        element = Some(element),
+        label = TextObject(`type` = "plain_text", text = field.label),
+        element = element.asJson.deepDropNullValues,
         optional = if (field.optional) Some(true) else None,
       )
     }

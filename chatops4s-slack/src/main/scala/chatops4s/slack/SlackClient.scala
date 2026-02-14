@@ -1,12 +1,12 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ChannelId, SlackApi, chat, reactions, views}
+import chatops4s.slack.api.{SlackApi, chat, reactions, views}
+import chatops4s.slack.api.socket.CommandResponsePayload
+import chatops4s.slack.api.blocks.Block
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.monad.syntax.*
 import chatops4s.slack.monadSyntax.*
-
-import SlackModels.*
 
 private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
 
@@ -18,7 +18,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     val request = chat.PostMessageRequest(
       channel = channel,
       text = text,
-      blocks = blocks.map(_.map(_.asJson)),
+      blocks = blocks.map(_.map(_.asJson.deepDropNullValues)),
       thread_ts = threadTs,
     )
 
@@ -34,7 +34,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     val req = basicRequest
       .post(uri"$responseUrl")
       .contentType("application/json")
-      .body(body.asJson.noSpaces)
+      .body(body.asJson.deepDropNullValues.noSpaces)
 
     backend.send(req).void
   }
@@ -64,7 +64,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
       channel = messageId.channel,
       ts = messageId.ts,
       text = Some(text),
-      blocks = blocks.map(_.map(_.asJson)),
+      blocks = blocks.map(_.map(_.asJson.deepDropNullValues)), // TODO why its json and not our block abstraction?
     )
 
     api.chat.update(request).map { resp =>
