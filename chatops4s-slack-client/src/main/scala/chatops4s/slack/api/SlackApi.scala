@@ -1,5 +1,18 @@
 package chatops4s.slack.api
 
+import chatops4s.slack.api.apps.ConnectionsOpenResponse
+import chatops4s.slack.api.chat.{
+  DeleteRequest,
+  DeleteResponse,
+  PostEphemeralRequest,
+  PostEphemeralResponse,
+  PostMessageRequest,
+  PostMessageResponse,
+  UpdateRequest,
+  UpdateResponse,
+}
+import chatops4s.slack.api.reactions.{AddRequest, AddResponse, RemoveRequest, RemoveResponse}
+import chatops4s.slack.api.views.{OpenRequest, OpenResponse}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*
@@ -8,36 +21,36 @@ import sttp.monad.syntax.*
 class SlackApi[F[_]](backend: Backend[F], token: String) {
 
   private given sttp.monad.MonadError[F] = backend.monad
-  private val baseUrl = "https://slack.com/api"
+  private val baseUrl                    = "https://slack.com/api"
 
   object chat {
 
-    def postMessage(req: chatops4s.slack.api.chat.PostMessageRequest): F[SlackResponse[chatops4s.slack.api.chat.PostMessageResponse]] =
-      post("chat.postMessage", req)
+    // https://docs.slack.dev/reference/methods/chat.postMessage
+    def postMessage(req: PostMessageRequest): F[SlackResponse[PostMessageResponse]] = post("chat.postMessage", req)
 
-    def update(req: chatops4s.slack.api.chat.UpdateRequest): F[SlackResponse[chatops4s.slack.api.chat.UpdateResponse]] =
-      post("chat.update", req)
+    // https://docs.slack.dev/reference/methods/chat.update
+    def update(req: UpdateRequest): F[SlackResponse[UpdateResponse]] = post("chat.update", req)
 
-    def delete(req: chatops4s.slack.api.chat.DeleteRequest): F[SlackResponse[chatops4s.slack.api.chat.DeleteResponse]] =
-      post("chat.delete", req)
+    // https://docs.slack.dev/reference/methods/chat.delete
+    def delete(req: DeleteRequest): F[SlackResponse[DeleteResponse]] = post("chat.delete", req)
 
-    def postEphemeral(req: chatops4s.slack.api.chat.PostEphemeralRequest): F[SlackResponse[chatops4s.slack.api.chat.PostEphemeralResponse]] =
-      post("chat.postEphemeral", req)
+    // https://docs.slack.dev/reference/methods/chat.postEphemeral
+    def postEphemeral(req: PostEphemeralRequest): F[SlackResponse[PostEphemeralResponse]] = post("chat.postEphemeral", req)
   }
 
   object reactions {
 
-    def add(req: chatops4s.slack.api.reactions.AddRequest): F[SlackResponse[chatops4s.slack.api.reactions.AddResponse]] =
-      post("reactions.add", req)
+    // https://docs.slack.dev/reference/methods/reactions.add
+    def add(req: AddRequest): F[SlackResponse[AddResponse]] = post("reactions.add", req)
 
-    def remove(req: chatops4s.slack.api.reactions.RemoveRequest): F[SlackResponse[chatops4s.slack.api.reactions.RemoveResponse]] =
-      post("reactions.remove", req)
+    // https://docs.slack.dev/reference/methods/reactions.remove
+    def remove(req: RemoveRequest): F[SlackResponse[RemoveResponse]] = post("reactions.remove", req)
   }
 
   object views {
 
-    def open(req: chatops4s.slack.api.views.OpenRequest): F[SlackResponse[chatops4s.slack.api.views.OpenResponse]] =
-      post("views.open", req)
+    // https://docs.slack.dev/reference/methods/views.open
+    def open(req: OpenRequest): F[SlackResponse[OpenResponse]] = post("views.open", req)
   }
 
   private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =
@@ -60,7 +73,8 @@ class SlackApi[F[_]](backend: Backend[F], token: String) {
 object SlackApi {
 
   object apps {
-    def connectionsOpen[F[_]](backend: Backend[F], appToken: String): F[SlackResponse[chatops4s.slack.api.apps.ConnectionsOpenResponse]] = {
+    // https://docs.slack.dev/reference/methods/apps.connections.open
+    def connectionsOpen[F[_]](backend: Backend[F], appToken: String): F[SlackResponse[ConnectionsOpenResponse]] = {
       given sttp.monad.MonadError[F] = backend.monad
       backend
         .send(
@@ -68,7 +82,7 @@ object SlackApi {
             .post(uri"https://slack.com/api/apps.connections.open")
             .header("Authorization", s"Bearer $appToken")
             .contentType("application/x-www-form-urlencoded")
-            .response(asJsonAlways[SlackResponse[chatops4s.slack.api.apps.ConnectionsOpenResponse]]),
+            .response(asJsonAlways[SlackResponse[ConnectionsOpenResponse]]),
         )
         .map(_.body)
         .map {
