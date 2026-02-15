@@ -708,16 +708,18 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         fd.parse(values) shouldBe Right(ConvosForm(List(ConversationId("D1"), ConversationId("D2"))))
       }
 
-      "FormDef.derived should parse Json (rich text)" in {
-        case class RichForm(content: Json) derives FormDef
+      "FormDef.derived should parse RichTextBlock" in {
+        case class RichForm(content: RichTextBlock) derives FormDef
 
         val fd = summon[FormDef[RichForm]]
-        val richJson = Json.obj("type" -> Json.fromString("rich_text"), "elements" -> Json.arr())
+        val richBlock = RichTextBlock(elements = List(
+          RichTextSection(elements = List(RichTextText("Hello"))),
+        ))
         val values = Map(
-          "content" -> Map("content" -> ViewStateValue(rich_text_value = Some(richJson))),
+          "content" -> Map("content" -> ViewStateValue(rich_text_value = Some(richBlock))),
         )
 
-        fd.parse(values) shouldBe Right(RichForm(richJson))
+        fd.parse(values) shouldBe Right(RichForm(richBlock))
       }
 
       "FormDef.derived should parse List[Json] (files)" in {

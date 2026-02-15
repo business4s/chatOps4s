@@ -367,16 +367,21 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
       json.hcursor.downField("slack_file").get[String]("url").toOption shouldBe Some("https://files.slack.com/files-pri/T111-F111/foo.png")
     }
 
-    "RichTextBlock preserves raw elements" in {
-      val elemJson = io.circe.parser.parse(
-        """{"type":"rich_text_section","elements":[{"type":"text","text":"Hello"}]}"""
-      ).toOption.get
-      val json = encodeBlock(RichTextBlock(elements = List(elemJson), block_id = Some("hUBz")))
+    "RichTextBlock encodes typed elements" in {
+      val block = RichTextBlock(
+        elements = List(RichTextSection(elements = List(RichTextText("Hello")))),
+        block_id = Some("hUBz"),
+      )
+      val json = encodeBlock(block)
       json.hcursor.get[String]("type").toOption shouldBe Some("rich_text")
       json.hcursor.get[String]("block_id").toOption shouldBe Some("hUBz")
       val elems = json.hcursor.downField("elements").as[List[Json]].toOption.get
       elems should have size 1
       elems.head.hcursor.get[String]("type").toOption shouldBe Some("rich_text_section")
+      val inlineElems = elems.head.hcursor.downField("elements").as[List[Json]].toOption.get
+      inlineElems should have size 1
+      inlineElems.head.hcursor.get[String]("type").toOption shouldBe Some("text")
+      inlineElems.head.hcursor.get[String]("text").toOption shouldBe Some("Hello")
     }
 
     "FileBlock" in {
@@ -784,6 +789,16 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
         val rt = msg.blocks.get.head.asInstanceOf[RichTextBlock]
         rt.block_id shouldBe Some("hUBz")
         rt.elements should have size 1
+        val section = rt.elements.head.asInstanceOf[RichTextSection]
+        section.elements should have size 3
+        val text1 = section.elements(0).asInstanceOf[RichTextText]
+        text1.text shouldBe "This is a "
+        text1.style shouldBe None
+        val text2 = section.elements(1).asInstanceOf[RichTextText]
+        text2.text shouldBe "rich text "
+        text2.style shouldBe Some(RichTextStyle(bold = Some(true)))
+        val text3 = section.elements(2).asInstanceOf[RichTextText]
+        text3.text shouldBe "message"
       }
     }
   }

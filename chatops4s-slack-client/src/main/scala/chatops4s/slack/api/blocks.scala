@@ -544,10 +544,153 @@ object blocks {
       is_animated: Option[Boolean] = None,
   ) extends Block derives Codec.AsObject
 
+  // --- Rich text element types ---
+  // https://docs.slack.dev/reference/block-kit/blocks/rich-text-block
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/RichTextSectionElement.java
+
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/RichTextSectionElement.java#TextStyle
+  case class RichTextStyle(
+      bold: Option[Boolean] = None,
+      italic: Option[Boolean] = None,
+      strike: Option[Boolean] = None,
+      underline: Option[Boolean] = None,
+      code: Option[Boolean] = None,
+      highlight: Option[Boolean] = None,
+      client_highlight: Option[Boolean] = None,
+      unlink: Option[Boolean] = None,
+  ) derives Codec.AsObject
+
+  sealed trait RichTextElement
+
+  // --- Rich text inline elements ---
+
+  case class RichTextText(
+      text: String,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextLink(
+      url: String,
+      text: Option[String] = None,
+      unsafe: Option[Boolean] = None,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextEmoji(
+      name: String,
+      unicode: Option[String] = None,
+      skin_tone: Option[Int] = None,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextUser(
+      user_id: String,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextUserGroup(
+      usergroup_id: String,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextChannel(
+      channel_id: String,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextBroadcast(
+      range: String,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextColor(
+      value: String,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class RichTextDate(
+      timestamp: Int,
+      format: String,
+      url: Option[String] = None,
+      fallback: Option[String] = None,
+      style: Option[RichTextStyle] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  // --- Rich text container elements ---
+
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/RichTextSectionElement.java
+  case class RichTextSection(
+      elements: List[RichTextElement],
+  ) extends RichTextElement derives Codec.AsObject
+
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/RichTextListElement.java
+  case class RichTextList(
+      style: String,
+      elements: List[RichTextElement],
+      indent: Option[Int] = None,
+      offset: Option[Int] = None,
+      border: Option[Int] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/RichTextQuoteElement.java
+  case class RichTextQuote(
+      elements: List[RichTextElement],
+      border: Option[Int] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/RichTextPreformattedElement.java
+  case class RichTextPreformatted(
+      elements: List[RichTextElement],
+      border: Option[Int] = None,
+  ) extends RichTextElement derives Codec.AsObject
+
+  case class UnknownRichTextElement(raw: Json) extends RichTextElement
+
+  // --- Rich text element codecs ---
+
+  private val richTextElementEntries: List[TypeEntry[? <: RichTextElement]] = List(
+    TypeEntry[RichTextText]("text"),
+    TypeEntry[RichTextLink]("link"),
+    TypeEntry[RichTextEmoji]("emoji"),
+    TypeEntry[RichTextUser]("user"),
+    TypeEntry[RichTextUserGroup]("usergroup"),
+    TypeEntry[RichTextChannel]("channel"),
+    TypeEntry[RichTextBroadcast]("broadcast"),
+    TypeEntry[RichTextColor]("color"),
+    TypeEntry[RichTextDate]("date"),
+    TypeEntry[RichTextSection]("rich_text_section"),
+    TypeEntry[RichTextList]("rich_text_list"),
+    TypeEntry[RichTextQuote]("rich_text_quote"),
+    TypeEntry[RichTextPreformatted]("rich_text_preformatted"),
+  )
+
+  private val richTextElementTypeMap: Map[String, Decoder[RichTextElement]] =
+    richTextElementEntries.map(e => e.typeName -> e.decoder.map(identity[RichTextElement])).toMap
+
+  given Encoder.AsObject[RichTextElement] = Encoder.AsObject.instance {
+    case e: UnknownRichTextElement =>
+      e.raw.asObject.getOrElse(JsonObject.empty)
+    case elem =>
+      richTextElementEntries.iterator.flatMap { entry =>
+        if (entry.ct.runtimeClass.isInstance(elem))
+          Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(elem))
+        else scala.None
+      }.next()
+  }
+
+  given Decoder[RichTextElement] = Decoder.instance { cursor =>
+    cursor.get[String]("type").flatMap { tpe =>
+      richTextElementTypeMap.get(tpe) match {
+        case Some(decoder) => decoder(cursor)
+        case scala.None    => cursor.as[Json].map(UnknownRichTextElement(_))
+      }
+    }
+  }
+
   // https://docs.slack.dev/reference/block-kit/blocks/rich-text-block
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/RichTextBlock.java
   case class RichTextBlock(
-      elements: List[Json],
+      elements: List[RichTextElement],
       block_id: Option[String] = None,
   ) extends Block derives Codec.AsObject
 

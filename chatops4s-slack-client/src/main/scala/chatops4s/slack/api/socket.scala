@@ -163,7 +163,7 @@ object socket {
       selected_user: Option[UserId] = None,
       selected_users: Option[List[UserId]] = None,
       timezone: Option[String] = None,
-      rich_text_value: Option[Json] = None,
+      rich_text_value: Option[blocks.RichTextBlock] = None,
       files: Option[List[Json]] = None,
   ) derives Codec.AsObject
 
