@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.ChannelId
+import chatops4s.slack.api.{ChannelId, ResponseType, Timestamp, UserId}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.{Decoder, Json}
@@ -58,7 +58,7 @@ private[slack] class SlackGatewayImpl[F[_]](
           val cmd = Command(
             args = args,
             userId = payload.user_id,
-            channelId = ChannelId(payload.channel_id),
+            channelId = payload.channel_id,
             text = payload.text,
             triggerId = TriggerId(payload.trigger_id),
           )
@@ -109,7 +109,7 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def removeReaction(messageId: MessageId, emoji: String): F[Unit] =
     client.removeReaction(messageId, emoji)
 
-  override def sendEphemeral(channel: String, userId: String, text: String): F[Unit] =
+  override def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit] =
     client.postEphemeral(channel, userId, text)
 
   override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T]): F[Unit] = {
@@ -119,7 +119,7 @@ private[slack] class SlackGatewayImpl[F[_]](
         case Some(entry) =>
           val viewBlocks = buildViewBlocks(entry.formDef, initialValues.toMap)
           val view = View(
-            `type` = "modal",
+            `type` = ViewType.Modal,
             callback_id = Some(formId.value),
             title = PlainTextObject(text = title),
             submit = Some(PlainTextObject(text = submitLabel)),
@@ -132,12 +132,12 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private def handleEnvelope(envelope: Envelope): F[Unit] =
     envelope.`type` match {
-      case "interactive" => envelope.payload.traverse_ { json =>
+      case EnvelopeType.Interactive => envelope.payload.traverse_ { json =>
         val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
         if (payloadType == "view_submission") dispatchPayload[ViewSubmissionPayload](json, handleViewSubmissionPayload)
         else dispatchPayload[InteractionPayload](json, handleInteractionPayload)
       }
-      case "slash_commands" => envelope.payload.traverse_(dispatchPayload[SlashCommandPayload](_, handleSlashCommandPayload))
+      case EnvelopeType.SlashCommands => envelope.payload.traverse_(dispatchPayload[SlashCommandPayload](_, handleSlashCommandPayload))
       case _ => monad.unit(())
     }
 
@@ -149,10 +149,10 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
     handlersRef.get.flatMap { handlers =>
-      val channelId = payload.channel.map(c => ChannelId(c.id)).getOrElse(ChannelId(""))
+      val channelId = payload.channel.map(_.id).getOrElse(ChannelId(""))
       val messageId = MessageId(
         channel = channelId,
-        ts = payload.container.message_ts.getOrElse(""),
+        ts = payload.container.message_ts.getOrElse(Timestamp("")), // TODO "" is fishy here
       )
       val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(channelId, ts))
 
@@ -177,9 +177,9 @@ private[slack] class SlackGatewayImpl[F[_]](
         entry.handler(payload).flatMap {
           case CommandResponse.Silent      => monad.unit(())
           case CommandResponse.Ephemeral(t) =>
-            client.respondToCommand(payload.response_url, t, "ephemeral")
+            client.respondToCommand(payload.response_url, t, ResponseType.Ephemeral)
           case CommandResponse.InChannel(t) =>
-            client.respondToCommand(payload.response_url, t, "in_channel")
+            client.respondToCommand(payload.response_url, t, ResponseType.InChannel)
         }
       }
     }

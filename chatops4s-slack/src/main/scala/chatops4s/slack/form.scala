@@ -1,5 +1,6 @@
 package chatops4s.slack
 
+import chatops4s.slack.api.UserId
 import chatops4s.slack.api.socket.ViewStateValue
 import scala.compiletime.{constValue, erasedValue, summonInline}
 import scala.deriving.Mirror
@@ -128,4 +129,4 @@ object FormDef {
 
 case class FormId[T](value: String)
 
-case class FormSubmission[T](userId: String, values: T)
+case class FormSubmission[T](userId: UserId, values: T)

@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api
-import chatops4s.slack.api.ChannelId
+import chatops4s.slack.api.{ChannelId, Timestamp, UserId, TeamId}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -39,7 +39,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.send("C123", "Hello World").unsafeRunSync()
 
-        result shouldBe MessageId(ChannelId("C123"), "1234567890.123")
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
       }
 
       "should send a message with buttons" in {
@@ -52,7 +52,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           Button("Reject", reject, reject.value),
         )).unsafeRunSync()
 
-        result shouldBe MessageId(ChannelId("C123"), "1234567890.123")
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
       }
 
       "should handle API errors" in {
@@ -71,9 +71,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
         val gateway = createGateway(MockBackend.withPostMessage(body))
 
-        val result = gateway.reply(MessageId(ChannelId("C123"), "1234567890.123"), "Thread reply").unsafeRunSync()
+        val result = gateway.reply(MessageId(ChannelId("C123"), Timestamp("1234567890.123")), "Thread reply").unsafeRunSync()
 
-        result shouldBe MessageId(ChannelId("C123"), "1234567891.456")
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567891.456"))
       }
 
       "should reply in thread with buttons" in {
@@ -82,12 +82,12 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val btn = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
 
         val result = gateway.reply(
-          MessageId(ChannelId("C123"), "1234567890.123"),
+          MessageId(ChannelId("C123"), Timestamp("1234567890.123")),
           "Confirm?",
           Seq(Button("OK", btn, btn.value)),
         ).unsafeRunSync()
 
-        result shouldBe MessageId(ChannelId("C123"), "1234567891.456")
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567891.456"))
       }
     }
 
@@ -97,7 +97,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           """{"ok":true,"channel":"C123","ts":"1234567890.123"}""",
         ))
 
-        val msgId = MessageId(ChannelId("C123"), "1234567890.123")
+        val msgId = MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         val result = gateway.update(msgId, "Updated text").unsafeRunSync()
 
         result shouldBe msgId
@@ -107,7 +107,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val errorBody = """{"ok":false,"error":"message_not_found"}"""
         val gateway = createGateway(MockBackend.withUpdate(errorBody))
 
-        val msgId = MessageId(ChannelId("C123"), "1234567890.123")
+        val msgId = MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.update(msgId, "Updated text").unsafeRunSync()
         }
@@ -138,8 +138,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.handleInteractionPayload(payload).unsafeRunSync()
 
         captured shouldBe defined
-        captured.get.userId shouldBe "U123"
-        captured.get.messageId shouldBe MessageId(ChannelId("C123"), "1234567890.123")
+        captured.get.userId shouldBe UserId("U123")
+        captured.get.messageId shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         captured.get.value shouldBe "my-value"
       }
 
@@ -164,12 +164,12 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val payload = InteractionPayload(
           `type` = "block_actions",
-          user = User("U123"),
-          channel = Some(Channel("C123")),
-          container = Container(message_ts = Some("1234567890.123")),
+          user = User(UserId("U123")),
+          channel = Some(Channel(ChannelId("C123"))),
+          container = Container(message_ts = Some(Timestamp("1234567890.123"))),
           actions = List(
-            Action(btn1.value, "blk-1", "button", "1234567890.123", value = Some("v1")),
-            Action(btn2.value, "blk-2", "button", "1234567890.123", value = Some("v2")),
+            Action(btn1.value, "blk-1", "button", Timestamp("1234567890.123"), value = Some("v1")),
+            Action(btn2.value, "blk-2", "button", Timestamp("1234567890.123"), value = Some("v2")),
           ),
           trigger_id = "test-trigger-id",
           api_app_id = "A123",
@@ -186,7 +186,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val body = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
-        gateway.delete(MessageId(ChannelId("C123"), "1234567890.123")).unsafeRunSync()
+        gateway.delete(MessageId(ChannelId("C123"), Timestamp("1234567890.123"))).unsafeRunSync()
       }
 
       "should handle API errors on delete" in {
@@ -194,7 +194,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(errorBody))
 
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
-          gateway.delete(MessageId(ChannelId("C123"), "1234567890.123")).unsafeRunSync()
+          gateway.delete(MessageId(ChannelId("C123"), Timestamp("1234567890.123"))).unsafeRunSync()
         }
         ex.error shouldBe "message_not_found"
       }
@@ -204,13 +204,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "should add a reaction" in {
         val gateway = createGateway(MockBackend.withOkApi())
 
-        gateway.addReaction(MessageId(ChannelId("C123"), "1234567890.123"), "rocket").unsafeRunSync()
+        gateway.addReaction(MessageId(ChannelId("C123"), Timestamp("1234567890.123")), "rocket").unsafeRunSync()
       }
 
       "should remove a reaction" in {
         val gateway = createGateway(MockBackend.withOkApi())
 
-        gateway.removeReaction(MessageId(ChannelId("C123"), "1234567890.123"), "rocket").unsafeRunSync()
+        gateway.removeReaction(MessageId(ChannelId("C123"), Timestamp("1234567890.123")), "rocket").unsafeRunSync()
       }
     }
 
@@ -219,7 +219,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val body = """{"ok":true,"message_ts":"1234567890.123"}"""
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
-        gateway.sendEphemeral("C123", "U456", "Only you can see this").unsafeRunSync()
+        gateway.sendEphemeral("C123", UserId("U456"), "Only you can see this").unsafeRunSync()
       }
     }
 
@@ -237,7 +237,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         captured shouldBe defined
         captured.get.args shouldBe "v1.2.3"
-        captured.get.userId shouldBe "U123"
+        captured.get.userId shouldBe UserId("U123")
         captured.get.channelId shouldBe ChannelId("C123")
         captured.get.text shouldBe "v1.2.3"
       }
@@ -461,7 +461,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.handleViewSubmissionPayload(payload).unsafeRunSync()
 
         captured shouldBe defined
-        captured.get.userId shouldBe "U123"
+        captured.get.userId shouldBe UserId("U123")
         captured.get.values.name shouldBe "my-service"
         captured.get.values.count shouldBe 42
       }
@@ -589,11 +589,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     SlashCommandPayload(
       command = command,
       text = text,
-      user_id = "U123",
-      channel_id = "C123",
+      user_id = UserId("U123"),
+      channel_id = ChannelId("C123"),
       response_url = "https://hooks.slack.com/commands/T123/456/789",
       trigger_id = "test-trigger-id",
-      team_id = "T123",
+      team_id = TeamId("T123"),
       team_domain = "test",
       channel_name = "general",
       api_app_id = "A123",
@@ -602,11 +602,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
   private def interactionPayload(actionId: String, value: String): InteractionPayload =
     InteractionPayload(
       `type` = "block_actions",
-      user = User("U123"),
-      channel = Some(Channel("C123")),
-      container = Container(message_ts = Some("1234567890.123")),
+      user = User(UserId("U123")),
+      channel = Some(Channel(ChannelId("C123"))),
+      container = Container(message_ts = Some(Timestamp("1234567890.123"))),
       actions = List(
-        Action(actionId, "blk-1", "button", "1234567890.123", value = Some(value)),
+        Action(actionId, "blk-1", "button", Timestamp("1234567890.123"), value = Some(value)),
       ),
       trigger_id = "test-trigger-id",
       api_app_id = "A123",
@@ -619,7 +619,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
   ): ViewSubmissionPayload =
     ViewSubmissionPayload(
       `type` = "view_submission",
-      user = User("U123"),
+      user = User(UserId("U123")),
       view = ViewPayload(
         id = "V123",
         callback_id = Some(callbackId),

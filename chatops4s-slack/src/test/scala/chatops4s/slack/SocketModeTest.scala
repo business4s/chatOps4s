@@ -13,6 +13,7 @@ import scala.concurrent.duration.*
 import scala.io.Source
 import scala.util.Using
 
+import chatops4s.slack.api.{UserId}
 import chatops4s.slack.api.socket.*
 
 class SocketModeTest extends AnyFreeSpec with Matchers {
@@ -29,16 +30,16 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
         run(
           fixture.get,
           handler = e => IO {
-            if (e.`type` == "interactive") captured = Some(e)
+            if (e.`type` == EnvelopeType.Interactive) captured = Some(e)
           },
         )
 
         captured shouldBe defined
-        captured.get.`type` shouldBe "interactive"
+        captured.get.`type` shouldBe EnvelopeType.Interactive
         captured.get.payload shouldBe defined
         val payload = captured.get.payload.get.as[InteractionPayload]
         payload.isRight shouldBe true
-        payload.toOption.get.user.id shouldBe "U05GUDS0A48"
+        payload.toOption.get.user.id shouldBe UserId("U05GUDS0A48")
       }
 
       "should dispatch slash command payload" in {
@@ -49,12 +50,12 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
         run(
           fixture.get,
           handler = e => IO {
-            if (e.`type` == "slash_commands") captured = Some(e)
+            if (e.`type` == EnvelopeType.SlashCommands) captured = Some(e)
           },
         )
 
         captured shouldBe defined
-        captured.get.`type` shouldBe "slash_commands"
+        captured.get.`type` shouldBe EnvelopeType.SlashCommands
         val payload = captured.get.payload.get.as[SlashCommandPayload]
         payload.isRight shouldBe true
         payload.toOption.get.command shouldBe "/deploy"
@@ -84,7 +85,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
     "should ignore unknown envelope types" in {
       var handlerCalled = false
-      val envelope = Envelope("env-789", "unknown_type", None).asJson.noSpaces
+      val envelope = Envelope("env-789", EnvelopeType.Unknown("unknown_type"), None).asJson.noSpaces
 
       run(
         envelope,
@@ -112,7 +113,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
     "should handle missing payload gracefully" in {
       var handlerCalled = false
-      val envelope = Envelope("env-no-payload", "interactive", None).asJson.noSpaces
+      val envelope = Envelope("env-no-payload", EnvelopeType.Interactive, None).asJson.noSpaces
       run(envelope, handler = _ => IO { handlerCalled = true })
       handlerCalled shouldBe true
     }
@@ -121,7 +122,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       var handlerCalled = false
       val envelope = Envelope(
         "env-bad-payload",
-        "interactive",
+        EnvelopeType.Interactive,
         Some(io.circe.Json.fromString("not-a-valid-payload")),
       ).asJson.noSpaces
       run(envelope, handler = _ => IO { handlerCalled = true })
@@ -218,7 +219,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       )),
       "hash" -> io.circe.Json.fromString("h123"),
     )
-    Envelope(envelopeId, "interactive", Some(payload)).asJson.noSpaces
+    Envelope(envelopeId, EnvelopeType.Interactive, Some(payload)).asJson.noSpaces
   }
 
   private def syntheticSlashCommandEnvelope(envelopeId: String = "env-456"): String = {
@@ -234,6 +235,6 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       "channel_name" -> io.circe.Json.fromString("general"),
       "api_app_id" -> io.circe.Json.fromString("A123"),
     )
-    Envelope(envelopeId, "slash_commands", Some(payload)).asJson.noSpaces
+    Envelope(envelopeId, EnvelopeType.SlashCommands, Some(payload)).asJson.noSpaces
   }
 }

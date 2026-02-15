@@ -69,7 +69,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
           text = PlainTextObject("Click Me"),
           action_id = "button-action",
           value = Some("click_me_123"),
-          style = Some("primary"),
+          style = Some(ButtonStyle.Primary),
           accessibility_label = Some("Click me button"),
         )),
       ))
@@ -124,8 +124,8 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
     "ActionsBlock with multiple buttons" in {
       val json = encodeBlock(ActionsBlock(
         elements = List(
-          ButtonElement(PlainTextObject("Approve"), "approve-btn", Some("approve"), style = Some("primary")),
-          ButtonElement(PlainTextObject("Reject"), "reject-btn", Some("reject"), style = Some("danger")),
+          ButtonElement(PlainTextObject("Approve"), "approve-btn", Some("approve"), style = Some(ButtonStyle.Primary)),
+          ButtonElement(PlainTextObject("Reject"), "reject-btn", Some("reject"), style = Some(ButtonStyle.Danger)),
         ),
         block_id = Some("actions1"),
       ))
@@ -294,7 +294,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
         dispatch_action = Some(true),
         element = PlainTextInputElement(
           action_id = "dispatch-action",
-          dispatch_action_config = Some(DispatchActionConfig(trigger_actions_on = Some(List("on_enter_pressed")))),
+          dispatch_action_config = Some(DispatchActionConfig(trigger_actions_on = Some(List(TriggerAction.OnEnterPressed)))),
         ),
       ))
       json.hcursor.get[Boolean]("dispatch_action").toOption shouldBe Some(true)
@@ -487,13 +487,13 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
         text = PlainTextObject("Delete"),
         action_id = "delete-btn",
         value = Some("delete"),
-        style = Some("danger"),
+        style = Some(ButtonStyle.Danger),
         confirm = Some(ConfirmationDialogObject(
           title = PlainTextObject("Are you sure?"),
           text = MarkdownTextObject("This action *cannot* be undone."),
           confirm = PlainTextObject("Yes, delete"),
           deny = PlainTextObject("Cancel"),
-          style = Some("danger"),
+          style = Some(ButtonStyle.Danger),
         )),
       ))
       json.hcursor.get[String]("type").toOption shouldBe Some("button")
@@ -538,7 +538,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
       val json = loadFixture("view1.json")
       assume(json.isDefined, "Fixture views/view1.json not found")
       parseOk[View](json.get) { view =>
-        view.`type` shouldBe "modal"
+        view.`type` shouldBe ViewType.Modal
         view.callback_id shouldBe Some("view-callback-id")
         view.notify_on_close shouldBe Some(true)
         view.title.text shouldBe "Meeting Arrangement"
@@ -734,9 +734,9 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin
       ) { msg =>
         msg.`type` shouldBe Some("message")
-        msg.user shouldBe Some("U12345")
+        msg.user shouldBe Some(UserId("U12345"))
         msg.text shouldBe Some("fallback text")
-        msg.ts shouldBe Some("1503435956.000247")
+        msg.ts shouldBe Some(Timestamp("1503435956.000247"))
         val blocks = msg.blocks.get
         blocks should have size 6
         blocks(0) shouldBe a[HeaderBlock]
@@ -780,7 +780,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin
       ) { msg =>
         msg.client_msg_id shouldBe Some("70c82df9-9db9-48b0-bf4e-9c43db3ed097")
-        msg.team shouldBe Some("T0JD3BPMW")
+        msg.team shouldBe Some(TeamId("T0JD3BPMW"))
         val rt = msg.blocks.get.head.asInstanceOf[RichTextBlock]
         rt.block_id shouldBe Some("hUBz")
         rt.elements should have size 1
@@ -794,7 +794,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
 
     "View roundtrip" in {
       val view = View(
-        `type` = "modal",
+        `type` = ViewType.Modal,
         title = PlainTextObject("Test Modal", Some(true)),
         blocks = List(
           InputBlock(

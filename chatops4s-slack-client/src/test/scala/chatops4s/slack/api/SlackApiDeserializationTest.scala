@@ -40,27 +40,27 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     "chat.postMessage" in {
       parseOk[chat.PostMessageResponse]("chat.postMessage.json") { r =>
         r.channel.value should not be empty
-        r.ts should not be empty
+        r.ts.value should not be empty
       }
     }
 
     "chat.update" in {
       parseOk[chat.UpdateResponse]("chat.update.json") { r =>
         r.channel.value should not be empty
-        r.ts should not be empty
+        r.ts.value should not be empty
       }
     }
 
     "chat.delete" in {
       parseOk[chat.DeleteResponse]("chat.delete.json") { r =>
         r.channel.value should not be empty
-        r.ts should not be empty
+        r.ts.value should not be empty
       }
     }
 
     "chat.postEphemeral" in {
       parseOk[chat.PostEphemeralResponse]("chat.postEphemeral.json") { r =>
-        r.message_ts should not be empty
+        r.message_ts.value should not be empty
       }
     }
 
@@ -105,7 +105,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
       val response = decode[SlackResponse[chat.PostMessageResponse]](json.get).toOption.get
       val value = response.okOrThrow
       value.channel.value should not be empty
-      value.ts should not be empty
+      value.ts.value should not be empty
     }
 
     "okOrThrow throws SlackApiError on error" in {
@@ -141,7 +141,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin
       ) { r =>
         r.channel shouldBe ChannelId("C123456")
-        r.ts shouldBe "1503435956.000247"
+        r.ts shouldBe Timestamp("1503435956.000247")
         r.message shouldBe defined
       }
     }
@@ -161,7 +161,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin
       ) { r =>
         r.channel shouldBe ChannelId("C123456")
-        r.ts shouldBe "1401383885.000061"
+        r.ts shouldBe Timestamp("1401383885.000061")
         r.text shouldBe Some("Updated text you carefully authored")
         r.message shouldBe defined
       }
@@ -177,7 +177,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin
       ) { r =>
         r.channel shouldBe ChannelId("C123456")
-        r.ts shouldBe "1401383885.000061"
+        r.ts shouldBe Timestamp("1401383885.000061")
       }
     }
 
@@ -189,7 +189,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |  "message_ts": "1502210682.580145"
           |}""".stripMargin
       ) { r =>
-        r.message_ts shouldBe "1502210682.580145"
+        r.message_ts shouldBe Timestamp("1502210682.580145")
       }
     }
 

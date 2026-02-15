@@ -1,10 +1,10 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.ChannelId
+import chatops4s.slack.api.{ChannelId, Timestamp, UserId}
 import scala.compiletime.{constValue, erasedValue, summonInline}
 import scala.deriving.Mirror
 
-case class MessageId(channel: ChannelId, ts: String)
+case class MessageId(channel: ChannelId, ts: Timestamp)
 
 case class TriggerId(value: String)
 
@@ -20,7 +20,7 @@ object Button {
 }
 
 case class ButtonClick[T <: String](
-    userId: String,
+    userId: UserId,
     messageId: MessageId,
     value: T,
     triggerId: TriggerId,
@@ -133,7 +133,7 @@ object CommandParser {
 
 case class Command[T](
     args: T,
-    userId: String,
+    userId: UserId,
     channelId: ChannelId,
     text: String,
     triggerId: TriggerId,

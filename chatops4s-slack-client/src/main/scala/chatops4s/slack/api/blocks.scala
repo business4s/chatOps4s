@@ -1,8 +1,54 @@
 package chatops4s.slack.api
 
 import io.circe.{Codec, Decoder, DecodingFailure, Encoder, Json, JsonObject}
+import scala.reflect.ClassTag
 
 object blocks {
+
+  // --- Enums ---
+
+  enum ButtonStyle {
+    case Primary, Danger
+  }
+  object ButtonStyle {
+    private val mapping = Map("primary" -> Primary, "danger" -> Danger)
+    private val reverse = mapping.map(_.swap)
+    given Encoder[ButtonStyle] = Encoder[String].contramap(reverse)
+    given Decoder[ButtonStyle] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown button style: $s"))
+  }
+
+  enum TriggerAction {
+    case OnEnterPressed, OnCharacterEntered
+  }
+  object TriggerAction {
+    private val mapping = Map("on_enter_pressed" -> OnEnterPressed, "on_character_entered" -> OnCharacterEntered)
+    private val reverse = mapping.map(_.swap)
+    given Encoder[TriggerAction] = Encoder[String].contramap(reverse)
+    given Decoder[TriggerAction] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown trigger action: $s"))
+  }
+
+  enum ViewType {
+    case Modal, Home
+  }
+  object ViewType {
+    private val mapping = Map("modal" -> Modal, "home" -> Home)
+    private val reverse = mapping.map(_.swap)
+    given Encoder[ViewType] = Encoder[String].contramap(reverse)
+    given Decoder[ViewType] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown view type: $s"))
+  }
+
+  // --- TypeEntry helper ---
+
+  private class TypeEntry[A](
+      val typeName: String,
+      val decoder: Decoder[A],
+      val encoder: Encoder.AsObject[A],
+      val ct: ClassTag[A],
+  )
+  private object TypeEntry {
+    def apply[A: Decoder: Encoder.AsObject: ClassTag](typeName: String): TypeEntry[A] =
+      new TypeEntry(typeName, summon, summon, summon)
+  }
 
   // --- Composition objects ---
   // Defined first as blocks and elements reference them.
@@ -57,13 +103,13 @@ object blocks {
       text: TextObject,
       confirm: TextObject,
       deny: TextObject,
-      style: Option[String] = None,
+      style: Option[ButtonStyle] = None,
   ) derives Codec.AsObject
 
   // https://docs.slack.dev/reference/block-kit/composition-objects/dispatch-action-configuration-object
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/composition/DispatchActionConfig.java
   case class DispatchActionConfig(
-      trigger_actions_on: Option[List[String]] = None,
+      trigger_actions_on: Option[List[TriggerAction]] = None,
   ) derives Codec.AsObject
 
   // https://docs.slack.dev/reference/block-kit/composition-objects/option-group-object
@@ -98,7 +144,7 @@ object blocks {
       action_id: String,
       value: Option[String] = None,
       url: Option[String] = None,
-      style: Option[String] = None,
+      style: Option[ButtonStyle] = None,
       confirm: Option[ConfirmationDialogObject] = None,
       accessibility_label: Option[String] = None,
   ) extends BlockElement derives Codec.AsObject
@@ -356,93 +402,47 @@ object blocks {
 
   case class UnknownBlockElement(raw: Json) extends BlockElement
 
-  private val elementTypeMap: Map[String, Decoder[BlockElement]] = Map(
-    "button"                       -> Decoder[ButtonElement].map(identity[BlockElement]),
-    "plain_text_input"             -> Decoder[PlainTextInputElement].map(identity[BlockElement]),
-    "number_input"                 -> Decoder[NumberInputElement].map(identity[BlockElement]),
-    "checkboxes"                   -> Decoder[CheckboxesElement].map(identity[BlockElement]),
-    "radio_buttons"                -> Decoder[RadioButtonGroupElement].map(identity[BlockElement]),
-    "static_select"                -> Decoder[StaticSelectElement].map(identity[BlockElement]),
-    "multi_static_select"          -> Decoder[MultiStaticSelectElement].map(identity[BlockElement]),
-    "overflow"                     -> Decoder[OverflowMenuElement].map(identity[BlockElement]),
-    "datepicker"                   -> Decoder[DatePickerElement].map(identity[BlockElement]),
-    "timepicker"                   -> Decoder[TimePickerElement].map(identity[BlockElement]),
-    "datetimepicker"               -> Decoder[DatetimePickerElement].map(identity[BlockElement]),
-    "email_text_input"             -> Decoder[EmailInputElement].map(identity[BlockElement]),
-    "url_text_input"               -> Decoder[UrlInputElement].map(identity[BlockElement]),
-    "image"                        -> Decoder[ImageElement].map(identity[BlockElement]),
-    "conversations_select"         -> Decoder[ConversationsSelectElement].map(identity[BlockElement]),
-    "channels_select"              -> Decoder[ChannelsSelectElement].map(identity[BlockElement]),
-    "users_select"                 -> Decoder[UsersSelectElement].map(identity[BlockElement]),
-    "external_select"              -> Decoder[ExternalSelectElement].map(identity[BlockElement]),
-    "multi_users_select"           -> Decoder[MultiUsersSelectElement].map(identity[BlockElement]),
-    "multi_channels_select"        -> Decoder[MultiChannelsSelectElement].map(identity[BlockElement]),
-    "multi_conversations_select"   -> Decoder[MultiConversationsSelectElement].map(identity[BlockElement]),
-    "multi_external_select"        -> Decoder[MultiExternalSelectElement].map(identity[BlockElement]),
-    "rich_text_input"              -> Decoder[RichTextInputElement].map(identity[BlockElement]),
-    "file_input"                   -> Decoder[FileInputElement].map(identity[BlockElement]),
+  // --- Element codecs (TypeEntry-based) ---
+
+  private val elementEntries: List[TypeEntry[? <: BlockElement]] = List(
+    TypeEntry[ButtonElement]("button"),
+    TypeEntry[PlainTextInputElement]("plain_text_input"),
+    TypeEntry[NumberInputElement]("number_input"),
+    TypeEntry[CheckboxesElement]("checkboxes"),
+    TypeEntry[RadioButtonGroupElement]("radio_buttons"),
+    TypeEntry[StaticSelectElement]("static_select"),
+    TypeEntry[MultiStaticSelectElement]("multi_static_select"),
+    TypeEntry[OverflowMenuElement]("overflow"),
+    TypeEntry[DatePickerElement]("datepicker"),
+    TypeEntry[TimePickerElement]("timepicker"),
+    TypeEntry[DatetimePickerElement]("datetimepicker"),
+    TypeEntry[EmailInputElement]("email_text_input"),
+    TypeEntry[UrlInputElement]("url_text_input"),
+    TypeEntry[ImageElement]("image"),
+    TypeEntry[ConversationsSelectElement]("conversations_select"),
+    TypeEntry[ChannelsSelectElement]("channels_select"),
+    TypeEntry[UsersSelectElement]("users_select"),
+    TypeEntry[ExternalSelectElement]("external_select"),
+    TypeEntry[MultiUsersSelectElement]("multi_users_select"),
+    TypeEntry[MultiChannelsSelectElement]("multi_channels_select"),
+    TypeEntry[MultiConversationsSelectElement]("multi_conversations_select"),
+    TypeEntry[MultiExternalSelectElement]("multi_external_select"),
+    TypeEntry[RichTextInputElement]("rich_text_input"),
+    TypeEntry[FileInputElement]("file_input"),
   )
 
-  private def elementTypeName(elem: BlockElement): String = elem match {
-    case _: ButtonElement                    => "button"
-    case _: PlainTextInputElement            => "plain_text_input"
-    case _: NumberInputElement               => "number_input"
-    case _: CheckboxesElement                => "checkboxes"
-    case _: RadioButtonGroupElement          => "radio_buttons"
-    case _: StaticSelectElement              => "static_select"
-    case _: MultiStaticSelectElement         => "multi_static_select"
-    case _: OverflowMenuElement              => "overflow"
-    case _: DatePickerElement                => "datepicker"
-    case _: TimePickerElement                => "timepicker"
-    case _: DatetimePickerElement            => "datetimepicker"
-    case _: EmailInputElement                => "email_text_input"
-    case _: UrlInputElement                  => "url_text_input"
-    case _: ImageElement                     => "image"
-    case _: ConversationsSelectElement       => "conversations_select"
-    case _: ChannelsSelectElement            => "channels_select"
-    case _: UsersSelectElement               => "users_select"
-    case _: ExternalSelectElement            => "external_select"
-    case _: MultiUsersSelectElement          => "multi_users_select"
-    case _: MultiChannelsSelectElement       => "multi_channels_select"
-    case _: MultiConversationsSelectElement  => "multi_conversations_select"
-    case _: MultiExternalSelectElement       => "multi_external_select"
-    case _: RichTextInputElement             => "rich_text_input"
-    case _: FileInputElement                 => "file_input"
-    case _: UnknownBlockElement              => ""
-  }
+  private val elementTypeMap: Map[String, Decoder[BlockElement]] =
+    elementEntries.map(e => e.typeName -> e.decoder.map(identity[BlockElement])).toMap
 
   given Encoder.AsObject[BlockElement] = Encoder.AsObject.instance {
     case e: UnknownBlockElement =>
       e.raw.asObject.getOrElse(JsonObject.empty)
     case elem =>
-      val base = elem match {
-        case e: ButtonElement                   => Encoder.AsObject[ButtonElement].encodeObject(e)
-        case e: PlainTextInputElement           => Encoder.AsObject[PlainTextInputElement].encodeObject(e)
-        case e: NumberInputElement              => Encoder.AsObject[NumberInputElement].encodeObject(e)
-        case e: CheckboxesElement               => Encoder.AsObject[CheckboxesElement].encodeObject(e)
-        case e: RadioButtonGroupElement         => Encoder.AsObject[RadioButtonGroupElement].encodeObject(e)
-        case e: StaticSelectElement             => Encoder.AsObject[StaticSelectElement].encodeObject(e)
-        case e: MultiStaticSelectElement        => Encoder.AsObject[MultiStaticSelectElement].encodeObject(e)
-        case e: OverflowMenuElement             => Encoder.AsObject[OverflowMenuElement].encodeObject(e)
-        case e: DatePickerElement               => Encoder.AsObject[DatePickerElement].encodeObject(e)
-        case e: TimePickerElement               => Encoder.AsObject[TimePickerElement].encodeObject(e)
-        case e: DatetimePickerElement           => Encoder.AsObject[DatetimePickerElement].encodeObject(e)
-        case e: EmailInputElement               => Encoder.AsObject[EmailInputElement].encodeObject(e)
-        case e: UrlInputElement                 => Encoder.AsObject[UrlInputElement].encodeObject(e)
-        case e: ImageElement                    => Encoder.AsObject[ImageElement].encodeObject(e)
-        case e: ConversationsSelectElement      => Encoder.AsObject[ConversationsSelectElement].encodeObject(e)
-        case e: ChannelsSelectElement           => Encoder.AsObject[ChannelsSelectElement].encodeObject(e)
-        case e: UsersSelectElement              => Encoder.AsObject[UsersSelectElement].encodeObject(e)
-        case e: ExternalSelectElement           => Encoder.AsObject[ExternalSelectElement].encodeObject(e)
-        case e: MultiUsersSelectElement         => Encoder.AsObject[MultiUsersSelectElement].encodeObject(e)
-        case e: MultiChannelsSelectElement      => Encoder.AsObject[MultiChannelsSelectElement].encodeObject(e)
-        case e: MultiConversationsSelectElement => Encoder.AsObject[MultiConversationsSelectElement].encodeObject(e)
-        case e: MultiExternalSelectElement      => Encoder.AsObject[MultiExternalSelectElement].encodeObject(e)
-        case e: RichTextInputElement            => Encoder.AsObject[RichTextInputElement].encodeObject(e)
-        case e: FileInputElement                => Encoder.AsObject[FileInputElement].encodeObject(e)
-        case _: UnknownBlockElement             => JsonObject.empty
-      }
-      ("type" -> Json.fromString(elementTypeName(elem))) +: base
+      elementEntries.iterator.flatMap { entry =>
+        if (entry.ct.runtimeClass.isInstance(elem))
+          Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(elem))
+        else scala.None
+      }.next()
   }
 
   given Decoder[BlockElement] = Decoder.instance { cursor =>
@@ -575,51 +575,33 @@ object blocks {
 
   case class UnknownBlock(raw: Json) extends Block
 
-  private val blockTypeMap: Map[String, Decoder[Block]] = Map(
-    "section"   -> Decoder[SectionBlock].map(identity[Block]),
-    "actions"   -> Decoder[ActionsBlock].map(identity[Block]),
-    "input"     -> Decoder[InputBlock].map(identity[Block]),
-    "header"    -> Decoder[HeaderBlock].map(identity[Block]),
-    "context"   -> Decoder[ContextBlock].map(identity[Block]),
-    "divider"   -> Decoder[DividerBlock].map(identity[Block]),
-    "image"     -> Decoder[ImageBlock].map(identity[Block]),
-    "rich_text" -> Decoder[RichTextBlock].map(identity[Block]),
-    "file"      -> Decoder[FileBlock].map(identity[Block]),
-    "video"     -> Decoder[VideoBlock].map(identity[Block]),
+  // --- Block codecs (TypeEntry-based) ---
+
+  private val blockEntries: List[TypeEntry[? <: Block]] = List(
+    TypeEntry[SectionBlock]("section"),
+    TypeEntry[ActionsBlock]("actions"),
+    TypeEntry[InputBlock]("input"),
+    TypeEntry[HeaderBlock]("header"),
+    TypeEntry[ContextBlock]("context"),
+    TypeEntry[DividerBlock]("divider"),
+    TypeEntry[ImageBlock]("image"),
+    TypeEntry[RichTextBlock]("rich_text"),
+    TypeEntry[FileBlock]("file"),
+    TypeEntry[VideoBlock]("video"),
   )
 
-  private def blockTypeName(block: Block): String = block match {
-    case _: SectionBlock  => "section"
-    case _: ActionsBlock  => "actions"
-    case _: InputBlock    => "input"
-    case _: HeaderBlock   => "header"
-    case _: ContextBlock  => "context"
-    case _: DividerBlock  => "divider"
-    case _: ImageBlock    => "image"
-    case _: RichTextBlock => "rich_text"
-    case _: FileBlock     => "file"
-    case _: VideoBlock    => "video"
-    case _: UnknownBlock  => ""
-  }
+  private val blockTypeMap: Map[String, Decoder[Block]] =
+    blockEntries.map(e => e.typeName -> e.decoder.map(identity[Block])).toMap
 
   given Encoder.AsObject[Block] = Encoder.AsObject.instance {
     case b: UnknownBlock =>
       b.raw.asObject.getOrElse(JsonObject.empty)
     case block =>
-      val base = block match {
-        case b: SectionBlock  => Encoder.AsObject[SectionBlock].encodeObject(b)
-        case b: ActionsBlock  => Encoder.AsObject[ActionsBlock].encodeObject(b)
-        case b: InputBlock    => Encoder.AsObject[InputBlock].encodeObject(b)
-        case b: HeaderBlock   => Encoder.AsObject[HeaderBlock].encodeObject(b)
-        case b: ContextBlock  => Encoder.AsObject[ContextBlock].encodeObject(b)
-        case b: DividerBlock  => Encoder.AsObject[DividerBlock].encodeObject(b)
-        case b: ImageBlock    => Encoder.AsObject[ImageBlock].encodeObject(b)
-        case b: RichTextBlock => Encoder.AsObject[RichTextBlock].encodeObject(b)
-        case b: FileBlock     => Encoder.AsObject[FileBlock].encodeObject(b)
-        case b: VideoBlock    => Encoder.AsObject[VideoBlock].encodeObject(b)
-        case _: UnknownBlock  => JsonObject.empty
-      }
-      ("type" -> Json.fromString(blockTypeName(block))) +: base
+      blockEntries.iterator.flatMap { entry =>
+        if (entry.ct.runtimeClass.isInstance(block))
+          Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(block))
+        else scala.None
+      }.next()
   }
 
   given Decoder[Block] = Decoder.instance { cursor =>
@@ -636,7 +618,7 @@ object blocks {
   // https://docs.slack.dev/reference/views/modal-views
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/view/View.java
   case class View(
-      `type`: String,
+      `type`: ViewType,
       title: TextObject,
       blocks: List[Block],
       callback_id: Option[String] = None,

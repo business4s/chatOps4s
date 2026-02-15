@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.io.Source
 import scala.util.Using
 
+import blocks.ViewType
 import socket.*
 
 class SocketDeserializationTest extends AnyFreeSpec with Matchers {
@@ -31,7 +32,7 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
 
       parseOk[Envelope](fixture.get) { env =>
         env.envelope_id shouldBe "7c9d3f65-6586-4506-b22e-1ffcf6da41eb"
-        env.`type` shouldBe "interactive"
+        env.`type` shouldBe EnvelopeType.Interactive
         env.payload shouldBe defined
         env.accepts_response_payload shouldBe Some(false)
       }
@@ -46,9 +47,9 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       payload.isRight shouldBe true
       val p = payload.toOption.get
       p.`type` shouldBe "block_actions"
-      p.user.id shouldBe "U05GUDS0A48"
-      p.channel shouldBe Some(Channel("C0ADN3WUR8D", Some("auto-tests")))
-      p.container.message_ts shouldBe Some("1770813738.876949")
+      p.user.id shouldBe UserId("U05GUDS0A48")
+      p.channel shouldBe Some(Channel(ChannelId("C0ADN3WUR8D"), Some("auto-tests")))
+      p.container.message_ts shouldBe Some(Timestamp("1770813738.876949"))
       p.actions.size shouldBe 1
       p.actions.head.action_id shouldBe "collector-test-btn"
       p.actions.head.value shouldBe Some("test-value")
@@ -61,7 +62,7 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
 
       parseOk[Envelope](fixture.get) { env =>
         env.envelope_id shouldBe "906efbcc-3f0a-4e4a-a9d3-43cc75007c53"
-        env.`type` shouldBe "slash_commands"
+        env.`type` shouldBe EnvelopeType.SlashCommands
         env.payload shouldBe defined
         env.accepts_response_payload shouldBe Some(true)
       }
@@ -77,9 +78,9 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       val p = payload.toOption.get
       p.command shouldBe "/deploy"
       p.text shouldBe "1.2.3"
-      p.user_id shouldBe "U05GUDS0A48"
-      p.channel_id shouldBe "C0ADN3WUR8D"
-      p.team_id shouldBe "T05FQ6AER6K"
+      p.user_id shouldBe UserId("U05GUDS0A48")
+      p.channel_id shouldBe ChannelId("C0ADN3WUR8D")
+      p.team_id shouldBe TeamId("T05FQ6AER6K")
       p.team_domain shouldBe "voytektestworkspace"
       p.channel_name shouldBe "auto-tests"
       p.api_app_id shouldBe "A0ADK3B6ZV3"
@@ -102,7 +103,7 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin,
       ) { env =>
         env.envelope_id shouldBe "abc-123"
-        env.`type` shouldBe "interactive"
+        env.`type` shouldBe EnvelopeType.Interactive
         env.payload shouldBe defined
         env.accepts_response_payload shouldBe Some(false)
         env.retry_attempt shouldBe Some(0)
@@ -136,16 +137,16 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       ) { p =>
         p.`type` shouldBe "block_actions"
         p.trigger_id shouldBe "trigger-1"
-        p.user.id shouldBe "U123"
+        p.user.id shouldBe UserId("U123")
         p.user.username shouldBe Some("testuser")
         p.api_app_id shouldBe "A123"
         p.token shouldBe "tok"
-        p.container.message_ts shouldBe Some("1234.5678")
+        p.container.message_ts shouldBe Some(Timestamp("1234.5678"))
         p.actions.size shouldBe 1
         p.actions.head.action_id shouldBe "btn-1"
         p.actions.head.value shouldBe Some("clicked")
-        p.team shouldBe Some(Team("T123", Some("test")))
-        p.channel shouldBe Some(Channel("C123", Some("general")))
+        p.team shouldBe Some(Team(TeamId("T123"), Some("test")))
+        p.channel shouldBe Some(Channel(ChannelId("C123"), Some("general")))
         p.response_url shouldBe Some("https://hooks.slack.com/actions/T123/456/789")
       }
     }
@@ -170,9 +171,9 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       ) { p =>
         p.command shouldBe "/deploy"
         p.text shouldBe "v1.2.3"
-        p.user_id shouldBe "U123"
-        p.channel_id shouldBe "C123"
-        p.team_id shouldBe "T123"
+        p.user_id shouldBe UserId("U123")
+        p.channel_id shouldBe ChannelId("C123")
+        p.team_id shouldBe TeamId("T123")
         p.team_domain shouldBe "testworkspace"
         p.channel_name shouldBe "general"
         p.api_app_id shouldBe "A123"
@@ -207,16 +208,16 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin,
       ) { p =>
         p.`type` shouldBe "view_submission"
-        p.user.id shouldBe "U123"
+        p.user.id shouldBe UserId("U123")
         p.view.id shouldBe "V123"
-        p.view.`type` shouldBe Some("modal")
+        p.view.`type` shouldBe Some(ViewType.Modal)
         p.view.callback_id shouldBe Some("my-form")
         p.view.state shouldBe defined
         p.view.state.get.values.contains("block1") shouldBe true
         p.view.hash shouldBe Some("h456")
         p.view.private_metadata shouldBe Some("meta")
         p.api_app_id shouldBe "A123"
-        p.team shouldBe Some(Team("T123"))
+        p.team shouldBe Some(Team(TeamId("T123")))
         p.token shouldBe Some("tok")
       }
     }

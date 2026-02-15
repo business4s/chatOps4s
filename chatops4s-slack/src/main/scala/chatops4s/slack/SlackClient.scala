@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{SlackApi, chat, reactions, views}
+import chatops4s.slack.api.{ResponseType, SlackApi, Timestamp, UserId, chat, reactions, views}
 import chatops4s.slack.api.socket.CommandResponsePayload
 import chatops4s.slack.api.blocks.{Block, View}
 import io.circe.syntax.*
@@ -14,7 +14,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
 
   private val api = new SlackApi[F](backend, token)
 
-  def postMessage(channel: String, text: String, blocks: Option[List[Block]], threadTs: Option[String]): F[MessageId] = {
+  def postMessage(channel: String, text: String, blocks: Option[List[Block]], threadTs: Option[Timestamp]): F[MessageId] = {
     val request = chat.PostMessageRequest(
       channel = channel,
       text = text,
@@ -28,7 +28,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     }
   }
 
-  def respondToCommand(responseUrl: String, text: String, responseType: String): F[Unit] = {
+  def respondToCommand(responseUrl: String, text: String, responseType: ResponseType): F[Unit] = {
     val body = CommandResponsePayload(response_type = responseType, text = text)
 
     val req = basicRequest
@@ -51,7 +51,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     api.reactions.remove(reactions.RemoveRequest(channel = messageId.channel, timestamp = messageId.ts, name = emoji))
       .map(_.okOrThrow).void
 
-  def postEphemeral(channel: String, userId: String, text: String): F[Unit] =
+  def postEphemeral(channel: String, userId: UserId, text: String): F[Unit] =
     api.chat.postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
       .map(_.okOrThrow).void
 

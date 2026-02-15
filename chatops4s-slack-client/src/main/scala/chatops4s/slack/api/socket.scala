@@ -1,16 +1,35 @@
 package chatops4s.slack.api
 
-import io.circe.{Codec, Json}
+import io.circe.{Codec, Decoder, Encoder, Json}
 import chatops4s.slack.api.blocks.given
+import chatops4s.slack.api.blocks.ViewType
 
 object socket {
 
   private type Block = chatops4s.slack.api.blocks.Block
   private type TextObject = chatops4s.slack.api.blocks.TextObject
 
+  enum EnvelopeType {
+    case Interactive, SlashCommands, EventsApi
+    case Unknown(value: String)
+  }
+  object EnvelopeType {
+    private val mapping = Map(
+      "interactive" -> Interactive,
+      "slash_commands" -> SlashCommands,
+      "events_api" -> EventsApi,
+    )
+    private val reverse = mapping.map(_.swap)
+    given Encoder[EnvelopeType] = Encoder[String].contramap {
+      case Unknown(s) => s
+      case other      => reverse(other)
+    }
+    given Decoder[EnvelopeType] = Decoder[String].map(s => mapping.getOrElse(s, Unknown(s)))
+  }
+
   case class Envelope(
       envelope_id: String,
-      `type`: String,
+      `type`: EnvelopeType,
       payload: Option[Json] = None,
       accepts_response_payload: Option[Boolean] = None,
       retry_attempt: Option[Int] = None,
@@ -42,26 +61,26 @@ object socket {
   ) derives Codec.AsObject
 
   case class User(
-      id: String,
+      id: UserId,
       username: Option[String] = None,
       name: Option[String] = None,
-      team_id: Option[String] = None,
+      team_id: Option[TeamId] = None,
   ) derives Codec.AsObject
 
   case class Team(
-      id: String,
+      id: TeamId,
       domain: Option[String] = None,
   ) derives Codec.AsObject
 
   case class Channel(
-      id: String,
+      id: ChannelId,
       name: Option[String] = None,
   ) derives Codec.AsObject
 
   case class Container(
       `type`: Option[String] = None,
-      message_ts: Option[String] = None,
-      channel_id: Option[String] = None,
+      message_ts: Option[Timestamp] = None,
+      channel_id: Option[ChannelId] = None,
       is_ephemeral: Option[Boolean] = None,
       view_id: Option[String] = None,
       attachment_id: Option[Int] = None,
@@ -72,7 +91,7 @@ object socket {
       action_id: String,
       block_id: String,
       `type`: String,
-      action_ts: String,
+      action_ts: Timestamp,
       value: Option[String] = None,
       text: Option[TextObject] = None,
       selected_option: Option[SelectedOption] = None,
@@ -85,11 +104,11 @@ object socket {
   case class SlashCommandPayload(
       command: String,
       text: String,
-      user_id: String,
-      channel_id: String,
+      user_id: UserId,
+      channel_id: ChannelId,
       response_url: String,
       trigger_id: String,
-      team_id: String,
+      team_id: TeamId,
       team_domain: String,
       channel_name: String,
       api_app_id: String,
@@ -114,7 +133,7 @@ object socket {
 
   case class ViewPayload(
       id: String,
-      `type`: Option[String] = None,
+      `type`: Option[ViewType] = None,
       callback_id: Option[String] = None,
       state: Option[ViewState] = None,
       hash: Option[String] = None,
@@ -139,8 +158,8 @@ object socket {
       selected_conversations: Option[List[String]] = None,
       selected_channel: Option[String] = None,
       selected_channels: Option[List[String]] = None,
-      selected_user: Option[String] = None,
-      selected_users: Option[List[String]] = None,
+      selected_user: Option[UserId] = None,
+      selected_users: Option[List[UserId]] = None,
   ) derives Codec.AsObject
 
   case class SelectedOption(
@@ -150,7 +169,7 @@ object socket {
 
   // https://docs.slack.dev/interactivity/handling-user-interaction
   case class CommandResponsePayload(
-      response_type: String,
+      response_type: ResponseType,
       text: String,
       blocks: Option[List[Block]] = None,
       replace_original: Option[Boolean] = None,
