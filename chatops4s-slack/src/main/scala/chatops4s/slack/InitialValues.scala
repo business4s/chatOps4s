@@ -2,15 +2,15 @@ package chatops4s.slack
 
 import scala.quoted.*
 
-class InitialValues[T] private[slack] (private[slack] val toMap: Map[String, String]) {
-  inline def set[V: CommandArgCodec](inline selector: T => V, value: V): InitialValues[T] =
-    InitialValues.create[T](toMap + (InitialValues.fieldName[T, V](selector) -> summon[CommandArgCodec[V]].show(value)))
+class InitialValues[T] private[slack] (private[slack] val toMap: Map[String, List[String]]) {
+  inline def set[V: FieldCodec](inline selector: T => V, value: V): InitialValues[T] =
+    InitialValues.create[T](toMap + (InitialValues.fieldName[T, V](selector) -> summon[FieldCodec[V]].encodeInitial(value)))
 }
 
 object InitialValues {
   def of[T]: InitialValues[T] = new InitialValues[T](Map.empty)
 
-  def create[T](map: Map[String, String]): InitialValues[T] = new InitialValues[T](map)
+  def create[T](map: Map[String, List[String]]): InitialValues[T] = new InitialValues[T](map)
 
   inline def fieldName[T, V](inline selector: T => V): String =
     ${ fieldNameImpl[T, V]('selector) }

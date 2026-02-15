@@ -117,7 +117,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       forms.get(formId) match {
         case None => monad.error(new RuntimeException(s"Form not found: ${formId.value}"))
         case Some(entry) =>
-          val viewBlocks = buildViewBlocks(entry.formDef, initialValues.toMap)
+          val viewBlocks = entry.formDef.buildBlocks(initialValues.toMap)
           val view = View(
             `type` = ViewType.Modal,
             callback_id = Some(formId.value),
@@ -220,43 +220,4 @@ private[slack] class SlackGatewayImpl[F[_]](
       value = Some(button.value),
     )
 
-  private def buildViewBlocks(formDef: FormDef[?], initialValues: Map[String, String]): List[Block] =
-    formDef.fields.map { field =>
-      val initial = initialValues.get(field.id)
-      val element: BlockElement = field.fieldType match {
-        case FormFieldType.PlainText =>
-          PlainTextInputElement(
-            action_id = field.id,
-            initial_value = initial,
-          )
-        case FormFieldType.Integer =>
-          NumberInputElement(
-            is_decimal_allowed = false,
-            action_id = field.id,
-            initial_value = initial,
-          )
-        case FormFieldType.Decimal =>
-          NumberInputElement(
-            is_decimal_allowed = true,
-            action_id = field.id,
-            initial_value = initial,
-          )
-        case FormFieldType.Checkbox =>
-          CheckboxesElement(
-            action_id = field.id,
-            options = List(
-              BlockOption(
-                text = PlainTextObject(text = "Yes"),
-                value = "true",
-              ),
-            ),
-          )
-      }
-      InputBlock(
-        block_id = Some(field.id),
-        label = PlainTextObject(text = field.label),
-        element = element,
-        optional = if (field.optional) Some(true) else None,
-      )
-    }
 }

@@ -146,6 +146,8 @@ object socket {
       values: Map[String, Map[String, ViewStateValue]],
   ) derives Codec.AsObject
 
+  // https://docs.slack.dev/reference/interaction-payloads/view-interactions-payload
+  // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/view/ViewState.java
   case class ViewStateValue(
       `type`: Option[String] = None,
       value: Option[String] = None,
@@ -160,6 +162,9 @@ object socket {
       selected_channels: Option[List[String]] = None,
       selected_user: Option[UserId] = None,
       selected_users: Option[List[UserId]] = None,
+      timezone: Option[String] = None,
+      rich_text_value: Option[Json] = None,
+      files: Option[List[Json]] = None,
   ) derives Codec.AsObject
 
   case class SelectedOption(

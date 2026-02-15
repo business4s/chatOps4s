@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api
-import chatops4s.slack.api.{ChannelId, Timestamp, UserId, TeamId}
+import chatops4s.slack.api.{ChannelId, ConversationId, Timestamp, UserId, TeamId}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -13,6 +13,8 @@ import chatops4s.slack.api.socket.ViewStateValue
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.client4.testing.WebSocketBackendStub
+
+import java.time.{Instant, LocalDate, LocalTime}
 
 case class ScaleArgs(service: String, replicas: Int) derives CommandParser
 
@@ -529,11 +531,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val fields = fd.fields
 
         fields.size shouldBe 5
-        fields(0) shouldBe FormFieldDef("name", "Name", FormFieldType.PlainText, optional = false)
-        fields(1) shouldBe FormFieldDef("age", "Age", FormFieldType.Integer, optional = false)
-        fields(2) shouldBe FormFieldDef("score", "Score", FormFieldType.Decimal, optional = false)
-        fields(3) shouldBe FormFieldDef("active", "Active", FormFieldType.Checkbox, optional = true)
-        fields(4) shouldBe FormFieldDef("nickname", "Nickname", FormFieldType.PlainText, optional = true)
+        fields(0) shouldBe FormFieldDef("name", "Name", optional = false)
+        fields(1) shouldBe FormFieldDef("age", "Age", optional = false)
+        fields(2) shouldBe FormFieldDef("score", "Score", optional = false)
+        fields(3) shouldBe FormFieldDef("active", "Active", optional = true)
+        fields(4) shouldBe FormFieldDef("nickname", "Nickname", optional = true)
       }
 
       "FormDef.derived should parse values correctly" in {
@@ -581,6 +583,430 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         )
 
         fd.parse(values) shouldBe Right(OptForm(Some("hello")))
+      }
+
+      // --- New type tests ---
+
+      "FormDef.derived should parse LocalDate" in {
+        case class DateForm(date: LocalDate) derives FormDef
+
+        val fd = summon[FormDef[DateForm]]
+        val values = Map(
+          "date" -> Map("date" -> ViewStateValue(selected_date = Some("2025-01-15"))),
+        )
+
+        fd.parse(values) shouldBe Right(DateForm(LocalDate.of(2025, 1, 15)))
+      }
+
+      "FormDef.derived should parse LocalTime" in {
+        case class TimeForm(time: LocalTime) derives FormDef
+
+        val fd = summon[FormDef[TimeForm]]
+        val values = Map(
+          "time" -> Map("time" -> ViewStateValue(selected_time = Some("14:30"))),
+        )
+
+        fd.parse(values) shouldBe Right(TimeForm(LocalTime.of(14, 30)))
+      }
+
+      "FormDef.derived should parse Instant" in {
+        case class InstantForm(timestamp: Instant) derives FormDef
+
+        val fd = summon[FormDef[InstantForm]]
+        val values = Map(
+          "timestamp" -> Map("timestamp" -> ViewStateValue(selected_date_time = Some(1700000000))),
+        )
+
+        fd.parse(values) shouldBe Right(InstantForm(Instant.ofEpochSecond(1700000000L)))
+      }
+
+      "FormDef.derived should parse Email" in {
+        case class EmailForm(email: Email) derives FormDef
+
+        val fd = summon[FormDef[EmailForm]]
+        val values = Map(
+          "email" -> Map("email" -> ViewStateValue(value = Some("test@example.com"))),
+        )
+
+        fd.parse(values) shouldBe Right(EmailForm(Email("test@example.com")))
+      }
+
+      "FormDef.derived should parse Url" in {
+        case class UrlForm(website: Url) derives FormDef
+
+        val fd = summon[FormDef[UrlForm]]
+        val values = Map(
+          "website" -> Map("website" -> ViewStateValue(value = Some("https://example.com"))),
+        )
+
+        fd.parse(values) shouldBe Right(UrlForm(Url("https://example.com")))
+      }
+
+      "FormDef.derived should parse UserId" in {
+        case class UserForm(user: UserId) derives FormDef
+
+        val fd = summon[FormDef[UserForm]]
+        val values = Map(
+          "user" -> Map("user" -> ViewStateValue(selected_user = Some(UserId("U456")))),
+        )
+
+        fd.parse(values) shouldBe Right(UserForm(UserId("U456")))
+      }
+
+      "FormDef.derived should parse List[UserId]" in {
+        case class UsersForm(users: List[UserId]) derives FormDef
+
+        val fd = summon[FormDef[UsersForm]]
+        val values = Map(
+          "users" -> Map("users" -> ViewStateValue(selected_users = Some(List(UserId("U1"), UserId("U2"))))),
+        )
+
+        fd.parse(values) shouldBe Right(UsersForm(List(UserId("U1"), UserId("U2"))))
+      }
+
+      "FormDef.derived should parse ChannelId" in {
+        case class ChannelForm(channel: ChannelId) derives FormDef
+
+        val fd = summon[FormDef[ChannelForm]]
+        val values = Map(
+          "channel" -> Map("channel" -> ViewStateValue(selected_channel = Some("C789"))),
+        )
+
+        fd.parse(values) shouldBe Right(ChannelForm(ChannelId("C789")))
+      }
+
+      "FormDef.derived should parse List[ChannelId]" in {
+        case class ChannelsForm(channels: List[ChannelId]) derives FormDef
+
+        val fd = summon[FormDef[ChannelsForm]]
+        val values = Map(
+          "channels" -> Map("channels" -> ViewStateValue(selected_channels = Some(List("C1", "C2")))),
+        )
+
+        fd.parse(values) shouldBe Right(ChannelsForm(List(ChannelId("C1"), ChannelId("C2"))))
+      }
+
+      "FormDef.derived should parse ConversationId" in {
+        case class ConvoForm(convo: ConversationId) derives FormDef
+
+        val fd = summon[FormDef[ConvoForm]]
+        val values = Map(
+          "convo" -> Map("convo" -> ViewStateValue(selected_conversation = Some("D123"))),
+        )
+
+        fd.parse(values) shouldBe Right(ConvoForm(ConversationId("D123")))
+      }
+
+      "FormDef.derived should parse List[ConversationId]" in {
+        case class ConvosForm(convos: List[ConversationId]) derives FormDef
+
+        val fd = summon[FormDef[ConvosForm]]
+        val values = Map(
+          "convos" -> Map("convos" -> ViewStateValue(selected_conversations = Some(List("D1", "D2")))),
+        )
+
+        fd.parse(values) shouldBe Right(ConvosForm(List(ConversationId("D1"), ConversationId("D2"))))
+      }
+
+      "FormDef.derived should parse Json (rich text)" in {
+        case class RichForm(content: Json) derives FormDef
+
+        val fd = summon[FormDef[RichForm]]
+        val richJson = Json.obj("type" -> Json.fromString("rich_text"), "elements" -> Json.arr())
+        val values = Map(
+          "content" -> Map("content" -> ViewStateValue(rich_text_value = Some(richJson))),
+        )
+
+        fd.parse(values) shouldBe Right(RichForm(richJson))
+      }
+
+      "FormDef.derived should parse List[Json] (files)" in {
+        case class FileForm(attachments: List[Json]) derives FormDef
+
+        val fd = summon[FormDef[FileForm]]
+        val file1 = Json.obj("id" -> Json.fromString("F1"))
+        val file2 = Json.obj("id" -> Json.fromString("F2"))
+        val values = Map(
+          "attachments" -> Map("attachments" -> ViewStateValue(files = Some(List(file1, file2)))),
+        )
+
+        fd.parse(values) shouldBe Right(FileForm(List(file1, file2)))
+      }
+
+      // --- Option wrapping for new types ---
+
+      "FormDef.derived should parse Option[LocalDate] as None" in {
+        case class OptDateForm(date: Option[LocalDate]) derives FormDef
+
+        val fd = summon[FormDef[OptDateForm]]
+        val values = Map(
+          "date" -> Map("date" -> ViewStateValue()),
+        )
+
+        fd.parse(values) shouldBe Right(OptDateForm(None))
+      }
+
+      "FormDef.derived should parse Option[LocalDate] as Some" in {
+        case class OptDateForm(date: Option[LocalDate]) derives FormDef
+
+        val fd = summon[FormDef[OptDateForm]]
+        val values = Map(
+          "date" -> Map("date" -> ViewStateValue(selected_date = Some("2025-06-15"))),
+        )
+
+        fd.parse(values) shouldBe Right(OptDateForm(Some(LocalDate.of(2025, 6, 15))))
+      }
+
+      "FormDef.derived should parse Option[UserId] as None" in {
+        case class OptUserForm(user: Option[UserId]) derives FormDef
+
+        val fd = summon[FormDef[OptUserForm]]
+        val values = Map(
+          "user" -> Map("user" -> ViewStateValue()),
+        )
+
+        fd.parse(values) shouldBe Right(OptUserForm(None))
+      }
+
+      "FormDef.derived should parse Option[UserId] as Some" in {
+        case class OptUserForm(user: Option[UserId]) derives FormDef
+
+        val fd = summon[FormDef[OptUserForm]]
+        val values = Map(
+          "user" -> Map("user" -> ViewStateValue(selected_user = Some(UserId("U999")))),
+        )
+
+        fd.parse(values) shouldBe Right(OptUserForm(Some(UserId("U999"))))
+      }
+
+      // --- Options-based codec tests ---
+
+      "staticSelect should parse selected option" in {
+        val mappings = List(
+          BlockOption(text = PlainTextObject("Small"), value = "s") -> "small",
+          BlockOption(text = PlainTextObject("Large"), value = "l") -> "large",
+        )
+        val codec = FieldCodec.staticSelect(mappings)
+
+        val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "s"))))
+        result shouldBe Right("small")
+      }
+
+      "staticSelect should fail on unknown option" in {
+        val mappings = List(
+          BlockOption(text = PlainTextObject("Small"), value = "s") -> "small",
+        )
+        val codec = FieldCodec.staticSelect(mappings)
+
+        val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "x"))))
+        result.isLeft shouldBe true
+      }
+
+      "multiStaticSelect should parse selected options" in {
+        val mappings = List(
+          BlockOption(text = PlainTextObject("A"), value = "a") -> 1,
+          BlockOption(text = PlainTextObject("B"), value = "b") -> 2,
+          BlockOption(text = PlainTextObject("C"), value = "c") -> 3,
+        )
+        val codec = FieldCodec.multiStaticSelect(mappings)
+
+        val result = codec.parse(ViewStateValue(selected_options = Some(List(
+          SelectedOption(value = "a"),
+          SelectedOption(value = "c"),
+        ))))
+        result shouldBe Right(List(1, 3))
+      }
+
+      "radioButtons should parse selected option" in {
+        val mappings = List(
+          BlockOption(text = PlainTextObject("Yes"), value = "y") -> true,
+          BlockOption(text = PlainTextObject("No"), value = "n") -> false,
+        )
+        val codec = FieldCodec.radioButtons(mappings)
+
+        val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "n"))))
+        result shouldBe Right(false)
+      }
+
+      "checkboxes should parse selected options" in {
+        val mappings = List(
+          BlockOption(text = PlainTextObject("Read"), value = "r") -> "read",
+          BlockOption(text = PlainTextObject("Write"), value = "w") -> "write",
+          BlockOption(text = PlainTextObject("Execute"), value = "x") -> "exec",
+        )
+        val codec = FieldCodec.checkboxes(mappings)
+
+        val result = codec.parse(ViewStateValue(selected_options = Some(List(
+          SelectedOption(value = "r"),
+          SelectedOption(value = "x"),
+        ))))
+        result shouldBe Right(List("read", "exec"))
+      }
+
+      "externalSelect should parse selected option value" in {
+        val codec = FieldCodec.externalSelect(minQueryLength = Some(3))
+
+        val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "ext-val"))))
+        result shouldBe Right("ext-val")
+      }
+
+      "multiExternalSelect should parse selected options" in {
+        val codec = FieldCodec.multiExternalSelect()
+
+        val result = codec.parse(ViewStateValue(selected_options = Some(List(
+          SelectedOption(value = "v1"),
+          SelectedOption(value = "v2"),
+        ))))
+        result shouldBe Right(List("v1", "v2"))
+      }
+
+      // --- openForm view JSON structure tests for new types ---
+
+      "should open form with date picker element" in {
+        var capturedBody: Option[String] = None
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("views.open")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _ => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust("""{"ok":true}""")
+
+        val gateway = createGateway(backend)
+
+        case class DateForm(date: LocalDate) derives FormDef
+
+        val formId = gateway.registerForm[DateForm](_ => IO.unit).unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Pick Date").unsafeRunSync()
+
+        capturedBody shouldBe defined
+        val json = parser.parse(capturedBody.get).toOption.get
+        val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
+        blocks.size shouldBe 1
+        blocks(0).hcursor.downField("element").downField("type").as[String] shouldBe Right("datepicker")
+      }
+
+      "should open form with users select element" in {
+        var capturedBody: Option[String] = None
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("views.open")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _ => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust("""{"ok":true}""")
+
+        val gateway = createGateway(backend)
+
+        case class UserForm(user: UserId) derives FormDef
+
+        val formId = gateway.registerForm[UserForm](_ => IO.unit).unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Pick User").unsafeRunSync()
+
+        capturedBody shouldBe defined
+        val json = parser.parse(capturedBody.get).toOption.get
+        val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
+        blocks.size shouldBe 1
+        blocks(0).hcursor.downField("element").downField("type").as[String] shouldBe Right("users_select")
+      }
+
+      "should open form with email input element" in {
+        var capturedBody: Option[String] = None
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("views.open")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _ => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust("""{"ok":true}""")
+
+        val gateway = createGateway(backend)
+
+        case class EmailForm(email: Email) derives FormDef
+
+        val formId = gateway.registerForm[EmailForm](_ => IO.unit).unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Enter Email").unsafeRunSync()
+
+        capturedBody shouldBe defined
+        val json = parser.parse(capturedBody.get).toOption.get
+        val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
+        blocks.size shouldBe 1
+        blocks(0).hcursor.downField("element").downField("type").as[String] shouldBe Right("email_text_input")
+      }
+
+      "should open form with all element types" in {
+        var capturedBody: Option[String] = None
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("views.open")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _ => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust("""{"ok":true}""")
+
+        val gateway = createGateway(backend)
+
+        case class FullForm(
+            name: String,
+            age: Int,
+            score: Double,
+            active: Boolean,
+            email: Email,
+            website: Url,
+            date: LocalDate,
+            time: LocalTime,
+            timestamp: Instant,
+            user: UserId,
+            channel: ChannelId,
+            convo: ConversationId,
+        ) derives FormDef
+
+        val formId = gateway.registerForm[FullForm](_ => IO.unit).unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Full Form").unsafeRunSync()
+
+        capturedBody shouldBe defined
+        val json = parser.parse(capturedBody.get).toOption.get
+        val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
+        blocks.size shouldBe 12
+
+        val expectedTypes = List(
+          "plain_text_input",   // name: String
+          "number_input",       // age: Int
+          "number_input",       // score: Double
+          "checkboxes",         // active: Boolean
+          "email_text_input",   // email: Email
+          "url_text_input",     // website: Url
+          "datepicker",         // date: LocalDate
+          "timepicker",         // time: LocalTime
+          "datetimepicker",     // timestamp: Instant
+          "users_select",       // user: UserId
+          "channels_select",    // channel: ChannelId
+          "conversations_select", // convo: ConversationId
+        )
+
+        blocks.zip(expectedTypes).foreach { case (block, expectedType) =>
+          block.hcursor.downField("element").downField("type").as[String] shouldBe Right(expectedType)
+        }
       }
     }
   }

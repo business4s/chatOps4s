@@ -60,12 +60,14 @@ object blocks {
     def text: String
   }
 
+  // https://docs.slack.dev/reference/block-kit/composition-objects/text-object
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/composition/PlainTextObject.java
   case class PlainTextObject(
       text: String,
       emoji: Option[Boolean] = None,
   ) extends TextObject derives Codec.AsObject
 
+  // https://docs.slack.dev/reference/block-kit/composition-objects/text-object
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/composition/MarkdownTextObject.java
   case class MarkdownTextObject(
       text: String,
@@ -119,6 +121,7 @@ object blocks {
       options: List[BlockOption],
   ) derives Codec.AsObject
 
+  // https://docs.slack.dev/reference/block-kit/composition-objects/slack-file-object
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/composition/SlackFileObject.java
   case class SlackFileObject(
       id: Option[String] = None,

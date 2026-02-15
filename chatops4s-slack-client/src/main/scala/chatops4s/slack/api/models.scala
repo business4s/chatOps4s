@@ -30,6 +30,14 @@ object TeamId {
   given Decoder[TeamId] = Decoder[String]
 }
 
+opaque type ConversationId = String
+object ConversationId {
+  def apply(value: String): ConversationId = value
+  extension (x: ConversationId) def value: String = x
+  given Encoder[ConversationId] = Encoder[String]
+  given Decoder[ConversationId] = Decoder[String]
+}
+
 opaque type Timestamp = String
 object Timestamp {
   def apply(value: String): Timestamp = value
