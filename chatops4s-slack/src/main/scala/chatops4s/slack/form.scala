@@ -1,18 +1,12 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ChannelId, ConversationId, UserId}
-import chatops4s.slack.api.socket.{SelectedOption, ViewStateValue}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, UserId}
+import chatops4s.slack.api.socket.{SelectedOption, ViewStateValue, ViewSubmissionPayload}
 import chatops4s.slack.api.blocks.*
 import io.circe.{Encoder, Json}
 import scala.compiletime.{constValue, erasedValue, summonInline}
 import scala.deriving.Mirror
 import java.time.{Instant, LocalDate, LocalTime}
-
-opaque type Email = String
-object Email {
-  def apply(value: String): Email = value
-  extension (e: Email) def value: String = e
-}
 
 opaque type Url = String
 object Url {
@@ -400,4 +394,6 @@ object FormDef {
 
 case class FormId[T](value: String)
 
-case class FormSubmission[T](userId: UserId, values: T)
+case class FormSubmission[T](payload: ViewSubmissionPayload, values: T) {
+  def userId: UserId = payload.user.id
+}

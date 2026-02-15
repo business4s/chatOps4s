@@ -1,8 +1,8 @@
 package example
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{ButtonClick, Email, FormDef, FormSubmission, InitialValues, MessageId, SlackGateway, Url}
-import chatops4s.slack.api.{ChannelId, ConversationId, UserId}
+import chatops4s.slack.{ButtonClick, FormDef, FormSubmission, InitialValues, MessageId, SlackGateway, Url}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, UserId}
 import chatops4s.slack.api.blocks.{RichTextBlock, RichTextSection, RichTextText}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
@@ -33,13 +33,15 @@ object AllInputs extends IOApp.Simple {
       richText: Option[RichTextBlock],
   ) derives FormDef
 
-  private def prefilled(click: ButtonClick[String]): InitialValues[AllInputsForm] =
-    InitialValues.of[AllInputsForm]
+  private def prefilled(slack: SlackGateway[IO], click: ButtonClick[String]): IO[InitialValues[AllInputsForm]] =
+    for {
+      userInfo <- slack.getUserInfo(click.userId)
+    } yield InitialValues.of[AllInputsForm]
       .set(_.text, Some("Hello world"))
       .set(_.integer, Some(42))
       .set(_.decimal, Some(3.14))
       .set(_.checkbox, true)
-      .set(_.email, Some(Email("user@example.com")))
+      .set(_.email, userInfo.profile.flatMap(_.email))
       .set(_.url, Some(Url("https://example.com")))
       .set(_.date, Some(LocalDate.of(2025, 6, 15)))
       .set(_.time, Some(LocalTime.of(14, 30)))
@@ -64,7 +66,9 @@ object AllInputs extends IOApp.Simple {
                         slack.openForm(click.triggerId, form, "All Inputs")
                       }
         prefilledBtn <- slack.registerButton[String] { click =>
-                          slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", initialValues = prefilled(click))
+                          prefilled(slack, click).flatMap { iv =>
+                            slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", initialValues = iv)
+                          }
                         }
         _          <- slack.update(
                         msg,

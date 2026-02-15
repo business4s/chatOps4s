@@ -46,4 +46,9 @@ object MockBackend {
     create()
       .whenAnyRequest
       .thenRespondAdjust(okBody)
+
+  def withUsersInfo(responseBody: String, statusCode: StatusCode = StatusCode.Ok): WebSocketBackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("users.info"))
+      .thenRespondAdjust(responseBody, statusCode)
 }

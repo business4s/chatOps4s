@@ -12,6 +12,7 @@ import chatops4s.slack.api.chat.{
   UpdateResponse,
 }
 import chatops4s.slack.api.reactions.{AddRequest, AddResponse, RemoveRequest, RemoveResponse}
+import chatops4s.slack.api.users.{InfoRequest as UsersInfoRequest, InfoResponse as UsersInfoResponse}
 import chatops4s.slack.api.views.{OpenRequest, OpenResponse}
 import io.circe.syntax.*
 import sttp.client4.*
@@ -53,6 +54,12 @@ class SlackApi[F[_]](backend: Backend[F], token: String) {
 
     // https://docs.slack.dev/reference/methods/views.open
     def open(req: OpenRequest): F[SlackResponse[OpenResponse]] = post("views.open", req)
+  }
+
+  object users {
+
+    // https://docs.slack.dev/reference/methods/users.info
+    def info(req: UsersInfoRequest): F[SlackResponse[UsersInfoResponse]] = post("users.info", req)
   }
 
   private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =

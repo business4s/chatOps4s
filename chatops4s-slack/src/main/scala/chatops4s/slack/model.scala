@@ -1,12 +1,11 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ChannelId, Timestamp, UserId}
+import chatops4s.slack.api.{ChannelId, Timestamp, TriggerId, UserId}
+import chatops4s.slack.api.socket.{Action, InteractionPayload, SlashCommandPayload}
 import scala.compiletime.{constValue, erasedValue, summonInline}
 import scala.deriving.Mirror
 
 case class MessageId(channel: ChannelId, ts: Timestamp)
-
-case class TriggerId(value: String)
 
 case class ButtonId[T <: String](value: String) {
   def toButton(label: String, value: T): Button = Button(label, this, value)
@@ -20,12 +19,21 @@ object Button {
 }
 
 case class ButtonClick[T <: String](
-    userId: UserId,
-    messageId: MessageId,
+    payload: InteractionPayload,
+    action: Action,
     value: T,
-    triggerId: TriggerId,
-    threadId: Option[MessageId] = None,
-)
+) {
+  def userId: UserId = payload.user.id
+  def triggerId: TriggerId = TriggerId(payload.trigger_id)
+  def messageId: MessageId = MessageId(
+    channel = payload.channel.map(_.id).getOrElse(ChannelId("")),
+    ts = payload.container.message_ts.getOrElse(Timestamp("")),
+  )
+  def threadId: Option[MessageId] =
+    payload.message.flatMap(_.thread_ts).map(ts =>
+      MessageId(payload.channel.map(_.id).getOrElse(ChannelId("")), ts)
+    )
+}
 
 trait CommandArgCodec[T] {
   def parse(text: String): Either[String, T]
@@ -132,12 +140,14 @@ object CommandParser {
 }
 
 case class Command[T](
+    payload: SlashCommandPayload,
     args: T,
-    userId: UserId,
-    channelId: ChannelId,
-    text: String,
-    triggerId: TriggerId,
-)
+) {
+  def userId: UserId = payload.user_id
+  def channelId: ChannelId = payload.channel_id
+  def text: String = payload.text
+  def triggerId: TriggerId = TriggerId(payload.trigger_id)
+}
 
 sealed trait CommandResponse
 object CommandResponse {

@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, SlackApi, Timestamp, UserId, chat, reactions, views}
+import chatops4s.slack.api.{ResponseType, SlackApi, Timestamp, UserId, chat, reactions, users, views}
 import chatops4s.slack.api.socket.CommandResponsePayload
 import chatops4s.slack.api.blocks.{Block, View}
 import io.circe.syntax.*
@@ -58,6 +58,9 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
   def openView(triggerId: String, view: View): F[Unit] =
     api.views.open(views.OpenRequest(trigger_id = triggerId, view = view))
       .map(_.okOrThrow).void
+
+  def getUserInfo(userId: UserId): F[users.UserInfo] =
+    api.users.info(users.InfoRequest(user = userId)).map(_.okOrThrow.user)
 
   def updateMessage(messageId: MessageId, text: String, blocks: Option[List[Block]]): F[MessageId] = {
     val request = chat.UpdateRequest(

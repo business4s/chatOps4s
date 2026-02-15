@@ -46,6 +46,22 @@ object Timestamp {
   given Decoder[Timestamp] = Decoder[String]
 }
 
+opaque type Email = String
+object Email {
+  def apply(value: String): Email = value
+  extension (x: Email) def value: String = x
+  given Encoder[Email] = Encoder[String]
+  given Decoder[Email] = Decoder[String]
+}
+
+opaque type TriggerId = String
+object TriggerId {
+  def apply(value: String): TriggerId = value
+  extension (x: TriggerId) def value: String = x
+  given Encoder[TriggerId] = Encoder[String]
+  given Decoder[TriggerId] = Decoder[String]
+}
+
 enum ParseMode {
   case Full, Raw
 }
@@ -240,4 +256,27 @@ object views {
   case class OpenResponse(
       view: Option[Json] = None,
   ) derives Codec.AsObject
+}
+
+object users {
+
+  // https://docs.slack.dev/reference/methods/users.info
+  case class InfoRequest(user: UserId) derives Codec.AsObject
+
+  case class UserProfile(
+      email: Option[Email] = None,
+      display_name: Option[String] = None,
+      real_name: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class UserInfo(
+      id: UserId,
+      name: Option[String] = None,
+      real_name: Option[String] = None,
+      profile: Option[UserProfile] = None,
+      is_bot: Option[Boolean] = None,
+      tz: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class InfoResponse(user: UserInfo) derives Codec.AsObject
 }

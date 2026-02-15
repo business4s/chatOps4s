@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api
-import chatops4s.slack.api.{ChannelId, ConversationId, Timestamp, UserId, TeamId}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, Timestamp, TriggerId, UserId, TeamId}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -222,6 +222,33 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
         gateway.sendEphemeral("C123", UserId("U456"), "Only you can see this").unsafeRunSync()
+      }
+    }
+
+    "getUserInfo" - {
+      "should return user info" in {
+        val body = """{"ok":true,"user":{"id":"U123","name":"testuser","real_name":"Test User","profile":{"email":"test@example.com","display_name":"testuser","real_name":"Test User"},"is_bot":false,"tz":"America/New_York"}}"""
+        val gateway = createGateway(MockBackend.withUsersInfo(body))
+
+        val result = gateway.getUserInfo(UserId("U123")).unsafeRunSync()
+
+        result.id shouldBe UserId("U123")
+        result.name shouldBe Some("testuser")
+        result.real_name shouldBe Some("Test User")
+        result.profile shouldBe defined
+        result.profile.get.email shouldBe Some(Email("test@example.com"))
+        result.is_bot shouldBe Some(false)
+        result.tz shouldBe Some("America/New_York")
+      }
+
+      "should handle API errors" in {
+        val errorBody = """{"ok":false,"error":"user_not_found"}"""
+        val gateway = createGateway(MockBackend.withUsersInfo(errorBody))
+
+        val ex = intercept[chatops4s.slack.api.SlackApiError] {
+          gateway.getUserInfo(UserId("U999")).unsafeRunSync()
+        }
+        ex.error shouldBe "user_not_found"
       }
     }
 

@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ChannelId, ResponseType, Timestamp, UserId}
+import chatops4s.slack.api.{ResponseType, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.{Decoder, Json}
@@ -56,11 +56,8 @@ private[slack] class SlackGatewayImpl[F[_]](
           monad.unit(CommandResponse.Ephemeral(s"Invalid command arguments: $error"))
         case Right(args) =>
           val cmd = Command(
+            payload = payload,
             args = args,
-            userId = payload.user_id,
-            channelId = payload.channel_id,
-            text = payload.text,
-            triggerId = TriggerId(payload.trigger_id),
           )
           handler(cmd)
       }
@@ -112,6 +109,9 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit] =
     client.postEphemeral(channel, userId, text)
 
+  override def getUserInfo(userId: UserId): F[users.UserInfo] =
+    client.getUserInfo(userId)
+
   override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T]): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>
       forms.get(formId) match {
@@ -149,20 +149,11 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
     handlersRef.get.flatMap { handlers =>
-      val channelId = payload.channel.map(_.id).getOrElse(ChannelId(""))
-      val messageId = MessageId(
-        channel = channelId,
-        ts = payload.container.message_ts.getOrElse(Timestamp("")), // TODO "" is fishy here
-      )
-      val threadId = payload.message.flatMap(_.thread_ts).map(ts => MessageId(channelId, ts))
-
       payload.actions.traverse_ { action =>
         val click = ButtonClick[String](
-          userId = payload.user.id,
-          messageId = messageId,
+          payload = payload,
+          action = action,
           value = action.value.getOrElse(""),
-          triggerId = TriggerId(payload.trigger_id),
-          threadId = threadId,
         )
 
         handlers.get(ButtonId[String](action.action_id)).traverse_(handler => handler(click))
@@ -194,7 +185,7 @@ private[slack] class SlackGatewayImpl[F[_]](
           case Left(error) =>
             monad.error(new RuntimeException(s"Form parse error: $error"))
           case Right(parsed) =>
-            val submission = FormSubmission(userId = payload.user.id, values = parsed)
+            val submission = FormSubmission(payload = payload, values = parsed)
             entry.handler(submission)
         }
       }
