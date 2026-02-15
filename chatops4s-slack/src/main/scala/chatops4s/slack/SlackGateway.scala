@@ -22,6 +22,7 @@ object SlackGateway {
   def create[F[_]](
       token: String,
       backend: WebSocketBackend[F],
+      userInfoCache: UserInfoCache[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
     given sttp.monad.MonadError[F] = backend.monad
     for {
@@ -30,8 +31,19 @@ object SlackGateway {
       formHandlersRef    <- Ref.of[F, Map[FormId[?], FormEntry[F]]](Map.empty)
     } yield {
       val client = new SlackClient[F](token, backend)
-      val gateway = new SlackGatewayImpl[F](client, handlersRef, commandHandlersRef, formHandlersRef, backend)
+      val gateway = new SlackGatewayImpl[F](client, handlersRef, commandHandlersRef, formHandlersRef, userInfoCache, backend)
       gateway: SlackGateway[F] & SlackSetup[F]
     }
+  }
+
+  def create[F[_]](
+      token: String,
+      backend: WebSocketBackend[F],
+  ): F[SlackGateway[F] & SlackSetup[F]] = {
+    given sttp.monad.MonadError[F] = backend.monad
+    for {
+      cache   <- UserInfoCache.inMemory[F]()
+      gateway <- create(token, backend, cache)
+    } yield gateway
   }
 }

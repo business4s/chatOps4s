@@ -36,6 +36,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     handlersRef: Ref[F, Map[ButtonId[?], ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[CommandName, CommandEntry[F]]],
     formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
+    userInfoCache: UserInfoCache[F],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F] with SlackSetup[F] {
 
@@ -110,7 +111,12 @@ private[slack] class SlackGatewayImpl[F[_]](
     client.postEphemeral(channel, userId, text)
 
   override def getUserInfo(userId: UserId): F[users.UserInfo] =
-    client.getUserInfo(userId)
+    userInfoCache.get(userId).flatMap {
+      case Some(info) => monad.unit(info)
+      case None => client.getUserInfo(userId).flatMap { info =>
+        userInfoCache.put(userId, info).map(_ => info)
+      }
+    }
 
   override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T]): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>

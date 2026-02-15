@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api
-import chatops4s.slack.api.{ChannelId, ConversationId, Email, Timestamp, TriggerId, UserId, TeamId}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, Timestamp, TriggerId, UserId, TeamId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -24,13 +24,17 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
   private def createGateway(
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
+      cache: UserInfoCache[IO] = {
+        given sttp.monad.MonadError[IO] = MockBackend.create().monad
+        UserInfoCache.noCache[IO]
+      },
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
     val handlersRef = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
     val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
     val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val client = new SlackClient[IO]("test-token", backend)
-    new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, formHandlersRef, backend)
+    new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, formHandlersRef, cache, backend)
   }
 
   "SlackGateway" - {
@@ -249,6 +253,103 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           gateway.getUserInfo(UserId("U999")).unsafeRunSync()
         }
         ex.error shouldBe "user_not_found"
+      }
+    }
+
+    "UserInfoCache" - {
+      val userInfoBody = """{"ok":true,"user":{"id":"U123","name":"testuser","real_name":"Test User","profile":{"email":"test@example.com","display_name":"testuser","real_name":"Test User"},"is_bot":false,"tz":"America/New_York"}}"""
+
+      "should cache user info on first fetch and return cached on second" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        var apiCallCount = 0
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("users.info")
+            if (matches) apiCallCount += 1
+            matches
+          }
+          .thenRespondAdjust(userInfoBody)
+
+        val cache = UserInfoCache.inMemory[IO]().unsafeRunSync()
+        val gateway = createGateway(backend, cache)
+
+        val result1 = gateway.getUserInfo(UserId("U123")).unsafeRunSync()
+        val result2 = gateway.getUserInfo(UserId("U123")).unsafeRunSync()
+
+        result1.id shouldBe UserId("U123")
+        result2.id shouldBe UserId("U123")
+        apiCallCount shouldBe 1
+      }
+
+      "should expire entries after TTL" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        val epoch = Instant.parse("2025-01-01T00:00:00Z")
+        var currentTime = epoch
+        val cache = UserInfoCache.inMemoryWithClock[IO](
+          ttl = java.time.Duration.ofSeconds(60),
+          maxEntries = 1000,
+          clock = () => currentTime,
+        ).unsafeRunSync()
+
+        var apiCallCount = 0
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("users.info")
+            if (matches) apiCallCount += 1
+            matches
+          }
+          .thenRespondAdjust(userInfoBody)
+
+        val gateway = createGateway(backend, cache)
+
+        gateway.getUserInfo(UserId("U123")).unsafeRunSync()
+        apiCallCount shouldBe 1
+
+        // Not expired yet
+        currentTime = epoch.plusSeconds(30)
+        gateway.getUserInfo(UserId("U123")).unsafeRunSync()
+        apiCallCount shouldBe 1
+
+        // Expired
+        currentTime = epoch.plusSeconds(120)
+        gateway.getUserInfo(UserId("U123")).unsafeRunSync()
+        apiCallCount shouldBe 2
+      }
+
+      "should evict oldest entries when over maxEntries" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        val epoch = Instant.parse("2025-01-01T00:00:00Z")
+        var currentTime = epoch
+        val cache = UserInfoCache.inMemoryWithClock[IO](
+          ttl = java.time.Duration.ofHours(1),
+          maxEntries = 2,
+          clock = () => currentTime,
+        ).unsafeRunSync()
+
+        val info1 = users.UserInfo(id = UserId("U1"))
+        val info2 = users.UserInfo(id = UserId("U2"))
+        val info3 = users.UserInfo(id = UserId("U3"))
+
+        currentTime = epoch.plusSeconds(1)
+        cache.put(UserId("U1"), info1).unsafeRunSync()
+        currentTime = epoch.plusSeconds(2)
+        cache.put(UserId("U2"), info2).unsafeRunSync()
+        currentTime = epoch.plusSeconds(3)
+        cache.put(UserId("U3"), info3).unsafeRunSync()
+
+        // U1 should have been evicted (oldest)
+        cache.get(UserId("U1")).unsafeRunSync() shouldBe None
+        cache.get(UserId("U2")).unsafeRunSync() shouldBe defined
+        cache.get(UserId("U3")).unsafeRunSync() shouldBe defined
+      }
+
+      "noCache should always return None" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        val cache = UserInfoCache.noCache[IO]
+        val info = users.UserInfo(id = UserId("U1"))
+
+        cache.put(UserId("U1"), info).unsafeRunSync()
+        cache.get(UserId("U1")).unsafeRunSync() shouldBe None
       }
     }
 
