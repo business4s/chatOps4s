@@ -44,7 +44,7 @@ object socket {
   // https://docs.slack.dev/reference/interaction-payloads/block_actions-payload
   case class InteractionPayload(
       `type`: String,
-      trigger_id: String,
+      trigger_id: TriggerId,
       user: User,
       api_app_id: String,
       token: String,
@@ -107,7 +107,7 @@ object socket {
       user_id: UserId,
       channel_id: ChannelId,
       response_url: String,
-      trigger_id: String,
+      trigger_id: TriggerId,
       team_id: TeamId,
       team_domain: String,
       channel_name: String,

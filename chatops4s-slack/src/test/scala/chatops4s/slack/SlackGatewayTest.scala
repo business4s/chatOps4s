@@ -173,7 +173,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             Action(btn1.value, "blk-1", "button", Timestamp("1234567890.123"), value = Some("v1")),
             Action(btn2.value, "blk-2", "button", Timestamp("1234567890.123"), value = Some("v2")),
           ),
-          trigger_id = "test-trigger-id",
+          trigger_id = TriggerId("test-trigger-id"),
           api_app_id = "A123",
           token = "tok",
         )
@@ -1047,7 +1047,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       user_id = UserId("U123"),
       channel_id = ChannelId("C123"),
       response_url = "https://hooks.slack.com/commands/T123/456/789",
-      trigger_id = "test-trigger-id",
+      trigger_id = TriggerId("test-trigger-id"),
       team_id = TeamId("T123"),
       team_domain = "test",
       channel_name = "general",
@@ -1063,7 +1063,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       actions = List(
         Action(actionId, "blk-1", "button", Timestamp("1234567890.123"), value = Some(value)),
       ),
-      trigger_id = "test-trigger-id",
+      trigger_id = TriggerId("test-trigger-id"),
       api_app_id = "A123",
       token = "tok",
     )

@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, SlackApi, Timestamp, UserId, chat, reactions, users, views}
+import chatops4s.slack.api.{ResponseType, SlackApi, Timestamp, TriggerId, UserId, chat, reactions, users, views}
 import chatops4s.slack.api.socket.CommandResponsePayload
 import chatops4s.slack.api.blocks.{Block, View}
 import io.circe.syntax.*
@@ -55,7 +55,7 @@ private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
     api.chat.postEphemeral(chat.PostEphemeralRequest(channel = channel, user = userId, text = text))
       .map(_.okOrThrow).void
 
-  def openView(triggerId: String, view: View): F[Unit] =
+  def openView(triggerId: TriggerId, view: View): F[Unit] =
     api.views.open(views.OpenRequest(trigger_id = triggerId, view = view))
       .map(_.okOrThrow).void
 

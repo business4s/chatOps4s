@@ -85,7 +85,7 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       p.channel_name shouldBe "auto-tests"
       p.api_app_id shouldBe "A0ADK3B6ZV3"
       p.response_url should not be empty
-      p.trigger_id should not be empty
+      p.trigger_id.value should not be empty
     }
   }
 
@@ -136,7 +136,7 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
           |}""".stripMargin,
       ) { p =>
         p.`type` shouldBe "block_actions"
-        p.trigger_id shouldBe "trigger-1"
+        p.trigger_id shouldBe TriggerId("trigger-1")
         p.user.id shouldBe UserId("U123")
         p.user.username shouldBe Some("testuser")
         p.api_app_id shouldBe "A123"

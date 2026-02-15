@@ -249,7 +249,7 @@ object apps {
 object views {
 
   case class OpenRequest(
-      trigger_id: String,
+      trigger_id: TriggerId,
       view: View,
   ) derives Codec.AsObject
 

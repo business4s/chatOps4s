@@ -125,7 +125,7 @@ private[slack] class SlackGatewayImpl[F[_]](
             submit = Some(PlainTextObject(text = submitLabel)),
             blocks = viewBlocks,
           )
-          client.openView(triggerId.value, view)
+          client.openView(triggerId, view)
       }
     }
   }

@@ -24,7 +24,7 @@ case class ButtonClick[T <: String](
     value: T,
 ) {
   def userId: UserId = payload.user.id
-  def triggerId: TriggerId = TriggerId(payload.trigger_id)
+  def triggerId: TriggerId = payload.trigger_id
   def messageId: MessageId = MessageId(
     channel = payload.channel.map(_.id).getOrElse(ChannelId("")),
     ts = payload.container.message_ts.getOrElse(Timestamp("")),
@@ -146,7 +146,7 @@ case class Command[T](
   def userId: UserId = payload.user_id
   def channelId: ChannelId = payload.channel_id
   def text: String = payload.text
-  def triggerId: TriggerId = TriggerId(payload.trigger_id)
+  def triggerId: TriggerId = payload.trigger_id
 }
 
 sealed trait CommandResponse
