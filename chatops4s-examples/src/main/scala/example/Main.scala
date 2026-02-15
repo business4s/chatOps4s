@@ -1,6 +1,7 @@
 package example
 
 import cats.effect.{IO, IOApp}
+import scala.concurrent.duration.*
 import cats.syntax.all.*
 import chatops4s.slack.{ButtonClick, ButtonId, CommandArgCodec, CommandParser, CommandResponse, FormDef, FormSubmission, InitialValues, SlackGateway}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
@@ -10,41 +11,6 @@ object Main extends IOApp.Simple {
   private val token    = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token")
   private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
   private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
-
-  // -- Typed button values: buttons carry a ServiceVersion so handlers are guaranteed the format
-  opaque type ServiceVersion <: String = String
-  object ServiceVersion {
-    def apply(service: String, version: String): ServiceVersion = s"$service@$version"
-    def unapply(sv: ServiceVersion): (String, String) = {
-      val Array(s, v) = sv.split("@", 2): @unchecked
-      (s, v)
-    }
-  }
-
-  // -- Typed command argument: /status only accepts known service names
-  opaque type ServiceName <: String = String
-  object ServiceName {
-    private val valid = Set("api", "web", "worker")
-    def parse(text: String): Either[String, ServiceName] = {
-      val name = text.trim.toLowerCase
-      if (valid.contains(name)) Right(name)
-      else Left(s"Unknown service '$text'. Valid: ${valid.mkString(", ")}")
-    }
-  }
-  given CommandParser[ServiceName] with {
-    def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
-    override def usageHint: String = "[service name]"
-  }
-
-  // -- Typed multi-arg command: /scale splits "api 3" into service + replica count
-  given CommandArgCodec[ServiceName] with {
-    def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
-    def show(value: ServiceName): String = value
-  }
-  case class ScaleArgs(service: ServiceName, replicas: Int) derives CommandParser
-
-  // -- Form for the /deploy modal
-  case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
 
   override def run: IO[Unit] = {
     HttpClientFs2Backend.resource[IO]().use { backend =>
@@ -109,9 +75,11 @@ object Main extends IOApp.Simple {
       val (service, version) = ServiceVersion.unapply(click.value)
       for {
         _ <- slack.update(click.messageId, s":white_check_mark: *Approved* by <@${click.userId}>")
+        _ <- slack.reply(parent, s"Deploying *$service* *$version* to production...")
+        _ <- IO.sleep(3.seconds)
+        _ <- slack.reply(parent, s"Deploy of *$service* *$version* completed.")
         _ <- slack.removeReaction(parent, "hourglass_flowing_sand")
         _ <- slack.addReaction(parent, "white_check_mark")
-        _ <- slack.reply(parent, s"Deploying *$service* *$version* to production...")
       } yield ()
     }
 
@@ -123,4 +91,47 @@ object Main extends IOApp.Simple {
         _ <- slack.addReaction(parent, "x")
       } yield ()
     }
+
+  // -- Typed button values: buttons carry a ServiceVersion so handlers are guaranteed the format
+  opaque type ServiceVersion <: String = String
+
+  object ServiceVersion {
+    def apply(service: String, version: String): ServiceVersion = s"$service@$version"
+
+    def unapply(sv: ServiceVersion): (String, String) = {
+      val Array(s, v) = sv.split("@", 2): @unchecked
+      (s, v)
+    }
+  }
+
+  // -- Typed command argument: /status only accepts known service names
+  opaque type ServiceName <: String = String
+
+  object ServiceName {
+    private val valid = Set("api", "web", "worker")
+
+    def parse(text: String): Either[String, ServiceName] = {
+      val name = text.trim.toLowerCase
+      if (valid.contains(name)) Right(name)
+      else Left(s"Unknown service '$text'. Valid: ${valid.mkString(", ")}")
+    }
+  }
+
+  given CommandParser[ServiceName] with {
+    def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
+
+    override def usageHint: String = "[service name]"
+  }
+
+  // -- Typed multi-arg command: /scale splits "api 3" into service + replica count
+  given CommandArgCodec[ServiceName] with {
+    def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
+
+    def show(value: ServiceName): String = value
+  }
+
+  case class ScaleArgs(service: ServiceName, replicas: Int) derives CommandParser
+
+  // -- Form for the /deploy modal
+  case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
 }
