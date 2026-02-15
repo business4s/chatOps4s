@@ -171,6 +171,33 @@ object socket {
       text: Option[TextObject] = None,
       value: String,
   ) derives Codec.AsObject
+  
+  // https://docs.slack.dev/apis/events-api/using-socket-mode#disconnect
+  case class Disconnect(
+      reason: DisconnectReason,
+      debug_info: Option[Json] = None,
+  ) derives Codec.AsObject
+
+  enum DisconnectReason {
+    case LinkDisabled, Warning, RefreshRequested
+    case Unknown(value: String)
+  }
+
+  object DisconnectReason {
+    private val mapping = Map(
+      "link_disabled" -> LinkDisabled,
+      "warning" -> Warning,
+      "refresh_requested" -> RefreshRequested,
+    )
+    private val reverse = mapping.map(_.swap)
+
+    given Encoder[DisconnectReason] = Encoder[String].contramap {
+      case Unknown(s) => s
+      case other => reverse(other)
+    }
+
+    given Decoder[DisconnectReason] = Decoder[String].map(s => mapping.getOrElse(s, Unknown(s)))
+  }
 
   // https://docs.slack.dev/interactivity/handling-user-interaction
   case class CommandResponsePayload(

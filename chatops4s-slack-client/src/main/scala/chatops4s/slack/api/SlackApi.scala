@@ -103,24 +103,28 @@ object SlackApi {
     // https://docs.slack.dev/apis/events-api/using-socket-mode
     def connectToSocket[F[_]](url: String, backend: WebSocketBackend[F])(
         handler: socket.Envelope => F[Unit],
-    ): F[Unit] = {
+    ): F[socket.DisconnectReason] = {
       given monad: MonadError[F] = backend.monad
       basicRequest
         .get(uri"$url")
-        .response(asWebSocket[F, Unit] { ws =>
-          def loop: F[Unit] =
+        .response(asWebSocketOrFail[F, socket.DisconnectReason] { ws =>
+          def loop: F[socket.DisconnectReason] =
             ws.receiveText().flatMap { text =>
               io.circe.parser.decode[socket.Envelope](text) match {
                 case Right(envelope) =>
                   val ack = ws.sendText(socket.Ack(envelope.envelope_id).asJson.noSpaces)
                   ack.flatMap(_ => handler(envelope)).flatMap(_ => loop)
-                case Left(_) => loop // Malformed frames skipped to avoid killing the connection
+                case Left(_) =>
+                  io.circe.parser.decode[socket.Disconnect](text) match {
+                    case Right(disconnect) => monad.unit(disconnect.reason)
+                    case Left(_)           => loop // Malformed frames skipped to avoid killing the connection
+                  }
               }
             }
           loop
         })
         .send(backend)
-        .map(_ => ())
+        .map(_.body)
     }
   }
 }

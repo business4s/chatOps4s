@@ -146,6 +146,53 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       count should be >= 2
     }
 
+    "disconnect" - {
+
+      "refresh_requested should cause reconnection" in {
+        var handlerCallCount = 0
+        val disconnectMsg = Disconnect(DisconnectReason.RefreshRequested).asJson.noSpaces
+        // Each WS connection receives an envelope then a disconnect.
+        // On reconnect, the same stub is reused, so handler gets called again.
+        val wsStub = WebSocketStub
+          .initialReceive(List(
+            WebSocketFrame.text(syntheticInteractionEnvelope("env-dc-1")),
+            WebSocketFrame.text(disconnectMsg),
+          ))
+          .thenRespond(_ => List.empty)
+
+        runRaw(wsStub, handler = _ => IO { handlerCallCount += 1 })
+
+        handlerCallCount should be >= 2
+      }
+
+      "link_disabled should stop the loop" in {
+        val disconnectMsg = Disconnect(DisconnectReason.LinkDisabled).asJson.noSpaces
+        val wsStub = WebSocketStub
+          .initialReceive(List(WebSocketFrame.text(disconnectMsg)))
+          .thenRespond(_ => List.empty)
+
+        val result = runRawResult(wsStub)
+
+        result.isRight shouldBe true
+      }
+
+      "should process messages before disconnect" in {
+        var captured: Option[Envelope] = None
+        val disconnectMsg = Disconnect(DisconnectReason.RefreshRequested).asJson.noSpaces
+        val wsStub = WebSocketStub
+          .initialReceive(List(
+            WebSocketFrame.text(syntheticInteractionEnvelope("env-before-dc")),
+            WebSocketFrame.text(disconnectMsg),
+          ))
+          .thenRespond(_ => List.empty)
+
+        runRaw(wsStub, handler = e => IO { captured = Some(e) })
+
+        captured shouldBe defined
+        captured.get.envelope_id shouldBe "env-before-dc"
+      }
+    }
+
     "should recover from handler errors and continue processing" in {
       var callCount = 0
       val wsStub = WebSocketStub
@@ -182,6 +229,14 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       wsStub: WebSocketStub[?],
       handler: Envelope => IO[Unit] = _ => IO.unit,
   ): Unit = {
+    runRawResult(wsStub, handler)
+    ()
+  }
+
+  private def runRawResult(
+      wsStub: WebSocketStub[?],
+      handler: Envelope => IO[Unit] = _ => IO.unit,
+  ): Either[Throwable, Unit] = {
     val backend = MockBackend
       .create()
       .whenRequestMatches(_.uri.toString().contains("apps.connections.open"))
@@ -194,7 +249,6 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       .timeout(1.second)
       .attempt
       .unsafeRunSync()
-    ()
   }
 
   private def loadFixture(name: String): Option[String] =

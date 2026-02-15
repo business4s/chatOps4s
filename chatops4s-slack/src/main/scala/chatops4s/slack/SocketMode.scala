@@ -20,20 +20,31 @@ private[slack] object SocketMode {
       retryDelay: Option[F[Unit]] = None,
   ): F[Unit] = {
     given monad: MonadError[F] = backend.monad
-    val delay = retryDelay.getOrElse(monad.blocking(Thread.sleep(2000)))
+    val delay                  = retryDelay.getOrElse(monad.blocking(Thread.sleep(2000)))
 
-    val loop: F[Unit] = for {
-      url <- openSocketUrl(appToken, backend)
-      _ <- SlackApi.apps.connectToSocket(url, backend) { envelope =>
-        handler(envelope).handleError { case e =>
-          monad.blocking(logger.error("Handler error", e))
-        }
+    val loop: F[socket.DisconnectReason] = for {
+      url    <- openSocketUrl(appToken, backend)
+      reason <- SlackApi.apps.connectToSocket(url, backend) { envelope =>
+                  handler(envelope).handleError { case e =>
+                    monad.blocking(logger.error("Handler error", e))
+                  }
+                }
+    } yield reason
+
+    loop
+      .flatMap {
+        case socket.DisconnectReason.LinkDisabled =>
+          monad.blocking(logger.warn("Slack socket link disabled, stopping"))
+        case reason                               =>
+          monad
+            .blocking(logger.info(s"Slack socket disconnect: $reason, reconnecting"))
+            .flatMap(_ => runLoop(appToken, backend, handler, Some(delay)))
       }
-    } yield ()
-
-    loop.handleError { case _ =>
-      delay >> runLoop(appToken, backend, handler, Some(delay))
-    }
+      .handleError { case e =>
+        monad
+          .blocking(logger.warn(s"Socket connection error, reconnecting after delay", e))
+          .flatMap(_ => delay >> runLoop(appToken, backend, handler, Some(delay)))
+      }
   }
 
   private def openSocketUrl[F[_]](
