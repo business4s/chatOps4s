@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, SlackApi, Timestamp, TriggerId, UserId, chat, reactions, users, views}
+import chatops4s.slack.api.{ResponseType, SlackApi, SlackBotToken, Timestamp, TriggerId, UserId, chat, reactions, users, views}
 import chatops4s.slack.api.socket.CommandResponsePayload
 import chatops4s.slack.api.blocks.{Block, View}
 import io.circe.syntax.*
@@ -8,7 +8,7 @@ import sttp.client4.*
 import sttp.monad.syntax.*
 import chatops4s.slack.monadSyntax.*
 
-private[slack] class SlackClient[F[_]](token: String, backend: Backend[F]) {
+private[slack] class SlackClient[F[_]](token: SlackBotToken, backend: Backend[F]) {
 
   private given sttp.monad.MonadError[F] = backend.monad
 

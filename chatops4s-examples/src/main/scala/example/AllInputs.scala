@@ -2,7 +2,7 @@ package example
 
 import cats.effect.{IO, IOApp}
 import chatops4s.slack.{ButtonClick, FormDef, FormSubmission, InitialValues, MessageId, SlackGateway, Url}
-import chatops4s.slack.api.{ChannelId, ConversationId, Email, UserId}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackAppToken, SlackBotToken, UserId}
 import chatops4s.slack.api.blocks.{RichTextBlock, RichTextSection, RichTextText}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
@@ -10,8 +10,8 @@ import java.time.{Instant, LocalDate, LocalTime}
 
 object AllInputs extends IOApp.Simple {
 
-  private val token    = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token")
-  private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
+  private val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
+  private val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))
   private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
   case class AllInputsForm(

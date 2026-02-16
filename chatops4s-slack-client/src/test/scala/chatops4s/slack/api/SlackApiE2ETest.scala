@@ -12,8 +12,8 @@ import sttp.shared.Identity
 // The bot must be a member of SLACK_CHANNEL (the setup step joins automatically).
 class SlackApiE2ETest extends AnyFreeSpec with Matchers {
 
-  private val botToken = sys.env.get("SLACK_BOT_TOKEN")
-  private val appToken = sys.env.get("SLACK_APP_TOKEN")
+  private val botToken = sys.env.get("SLACK_BOT_TOKEN").map(SlackBotToken.unsafe)
+  private val appToken = sys.env.get("SLACK_APP_TOKEN").map(SlackAppToken.unsafe)
   private val channel = sys.env.get("SLACK_CHANNEL")
 
   assume(botToken.isDefined && channel.isDefined, "SLACK_BOT_TOKEN and SLACK_CHANNEL required")
@@ -52,7 +52,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
       assume(channelId.isDefined, "postMessage must run first")
       val resp = basicRequest
         .post(uri"https://slack.com/api/conversations.join")
-        .header("Authorization", s"Bearer ${botToken.get}")
+        .header("Authorization", s"Bearer ${botToken.get.value}")
         .contentType("application/json")
         .body(s"""{"channel":"${channelId.get.value}"}""")
         .response(asJsonAlways[OkErrorResponse])

@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, TriggerId, UserId, users}
+import chatops4s.slack.api.{ResponseType, SlackAppToken, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.{Decoder, Json}
@@ -86,7 +86,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     }
   }
 
-  override def listen(appToken: String): F[Unit] =
+  override def listen(appToken: SlackAppToken): F[Unit] =
     SocketMode.runLoop(appToken, backend, handleEnvelope)
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =

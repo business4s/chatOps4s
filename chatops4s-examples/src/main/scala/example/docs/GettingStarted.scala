@@ -2,13 +2,14 @@ package example.docs
 
 import cats.effect.{IO, IOApp}
 import chatops4s.slack.{CommandResponse, FormDef, SlackGateway}
+import chatops4s.slack.api.{SlackAppToken, SlackBotToken}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 // start_minimal
 object SendMessage extends IOApp.Simple {
 
-  private val token    = sys.env("SLACK_BOT_TOKEN")
-  private val appToken = sys.env("SLACK_APP_TOKEN")
+  private val token    = SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN"))
+  private val appToken = SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))
   private val channel  = sys.env("SLACK_CHANNEL")
 
   override def run: IO[Unit] =
@@ -27,8 +28,8 @@ object SendMessage extends IOApp.Simple {
 // start_buttons
 object InteractiveButtons extends IOApp.Simple {
 
-  private val token    = sys.env("SLACK_BOT_TOKEN")
-  private val appToken = sys.env("SLACK_APP_TOKEN")
+  private val token    = SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN"))
+  private val appToken = SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))
   private val channel  = sys.env("SLACK_CHANNEL")
 
   override def run: IO[Unit] =
@@ -60,8 +61,8 @@ object InteractiveButtons extends IOApp.Simple {
 // start_forms
 object InteractiveForms extends IOApp.Simple {
 
-  private val token    = sys.env("SLACK_BOT_TOKEN")
-  private val appToken = sys.env("SLACK_APP_TOKEN")
+  private val token    = SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN"))
+  private val appToken = SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))
   private val channel  = sys.env("SLACK_CHANNEL")
 
   case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef

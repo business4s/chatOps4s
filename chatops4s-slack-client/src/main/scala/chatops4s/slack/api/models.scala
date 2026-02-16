@@ -6,6 +6,24 @@ private type Block = chatops4s.slack.api.blocks.Block
 private type View = chatops4s.slack.api.blocks.View
 private type ViewType = chatops4s.slack.api.blocks.ViewType
 
+opaque type SlackBotToken = String
+object SlackBotToken {
+  def apply(value: String): Either[String, SlackBotToken] =
+    if value.startsWith("xoxb-") then Right(value)
+    else Left(s"SlackBotToken must start with 'xoxb-', got: ${value.take(10)}...")
+  def unsafe(value: String): SlackBotToken = value
+  extension (x: SlackBotToken) def value: String = x
+}
+
+opaque type SlackAppToken = String
+object SlackAppToken {
+  def apply(value: String): Either[String, SlackAppToken] =
+    if value.startsWith("xapp-") then Right(value)
+    else Left(s"SlackAppToken must start with 'xapp-', got: ${value.take(10)}...")
+  def unsafe(value: String): SlackAppToken = value
+  extension (x: SlackAppToken) def value: String = x
+}
+
 opaque type ChannelId = String
 object ChannelId {
   def apply(value: String): ChannelId = value

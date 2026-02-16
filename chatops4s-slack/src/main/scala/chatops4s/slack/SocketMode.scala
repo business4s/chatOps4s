@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.SlackApi
+import chatops4s.slack.api.{SlackApi, SlackAppToken}
 import chatops4s.slack.api.socket
 import sttp.client4.*
 import sttp.monad.MonadError
@@ -14,7 +14,7 @@ private[slack] object SocketMode {
   private val logger = LoggerFactory.getLogger("chatops4s.slack.SocketMode")
 
   def runLoop[F[_]](
-      appToken: String,
+      appToken: SlackAppToken,
       backend: WebSocketBackend[F],
       handler: socket.Envelope => F[Unit],
       retryDelay: Option[F[Unit]] = None,
@@ -48,7 +48,7 @@ private[slack] object SocketMode {
   }
 
   private def openSocketUrl[F[_]](
-      appToken: String,
+      appToken: SlackAppToken,
       backend: Backend[F],
   ): F[String] = {
     given sttp.monad.MonadError[F] = backend.monad

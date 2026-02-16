@@ -4,12 +4,13 @@ import cats.effect.{IO, IOApp}
 import scala.concurrent.duration.*
 import cats.syntax.all.*
 import chatops4s.slack.{ButtonClick, ButtonId, CommandArgCodec, CommandParser, CommandResponse, FormDef, FormSubmission, InitialValues, SlackGateway}
+import chatops4s.slack.api.{SlackAppToken, SlackBotToken}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
 
-  private val token    = sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token")
-  private val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token")
+  private val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
+  private val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))
   private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
   override def run: IO[Unit] = {

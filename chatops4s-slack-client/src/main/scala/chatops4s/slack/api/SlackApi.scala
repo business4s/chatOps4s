@@ -21,7 +21,7 @@ import sttp.client4.ws.async.*
 import sttp.monad.MonadError
 import sttp.monad.syntax.*
 
-class SlackApi[F[_]](backend: Backend[F], token: String) {
+class SlackApi[F[_]](backend: Backend[F], token: SlackBotToken) {
 
   private given sttp.monad.MonadError[F] = backend.monad
   private val baseUrl                    = "https://slack.com/api"
@@ -67,7 +67,7 @@ class SlackApi[F[_]](backend: Backend[F], token: String) {
       .send(
         basicRequest
           .post(uri"$baseUrl/$method")
-          .header("Authorization", s"Bearer $token")
+          .header("Authorization", s"Bearer ${token.value}")
           .contentType("application/json")
           .body(req.asJson.deepDropNullValues.noSpaces)
           .response(asJsonAlways[SlackResponse[Res]]),
@@ -83,13 +83,13 @@ object SlackApi {
 
   object apps {
     // https://docs.slack.dev/reference/methods/apps.connections.open
-    def connectionsOpen[F[_]](backend: Backend[F], appToken: String): F[SlackResponse[ConnectionsOpenResponse]] = {
+    def connectionsOpen[F[_]](backend: Backend[F], appToken: SlackAppToken): F[SlackResponse[ConnectionsOpenResponse]] = {
       given sttp.monad.MonadError[F] = backend.monad
       backend
         .send(
           basicRequest
             .post(uri"https://slack.com/api/apps.connections.open")
-            .header("Authorization", s"Bearer $appToken")
+            .header("Authorization", s"Bearer ${appToken.value}")
             .contentType("application/x-www-form-urlencoded")
             .response(asJsonAlways[SlackResponse[ConnectionsOpenResponse]]),
         )

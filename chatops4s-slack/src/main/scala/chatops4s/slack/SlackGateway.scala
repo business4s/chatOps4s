@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{TriggerId, UserId, users}
+import chatops4s.slack.api.{SlackAppToken, SlackBotToken, TriggerId, UserId, users}
 import sttp.client4.WebSocketBackend
 import sttp.monad.syntax.*
 
@@ -14,13 +14,13 @@ trait SlackGateway[F[_]] {
   def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit]
   def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T]): F[Unit]
   def getUserInfo(userId: UserId): F[users.UserInfo]
-  def listen(appToken: String): F[Unit]
+  def listen(appToken: SlackAppToken): F[Unit]
 }
 
 object SlackGateway {
 
   def create[F[_]](
-      token: String,
+      token: SlackBotToken,
       backend: WebSocketBackend[F],
       userInfoCache: UserInfoCache[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
@@ -37,7 +37,7 @@ object SlackGateway {
   }
 
   def create[F[_]](
-      token: String,
+      token: SlackBotToken,
       backend: WebSocketBackend[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
     given sttp.monad.MonadError[F] = backend.monad
