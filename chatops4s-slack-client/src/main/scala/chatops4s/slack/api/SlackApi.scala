@@ -59,8 +59,23 @@ class SlackApi[F[_]](backend: Backend[F], token: SlackBotToken) {
   object users {
 
     // https://docs.slack.dev/reference/methods/users.info
-    def info(req: UsersInfoRequest): F[SlackResponse[UsersInfoResponse]] = post("users.info", req)
+    def info(req: UsersInfoRequest): F[SlackResponse[UsersInfoResponse]] =
+      get("users.info", Map("user" -> req.user.value))
   }
+
+  private def get[Res: io.circe.Decoder](method: String, params: Map[String, String]): F[SlackResponse[Res]] =
+    backend
+      .send(
+        basicRequest
+          .get(uri"$baseUrl/$method?$params")
+          .header("Authorization", s"Bearer ${token.value}")
+          .response(asJsonAlways[SlackResponse[Res]]),
+      )
+      .map(_.body)
+      .map {
+        case Right(res) => res
+        case Left(err)  => throw SlackApiError("deserialization_error", List(s"$method: $err"))
+      }
 
   private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =
     backend

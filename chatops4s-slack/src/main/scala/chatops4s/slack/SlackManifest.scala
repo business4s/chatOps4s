@@ -41,6 +41,7 @@ private[slack] object SlackManifest {
        |    bot:
        |      - chat:write
        |      - chat:write.public
+       |      - users:read
        |      - reactions:write$commandScopes
        |settings:$interactivity
        |  org_deploy_enabled: false
