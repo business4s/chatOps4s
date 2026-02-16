@@ -8,18 +8,17 @@ import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 // start_minimal
 object SendMessage extends IOApp.Simple {
 
-  private val token    = SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN"))
-  private val appToken = SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))
   private val channel  = sys.env("SLACK_CHANNEL")
 
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack    <- SlackGateway.create(token, backend)
-        _        <- slack.send(channel, "Hello from ChatOps4s!")
-        manifest <- slack.manifest("MyApp")
-        _        <- IO.println(manifest)
-        _        <- slack.listen(appToken)
+        slack    <- SlackGateway.create(backend)
+        _        <- slack.verifySetup("MyApp", "slack-manifest.yml")
+        _        <- slack.start(
+                      SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
+                      sys.env.get("SLACK_APP_TOKEN").map(SlackAppToken.unsafe),
+                    )
       } yield ()
     }
 }
@@ -28,14 +27,12 @@ object SendMessage extends IOApp.Simple {
 // start_buttons
 object InteractiveButtons extends IOApp.Simple {
 
-  private val token    = SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN"))
-  private val appToken = SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))
   private val channel  = sys.env("SLACK_CHANNEL")
 
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack      <- SlackGateway.create(token, backend)
+        slack      <- SlackGateway.create(backend)
         approveBtn <- slack.registerButton[String] { click =>
                         slack.update(click.messageId, s"Approved by <@${click.userId}>")
                           .void
@@ -44,15 +41,21 @@ object InteractiveButtons extends IOApp.Simple {
                         slack.update(click.messageId, s"Rejected by <@${click.userId}>")
                           .void
                       }
-        _          <- slack.send(
-                        channel,
-                        "Deploy v1.2.3 to production?",
-                        Seq(
-                          approveBtn.toButton("Approve", "v1.2.3"),
-                          rejectBtn.toButton("Reject", "v1.2.3"),
-                        ),
+        _          <- slack.registerCommand[String]("deploy", "Deploy to production") { cmd =>
+                        slack.send(
+                          channel,
+                          "Deploy v1.2.3 to production?",
+                          Seq(
+                            approveBtn.render("Approve", "v1.2.3"),
+                            rejectBtn.render("Reject", "v1.2.3"),
+                          ),
+                        ).as(CommandResponse.Silent)
+                      }
+        _          <- slack.verifySetup("InteractiveButtons", "slack-manifest.yml")
+        _          <- slack.start(
+                        SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
+                        Some(SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))),
                       )
-        _          <- slack.listen(appToken)
       } yield ()
     }
 }
@@ -61,8 +64,6 @@ object InteractiveButtons extends IOApp.Simple {
 // start_forms
 object InteractiveForms extends IOApp.Simple {
 
-  private val token    = SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN"))
-  private val appToken = SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))
   private val channel  = sys.env("SLACK_CHANNEL")
 
   case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
@@ -70,7 +71,7 @@ object InteractiveForms extends IOApp.Simple {
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack      <- SlackGateway.create(token, backend)
+        slack      <- SlackGateway.create(backend)
         deployForm <- slack.registerForm[DeployForm] { submission =>
                         val form = submission.values
                         slack.send(channel, s"Deploying ${form.service} ${form.version}")
@@ -80,7 +81,11 @@ object InteractiveForms extends IOApp.Simple {
                         slack.openForm(cmd.triggerId, deployForm, "Deploy Service")
                           .as(CommandResponse.Silent)
                       }
-        _          <- slack.listen(appToken)
+        _          <- slack.verifySetup("InteractiveForms", "slack-manifest.yml")
+        _          <- slack.start(
+                        SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
+                        Some(SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))),
+                      )
       } yield ()
     }
 }

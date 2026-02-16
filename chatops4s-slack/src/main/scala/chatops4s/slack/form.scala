@@ -396,4 +396,5 @@ case class FormId[T](value: String)
 
 case class FormSubmission[T](payload: ViewSubmissionPayload, values: T) {
   def userId: UserId = payload.user.id
+  def metadata: String = payload.view.private_metadata.getOrElse("")
 }

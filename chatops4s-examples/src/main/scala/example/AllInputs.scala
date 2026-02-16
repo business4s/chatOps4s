@@ -1,8 +1,8 @@
 package example
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{ButtonClick, FormDef, FormSubmission, InitialValues, MessageId, SlackGateway, Url}
-import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackAppToken, SlackBotToken, UserId}
+import chatops4s.slack.{ButtonClick, CommandResponse, FormDef, FormId, FormSubmission, InitialValues, MessageId, SlackGateway, Url}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackAppToken, SlackBotToken, Timestamp, UserId}
 import chatops4s.slack.api.blocks.{RichTextBlock, RichTextSection, RichTextText}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
@@ -10,9 +10,68 @@ import java.time.{Instant, LocalDate, LocalTime}
 
 object AllInputs extends IOApp.Simple {
 
+  private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
   private val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
   private val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))
-  private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
+
+  override def run: IO[Unit] =
+    HttpClientFs2Backend.resource[IO]().use { backend =>
+      for {
+        slack        <- SlackGateway.create(backend)
+        form         <- slack.registerForm[AllInputsForm](onSubmit(slack))
+        openBtn      <- slack.registerButton[String] { click =>
+                          slack.openForm(click.triggerId, form, "All Inputs", metadata = encodeMessageId(click.messageId))
+                        }
+        prefilledBtn <- slack.registerButton[String](openPrefilled(slack, form, _))
+        _            <- slack.registerCommand[String]("all-inputs", "Open all-inputs form") { cmd =>
+                          slack.openForm(cmd.triggerId, form, "All Inputs").as(CommandResponse.Silent)
+                        }
+        _            <- slack.verifySetup("AllInputs", "/tmp/slack-manifest.yml")
+        fiber        <- slack.start(token, Some(appToken)).start
+        _            <- slack.send(
+                          channel,
+                          "Try all available form inputs:",
+                          Seq(openBtn.render("Open Form"), prefilledBtn.render("Open Prefilled")),
+                        )
+        _            <- fiber.joinWithNever
+      } yield ()
+    }
+
+  private def openPrefilled(slack: SlackGateway[IO], form: FormId[AllInputsForm], click: ButtonClick[String]): IO[Unit] = {
+    for {
+      initialValues <- prefilled(slack, click)
+      _             <- slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", initialValues = initialValues, metadata = encodeMessageId(click.messageId))
+    } yield ()
+  }
+
+  private def onSubmit(slack: SlackGateway[IO])(submission: FormSubmission[AllInputsForm]): IO[Unit] = {
+    val f       = submission.values
+    val lines   = List(
+      s"*Text:* ${f.text.getOrElse("_empty_")}",
+      s"*Integer:* ${f.integer.map(_.toString).getOrElse("_empty_")}",
+      s"*Decimal:* ${f.decimal.map(_.toString).getOrElse("_empty_")}",
+      s"*Checkbox:* ${f.checkbox}",
+      s"*Email:* ${f.email.map(_.value).getOrElse("_empty_")}",
+      s"*URL:* ${f.url.map(_.value).getOrElse("_empty_")}",
+      s"*Date:* ${f.date.map(_.toString).getOrElse("_empty_")}",
+      s"*Time:* ${f.time.map(_.toString).getOrElse("_empty_")}",
+      s"*Datetime:* ${f.datetime.map(_.toString).getOrElse("_empty_")}",
+      s"*User:* ${f.user.map(id => s"<@${id.value}>").getOrElse("_empty_")}",
+      s"*Users:* ${f.users.filter(_.nonEmpty).map(_.map(id => s"<@${id.value}>").mkString(", ")).getOrElse("_empty_")}",
+      s"*Channel:* ${f.channel.map(id => s"<#${id.value}>").getOrElse("_empty_")}",
+      s"*Channels:* ${f.channels.filter(_.nonEmpty).map(_.map(id => s"<#${id.value}>").mkString(", ")).getOrElse("_empty_")}",
+      s"*Conversation:* ${f.conversation.map(_.value).getOrElse("_empty_")}",
+      s"*Conversations:* ${f.conversations.filter(_.nonEmpty).map(_.map(_.value).mkString(", ")).getOrElse("_empty_")}",
+      s"*Rich text:* ${f.richText.map(_.elements.mkString(", ")).getOrElse("_empty_")}",
+    )
+    val message = s"<@${submission.userId.value}> submitted:\n${lines.mkString("\n")}"
+    if (submission.metadata.nonEmpty) {
+      val parentMsg = decodeMessageId(submission.metadata)
+      slack.reply(parentMsg, message).void
+    } else {
+      slack.send(channel, message).void
+    }
+  }
 
   case class AllInputsForm(
       text: Option[String],
@@ -33,10 +92,19 @@ object AllInputs extends IOApp.Simple {
       richText: Option[RichTextBlock],
   ) derives FormDef
 
+  private def encodeMessageId(msg: MessageId): String =
+    s"${msg.channel.value}:${msg.ts.value}"
+
+  private def decodeMessageId(s: String): MessageId = {
+    val Array(ch, ts) = s.split(":", 2): @unchecked
+    MessageId(ChannelId(ch), Timestamp(ts))
+  }
+
   private def prefilled(slack: SlackGateway[IO], click: ButtonClick[String]): IO[InitialValues[AllInputsForm]] =
     for {
       userInfo <- slack.getUserInfo(click.userId)
-    } yield InitialValues.of[AllInputsForm]
+    } yield InitialValues
+      .of[AllInputsForm]
       .set(_.text, Some("Hello world"))
       .set(_.integer, Some(42))
       .set(_.decimal, Some(3.14))
@@ -52,59 +120,14 @@ object AllInputs extends IOApp.Simple {
       .set(_.channels, Some(List(click.messageId.channel)))
       .set(_.conversation, Some(ConversationId(click.messageId.channel.value)))
       .set(_.conversations, Some(List(ConversationId(click.messageId.channel.value))))
-      .set(_.richText, Some(RichTextBlock(elements = List(
-        RichTextSection(elements = List(RichTextText("Hello, this is prefilled rich text!"))),
-      ))))
-
-  override def run: IO[Unit] =
-    HttpClientFs2Backend.resource[IO]().use { backend =>
-      for {
-        slack      <- SlackGateway.create(token, backend)
-        msg        <- slack.send(channel, "Try all available form inputs:")
-        form       <- slack.registerForm[AllInputsForm](onSubmit(slack, msg))
-        openBtn    <- slack.registerButton[String] { click =>
-                        slack.openForm(click.triggerId, form, "All Inputs")
-                      }
-        prefilledBtn <- slack.registerButton[String] { click =>
-                          prefilled(slack, click).flatMap { iv =>
-                            slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", initialValues = iv)
-                          }
-                        }
-        _          <- slack.update(
-                        msg,
-                        "Try all available form inputs:",
-                        Seq(
-                          openBtn.toButton("Open Form", "open"),
-                          prefilledBtn.toButton("Open Prefilled", "prefilled"),
-                        ),
-                      )
-        manifest   <- slack.manifest("AllInputsExample")
-        _          <- IO.println(manifest)
-        _          <- slack.listen(appToken)
-      } yield ()
-    }
-
-  private def onSubmit(slack: SlackGateway[IO], parentMsg: MessageId)(submission: FormSubmission[AllInputsForm]): IO[Unit] = {
-    val f = submission.values
-    val lines = List(
-      s"*Text:* ${f.text.getOrElse("_empty_")}",
-      s"*Integer:* ${f.integer.map(_.toString).getOrElse("_empty_")}",
-      s"*Decimal:* ${f.decimal.map(_.toString).getOrElse("_empty_")}",
-      s"*Checkbox:* ${f.checkbox}",
-      s"*Email:* ${f.email.map(_.value).getOrElse("_empty_")}",
-      s"*URL:* ${f.url.map(_.value).getOrElse("_empty_")}",
-      s"*Date:* ${f.date.map(_.toString).getOrElse("_empty_")}",
-      s"*Time:* ${f.time.map(_.toString).getOrElse("_empty_")}",
-      s"*Datetime:* ${f.datetime.map(_.toString).getOrElse("_empty_")}",
-      s"*User:* ${f.user.map(id => s"<@${id.value}>").getOrElse("_empty_")}",
-      s"*Users:* ${f.users.filter(_.nonEmpty).map(_.map(id => s"<@${id.value}>").mkString(", ")).getOrElse("_empty_")}",
-      s"*Channel:* ${f.channel.map(id => s"<#${id.value}>").getOrElse("_empty_")}",
-      s"*Channels:* ${f.channels.filter(_.nonEmpty).map(_.map(id => s"<#${id.value}>").mkString(", ")).getOrElse("_empty_")}",
-      s"*Conversation:* ${f.conversation.map(_.value).getOrElse("_empty_")}",
-      s"*Conversations:* ${f.conversations.filter(_.nonEmpty).map(_.map(_.value).mkString(", ")).getOrElse("_empty_")}",
-      s"*Rich text:* ${f.richText.map(_.elements.mkString(", ")).getOrElse("_empty_")}",
-    )
-    val message = s"<@${submission.userId.value}> submitted:\n${lines.mkString("\n")}"
-    slack.reply(parentMsg, message).void
-  }
+      .set(
+        _.richText,
+        Some(
+          RichTextBlock(elements =
+            List(
+              RichTextSection(elements = List(RichTextText("Hello, this is prefilled rich text!"))),
+            ),
+          ),
+        ),
+      )
 }

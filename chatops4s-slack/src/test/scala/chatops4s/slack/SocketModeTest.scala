@@ -2,6 +2,7 @@ package chatops4s.slack
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import chatops4s.slack.api.SlackAppToken
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -245,7 +246,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
       .thenRespondAdjust(wsStub, StatusCode.SwitchingProtocols)
 
     SocketMode
-      .runLoop("app-token", backend, handler, retryDelay = Some(IO.unit))
+      .runLoop(SlackAppToken.unsafe("xapp-test-token"), backend, handler, retryDelay = Some(IO.unit))
       .timeout(1.second)
       .attempt
       .unsafeRunSync()

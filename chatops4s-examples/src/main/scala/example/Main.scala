@@ -9,14 +9,14 @@ import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
 object Main extends IOApp.Simple {
 
-  private val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
-  private val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))
+  private lazy val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
+  private lazy val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))
   private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
   override def run: IO[Unit] = {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack      <- SlackGateway.create(token, backend)
+        slack      <- SlackGateway.create(backend)
         approveBtn <- slack.registerButton[ServiceVersion](onApprove(slack))
         rejectBtn  <- slack.registerButton[ServiceVersion](onReject(slack))
         deployForm <- slack.registerForm[DeployForm](onDeploySubmit(slack, approveBtn, rejectBtn))
@@ -37,10 +37,8 @@ object Main extends IOApp.Simple {
         _          <- slack.registerCommand[ScaleArgs]("scale", "Scale a service") { cmd =>
                         IO.pure(CommandResponse.Ephemeral(s"Scaling *${cmd.args.service}* to *${cmd.args.replicas}* replicas."))
                       }
-        manifest   <- slack.manifest("ChatOps4sExample")
-        _          <- IO.println(manifest)
-        slackFiber <- slack.listen(appToken).start
-        _          <- slackFiber.join
+        _          <- slack.verifySetup("ChatOps4sExample", "slack-manifest.yml")
+        _          <- slack.start(token, Some(appToken))
       } yield ()
     }
   }
@@ -62,8 +60,8 @@ object Main extends IOApp.Simple {
                msg,
                s"Approve deployment of $label?",
                Seq(
-                 approveBtn.toButton("Approve", sv),
-                 rejectBtn.toButton("Reject", sv),
+                 approveBtn.render("Approve", sv),
+                 rejectBtn.render("Reject", sv),
                ),
              )
       _ = println(s"Deploy request reply: $resp")

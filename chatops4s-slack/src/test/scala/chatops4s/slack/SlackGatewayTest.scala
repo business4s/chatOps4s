@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api
-import chatops4s.slack.api.{ChannelId, ConversationId, Email, Timestamp, TriggerId, UserId, TeamId, users}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackBotToken, Timestamp, TriggerId, UserId, TeamId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -14,6 +14,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import sttp.client4.testing.WebSocketBackendStub
 
+import java.nio.file.{Files, Path}
 import java.time.{Instant, LocalDate, LocalTime}
 
 case class ScaleArgs(service: String, replicas: Int) derives CommandParser
@@ -22,6 +23,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
   private val okPostMessage = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
 
+  /** Creates a gateway with a pre-connected client for tests that need to call Slack API methods. */
   private def createGateway(
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
       cache: UserInfoCache[IO] = {
@@ -30,11 +32,26 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       },
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
+    val client = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
+    val clientRef = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
     val handlersRef = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
     val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
     val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val client = new SlackClient[IO]("test-token", backend)
-    new SlackGatewayImpl[IO](client, handlersRef, commandHandlersRef, formHandlersRef, cache, backend)
+    val cacheRef = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
+    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, backend)
+  }
+
+  /** Creates a gateway without a client, for tests that only use registration/manifest methods. */
+  private def createDisconnectedGateway(
+      backend: WebSocketBackendStub[IO] = MockBackend.create(),
+  ): SlackGatewayImpl[IO] = {
+    given sttp.monad.MonadError[IO] = backend.monad
+    val clientRef = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
+    val handlersRef = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
+    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, backend)
   }
 
   "SlackGateway" - {
@@ -69,6 +86,15 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           gateway.send("C123", "Test").unsafeRunSync()
         }
         ex.error shouldBe "invalid_auth"
+      }
+
+      "should fail when not connected" in {
+        val gateway = createDisconnectedGateway()
+
+        val ex = intercept[RuntimeException] {
+          gateway.send("C123", "Test").unsafeRunSync()
+        }
+        ex.getMessage should include("start()")
       }
     }
 
@@ -511,6 +537,58 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
         SnapshotTest.testSnapshot(result, "snapshots/manifest-with-forms.yaml")
+      }
+    }
+
+    "verifySetup" - {
+      "should create manifest file on first run" in {
+        val gateway = createDisconnectedGateway()
+        val tmpDir = Files.createTempDirectory("manifest-test")
+        val manifestPath = tmpDir.resolve("slack-manifest.yml")
+
+        val ex = intercept[ManifestCheck.ManifestCreated] {
+          gateway.verifySetup("TestApp", manifestPath.toString).unsafeRunSync()
+        }
+
+        ex.path shouldBe manifestPath
+        Files.exists(manifestPath) shouldBe true
+        val content = Files.readString(manifestPath)
+        content should include("TestApp")
+
+        Files.deleteIfExists(manifestPath)
+        Files.deleteIfExists(tmpDir)
+      }
+
+      "should succeed when manifest matches" in {
+        val gateway = createDisconnectedGateway()
+        val tmpDir = Files.createTempDirectory("manifest-test")
+        val manifestPath = tmpDir.resolve("slack-manifest.yml")
+
+        val manifest = gateway.manifest("TestApp").unsafeRunSync()
+        Files.writeString(manifestPath, manifest)
+
+        // Should not throw
+        gateway.verifySetup("TestApp", manifestPath.toString).unsafeRunSync()
+
+        Files.deleteIfExists(manifestPath)
+        Files.deleteIfExists(tmpDir)
+      }
+
+      "should detect manifest changes" in {
+        val gateway = createDisconnectedGateway()
+        val tmpDir = Files.createTempDirectory("manifest-test")
+        val manifestPath = tmpDir.resolve("slack-manifest.yml")
+
+        Files.writeString(manifestPath, "old content")
+
+        val ex = intercept[ManifestCheck.ManifestChanged] {
+          gateway.verifySetup("TestApp", manifestPath.toString).unsafeRunSync()
+        }
+
+        ex.path shouldBe manifestPath
+
+        Files.deleteIfExists(manifestPath)
+        Files.deleteIfExists(tmpDir)
       }
     }
 

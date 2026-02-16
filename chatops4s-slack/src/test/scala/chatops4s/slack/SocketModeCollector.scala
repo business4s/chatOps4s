@@ -1,7 +1,7 @@
 package chatops4s.slack
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.api.SlackApi
+import chatops4s.slack.api.{SlackApi, SlackAppToken, SlackBotToken}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -30,8 +30,8 @@ object SocketModeCollector extends IOApp.Simple {
     Paths.get("chatops4s-slack/src/test/resources/ws-events")
 
   override def run: IO[Unit] = {
-    val appToken = sys.env.getOrElse("SLACK_APP_TOKEN", sys.error("SLACK_APP_TOKEN is required"))
-    val botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", sys.error("SLACK_BOT_TOKEN is required"))
+    val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", sys.error("SLACK_APP_TOKEN is required")))
+    val botToken = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", sys.error("SLACK_BOT_TOKEN is required")))
     val channel = sys.env.getOrElse("SLACK_CHANNEL", sys.error("SLACK_CHANNEL is required"))
 
     HttpClientCatsBackend.resource[IO]().use { backend =>

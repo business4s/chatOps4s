@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, SlackAppToken, TriggerId, UserId, users}
+import chatops4s.slack.api.{ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.{Decoder, Json}
@@ -9,14 +9,15 @@ import sttp.monad.MonadError
 import sttp.monad.syntax.*
 import chatops4s.slack.monadSyntax.*
 
+import java.nio.file.Paths
 import java.util.UUID
 
-private[slack] type ErasedHandler[F[_]] = ButtonClick[String] => F[Unit]
+private[slack] type ErasedHandler[F[_]]        = ButtonClick[String] => F[Unit]
 private[slack] type ErasedCommandHandler[F[_]] = SlashCommandPayload => F[CommandResponse]
 
 private[slack] opaque type CommandName = String
 private[slack] object CommandName {
-  def apply(raw: String): CommandName = raw.stripPrefix("/").toLowerCase
+  def apply(raw: String): CommandName           = raw.stripPrefix("/").toLowerCase
   extension (cn: CommandName) def value: String = cn
 }
 
@@ -32,25 +33,28 @@ private[slack] case class FormEntry[F[_]](
 )
 
 private[slack] class SlackGatewayImpl[F[_]](
-    client: SlackClient[F],
+    clientRef: Ref[F, Option[SlackClient[F]]],
     handlersRef: Ref[F, Map[ButtonId[?], ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[CommandName, CommandEntry[F]]],
     formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
-    userInfoCache: UserInfoCache[F],
+    cacheRef: Ref[F, UserInfoCache[F]],
     backend: WebSocketBackend[F],
-) extends SlackGateway[F] with SlackSetup[F] {
+) extends SlackGateway[F]
+    with SlackSetup[F] {
 
   private given monad: MonadError[F] = backend.monad
 
   override def registerButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
-    val id = ButtonId[T](UUID.randomUUID().toString)
+    val id     = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
     handlersRef.update(_ + (id -> erased)).as(id)
   }
 
-  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "", usageHint: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit] = {
-    val normalized = CommandName(name)
-    val resolvedHint = if (usageHint.nonEmpty) usageHint else parser.usageHint
+  override def registerCommand[T: {CommandParser as parser}](name: String, description: String = "", usageHint: String = "")(
+      handler: Command[T] => F[CommandResponse],
+  ): F[Unit] = {
+    val normalized                      = CommandName(name)
+    val resolvedHint                    = if (usageHint.nonEmpty) usageHint else parser.usageHint
     val erased: ErasedCommandHandler[F] = { payload =>
       parser.parse(payload.text) match {
         case Left(error) =>
@@ -67,7 +71,7 @@ private[slack] class SlackGatewayImpl[F[_]](
   }
 
   override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T] => F[Unit]): F[FormId[T]] = {
-    val id = FormId[T](UUID.randomUUID().toString)
+    val id    = FormId[T](UUID.randomUUID().toString)
     val entry = FormEntry[F](
       formDef = fd.asInstanceOf[FormDef[Any]],
       handler = handler.asInstanceOf[FormSubmission[Any] => F[Unit]],
@@ -86,65 +90,116 @@ private[slack] class SlackGatewayImpl[F[_]](
     }
   }
 
-  override def listen(appToken: SlackAppToken): F[Unit] =
-    SocketMode.runLoop(appToken, backend, handleEnvelope)
+  override def verifySetup(appName: String, manifestPath: String): F[Unit] = {
+    for {
+      m <- manifest(appName)
+      _ <- monad.eval(ManifestCheck.verify(m, appName, Paths.get(manifestPath)))
+    } yield ()
+  }
+
+  override def withUserInfoCache(cache: UserInfoCache[F]): F[Unit] =
+    cacheRef.update(_ => cache)
+
+  override def start(botToken: SlackBotToken, appToken: Option[SlackAppToken]): F[Unit] = {
+    val client = new SlackClient[F](botToken, backend)
+    for {
+      _              <- clientRef.update(_ => Some(client))
+      handlers       <- handlersRef.get
+      commands       <- commandHandlersRef.get
+      forms          <- formHandlersRef.get
+      hasInteractions = handlers.nonEmpty || commands.nonEmpty || forms.nonEmpty
+      _              <- if (hasInteractions && appToken.isEmpty)
+                          monad.error(
+                            new RuntimeException(
+                              "App token required: buttons, commands, or forms are registered. " +
+                                "Provide a SlackAppToken (xapp-...) with connections:write scope.",
+                            ),
+                          )
+                        else if (appToken.isDefined)
+                          SocketMode.runLoop(appToken.get, backend, handleEnvelope)
+                        else
+                          monad.unit(())
+    } yield ()
+  }
 
   override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
-    client.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None)
+    withClient(_.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None))
 
   override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
-    client.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts))
+    withClient(_.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts)))
 
   override def update(messageId: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
-    client.updateMessage(messageId, text, buildBlocks(text, buttons))
+    withClient(_.updateMessage(messageId, text, buildBlocks(text, buttons)))
 
   override def delete(messageId: MessageId): F[Unit] =
-    client.deleteMessage(messageId)
+    withClient(_.deleteMessage(messageId))
 
   override def addReaction(messageId: MessageId, emoji: String): F[Unit] =
-    client.addReaction(messageId, emoji)
+    withClient(_.addReaction(messageId, emoji))
 
   override def removeReaction(messageId: MessageId, emoji: String): F[Unit] =
-    client.removeReaction(messageId, emoji)
+    withClient(_.removeReaction(messageId, emoji))
 
   override def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit] =
-    client.postEphemeral(channel, userId, text)
+    withClient(_.postEphemeral(channel, userId, text))
 
   override def getUserInfo(userId: UserId): F[users.UserInfo] =
-    userInfoCache.get(userId).flatMap {
-      case Some(info) => monad.unit(info)
-      case None => client.getUserInfo(userId).flatMap { info =>
-        userInfoCache.put(userId, info).map(_ => info)
+    cacheRef.get.flatMap { cache =>
+      cache.get(userId).flatMap {
+        case Some(info) => monad.unit(info)
+        case None       =>
+          withClient { client =>
+            client.getUserInfo(userId).flatMap { info =>
+              cache.put(userId, info).map(_ => info)
+            }
+          }
       }
     }
 
-  override def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T]): F[Unit] = {
+  override def openForm[T](
+      triggerId: TriggerId,
+      formId: FormId[T],
+      title: String,
+      submitLabel: String = "Submit",
+      initialValues: InitialValues[T] = InitialValues.of[T],
+      metadata: String = "",
+  ): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>
       forms.get(formId) match {
-        case None => monad.error(new RuntimeException(s"Form not found: ${formId.value}"))
+        case None        => monad.error(new RuntimeException(s"Form not found: ${formId.value}"))
         case Some(entry) =>
-          val viewBlocks = entry.formDef.buildBlocks(initialValues.toMap)
-          val view = View(
-            `type` = ViewType.Modal,
-            callback_id = Some(formId.value),
-            title = PlainTextObject(text = title),
-            submit = Some(PlainTextObject(text = submitLabel)),
-            blocks = viewBlocks,
-          )
-          client.openView(triggerId, view)
+          withClient { client =>
+            val viewBlocks = entry.formDef.buildBlocks(initialValues.toMap)
+            val view       = View(
+              `type` = ViewType.Modal,
+              callback_id = Some(formId.value),
+              title = PlainTextObject(text = title),
+              submit = Some(PlainTextObject(text = submitLabel)),
+              blocks = viewBlocks,
+              private_metadata = if (metadata.nonEmpty) Some(metadata) else None,
+            )
+            client.openView(triggerId, view)
+          }
       }
     }
   }
 
-  private def handleEnvelope(envelope: Envelope): F[Unit] =
+  private def withClient[A](f: SlackClient[F] => F[A]): F[A] =
+    clientRef.get.flatMap {
+      case Some(c) => f(c)
+      case None    => monad.error(new RuntimeException("Not connected. Call start() first."))
+    }
+
+  private[slack] def handleEnvelope(envelope: Envelope): F[Unit] =
     envelope.`type` match {
-      case EnvelopeType.Interactive => envelope.payload.traverse_ { json =>
-        val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
-        if (payloadType == "view_submission") dispatchPayload[ViewSubmissionPayload](json, handleViewSubmissionPayload)
-        else dispatchPayload[InteractionPayload](json, handleInteractionPayload)
-      }
+      case EnvelopeType.Interactive   =>
+        envelope.payload.traverse_ { json =>
+          val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
+          if (payloadType == "view_submission") dispatchPayload[ViewSubmissionPayload](json, handleViewSubmissionPayload)
+          else dispatchPayload[InteractionPayload](json, handleInteractionPayload)
+        }
       case EnvelopeType.SlashCommands => envelope.payload.traverse_(dispatchPayload[SlashCommandPayload](_, handleSlashCommandPayload))
-      case _ => monad.unit(())
+      case _                          => monad.unit(())
     }
 
   private def dispatchPayload[A: Decoder](json: Json, handler: A => F[Unit]): F[Unit] =
@@ -172,11 +227,11 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.get.flatMap { commands =>
       commands.get(normalized).traverse_ { entry =>
         entry.handler(payload).flatMap {
-          case CommandResponse.Silent      => monad.unit(())
+          case CommandResponse.Silent       => monad.unit(())
           case CommandResponse.Ephemeral(t) =>
-            client.respondToCommand(payload.response_url, t, ResponseType.Ephemeral)
+            withClient(_.respondToCommand(payload.response_url, t, ResponseType.Ephemeral))
           case CommandResponse.InChannel(t) =>
-            client.respondToCommand(payload.response_url, t, ResponseType.InChannel)
+            withClient(_.respondToCommand(payload.response_url, t, ResponseType.InChannel))
         }
       }
     }
@@ -188,7 +243,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       forms.get(callbackId).traverse_ { entry =>
         val values = payload.view.state.map(_.values).getOrElse(Map.empty)
         entry.formDef.parse(values) match {
-          case Left(error) =>
+          case Left(error)   =>
             monad.error(new RuntimeException(s"Form parse error: $error"))
           case Right(parsed) =>
             val submission = FormSubmission(payload = payload, values = parsed)
@@ -200,14 +255,16 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private def buildBlocks(text: String, buttons: Seq[Button]): Option[List[Block]] =
     if (buttons.nonEmpty) {
-      Some(List(
-        SectionBlock(
-          text = Some(MarkdownTextObject(text = text)),
+      Some(
+        List(
+          SectionBlock(
+            text = Some(MarkdownTextObject(text = text)),
+          ),
+          ActionsBlock(
+            elements = buttons.map(buttonToElement).toList,
+          ),
         ),
-        ActionsBlock(
-          elements = buttons.map(buttonToElement).toList,
-        ),
-      ))
+      )
     } else None
 
   private def buttonToElement(button: Button): BlockElement =
