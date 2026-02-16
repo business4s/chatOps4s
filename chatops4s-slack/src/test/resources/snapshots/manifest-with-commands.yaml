@@ -17,6 +17,7 @@ oauth_config:
       - chat:write
       - chat:write.public
       - users:read
+      - users:read.email
       - reactions:write
       - commands
 settings:

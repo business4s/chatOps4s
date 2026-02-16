@@ -13,6 +13,7 @@ oauth_config:
       - chat:write
       - chat:write.public
       - users:read
+      - users:read.email
       - reactions:write
 settings:
   org_deploy_enabled: false
