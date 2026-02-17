@@ -32,7 +32,7 @@ const config: Config = {
           beforeDefaultRemarkPlugins: [
             [
               require("remark-code-snippets"),
-              { baseDir: "../chatops4s-examples/src/" },
+              { baseDir: ".." },
             ],
           ],
         },
@@ -48,7 +48,7 @@ const config: Config = {
       title: "ChatOps4s",
       logo: {
         alt: "ChatOps4s Logo",
-        src: "img/chatops4s-logo.drawio.svg",
+        src: "img/chatops4s-logo.drawio.png",
       },
       items: [
         {

@@ -16,7 +16,7 @@ function HomepageHeader() {
         <div className={styles.roundedImageContainer}>
           <img
             className={styles.roundedImage}
-            src="img/chatops4s-logo.drawio.svg"
+            src="img/chatops4s-logo.drawio.png"
           />
         </div>
         <Heading as="h1" className="hero__title">

@@ -31,9 +31,9 @@
 .roundedImage {
   width: 200px;
   height: 200px;
-  border-radius: 50%; /* Makes the image circular */
-  background-color: white; /* Sets the background color to white */
-  padding: 15px; /* Adds some space between the image edge and the circular border */
-  border: 2px solid white; /* Optional: Adds a white border around the image */
-  display: inline-block; /* Ensures the padding and border-radius are applied correctly */
+  border-radius: 50%;
+  background-color: white;
+  padding: 15px;
+  border: 2px solid white;
+  display: inline-block;
 }

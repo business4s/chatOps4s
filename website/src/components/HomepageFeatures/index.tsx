@@ -12,8 +12,8 @@ const FeatureList: FeatureItem[] = [
         title: "Minimal & Opinionated",
         description: (
             <>
-                ChatOps4s pre-selects the feature set exposed by chat platforms to minimize mental overhead and setup
-                complexity.
+                Pre-selects the feature set exposed by Slack to minimize mental overhead. One way to do buttons,
+                commands, and forms — no decision fatigue.
             </>
         ),
     },
@@ -21,15 +21,17 @@ const FeatureList: FeatureItem[] = [
         title: "Type-Safe",
         description: (
             <>
-                Exposed operations make it easier to write correct code and harder to make mistakes.
+                Buttons carry typed values. Commands parse into case classes. Forms derive from data types.
+                The compiler catches mistakes before Slack does.
             </>
         ),
     },
     {
-        title: "Runtime-agnostic",
+        title: "Zero Infrastructure",
         description: (
             <>
-                Built on top of sttp, can be used with any compatible backend and exosystem.
+                Runs over Socket Mode — no public URLs, no HTTP servers, no ingress.
+                Built on sttp, works with any compatible backend.
             </>
         ),
     },

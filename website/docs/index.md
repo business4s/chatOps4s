@@ -1,10 +1,24 @@
 ---
 sidebar_position: 1
+title: Getting Started
 ---
 
 # Getting Started
 
-ChatOps4s is a Scala library for building chat-ops workflows. It provides a simple, type-safe API for sending messages, handling button interactions, and updating messages in Slack.
+ChatOps4s is a Scala library for building chat-ops workflows in Slack. It gives you a type-safe, minimal API for messages, buttons, slash commands, and modal forms — all over [Socket Mode](https://api.slack.com/apis/socket-mode), so you don't need a public URL.
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/GettingStarted.scala start=start_hero end=end_hero
+```
+
+What you get:
+
+- **Simple API** — `send`, `reply`, `update`, `delete`, reactions, ephemeral messages
+- **Typed buttons** — handlers receive `ButtonClick[T]` with your value type
+- **Typed commands** — argument parsing derived from case classes
+- **Modal forms** — `derives FormDef` turns a case class into a Slack modal with 15+ field types
+- **Manifest generation** — `verifySetup` generates and checks your Slack app manifest automatically
+- **Runtime-agnostic** — built on [sttp](https://sttp.softwaremill.com), works with any backend that supports WebSockets
+- **Standalone Slack client** — a [type-safe, AI-generated Slack API client](/docs/raw-client) you can use independently
 
 ## Installation
 
@@ -18,45 +32,27 @@ You also need an [sttp](https://sttp.softwaremill.com/en/latest/backends/summary
 "com.softwaremill.sttp.client4" %% "fs2" % "4.0.9"
 ```
 
-## Slack App Setup
-
-ChatOps4s uses [Socket Mode](https://api.slack.com/apis/socket-mode), so no public URL is needed.
-
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app **from a manifest**.
-2. Use `slack.manifest("MyApp")` (after registering handlers) to generate the manifest YAML.
-3. After creating the app, grab two tokens:
-   - **Bot Token** (`xoxb-...`): found under *OAuth & Permissions*
-   - **App-Level Token** (`xapp-...`): create one under *Basic Information → App-Level Tokens* with `connections:write` scope.
-
 ## Minimal Example
 
-```scala file=./main/scala/example/docs/GettingStarted.scala start=start_minimal end=end_minimal
+```scala file=chatops4s-examples/src/main/scala/example/docs/GettingStarted.scala start=start_minimal end=end_minimal
 ```
 
-## Interactive Buttons
+## Setup Verification
 
-Register button handlers before calling `listen`. Each handler receives a typed `ButtonClick[T]` and the gateway itself:
+The `verifySetup` call is the recommended way to keep your Slack app configuration in sync with your code. On each run it:
 
-```scala file=./main/scala/example/docs/GettingStarted.scala start=start_buttons end=end_buttons
+1. **First run** — generates a manifest YAML file from your registered handlers and prints a setup guide:
+   - A URL that opens [api.slack.com/apps](https://api.slack.com/apps) with the manifest pre-filled, so you can create the app in one click.
+   - Instructions for installing the app and obtaining tokens.
+2. **Subsequent runs** — compares the generated manifest against the file on disk. If they differ (e.g. you added a new command), it prints a diff and instructions to update your Slack app.
+
+This means you never need to manually figure out which OAuth scopes or event subscriptions your app needs — the library derives them from your handler registrations. Here's an example of what the generated manifest looks like:
+
+```yaml file=chatops4s-slack/src/test/resources/snapshots/manifest-with-commands.yaml
 ```
 
-## API Overview
+## Next Steps
 
-The `SlackGateway[F]` trait provides four operations:
-
-| Method   | Description                                         |
-|----------|-----------------------------------------------------|
-| `send`   | Send a message to a channel, optionally with buttons |
-| `reply`  | Reply in a thread under an existing message          |
-| `update` | Edit an existing message (e.g. to remove buttons)    |
-| `listen`   | Start the Socket Mode event loop (takes `appToken`)  |
-
-`SlackSetup[F]` (mixed in by `SlackGateway.create`) adds:
-
-| Method      | Description                                              |
-|-------------|----------------------------------------------------------|
-| `onButton`  | Register a typed button handler, returns a `ButtonId[T]` |
-| `onCommand` | Register a slash command handler with optional description |
-| `manifest`  | Generate app manifest YAML from registered handlers      |
-
-Use `ButtonId[T].toButton(label, value)` to create `Button` instances for `send`/`reply`/`update`.
+- [Basic Operations](/docs/basic-ops) — sending messages, replies, reactions
+- [Interactions](/docs/interactions/) — slash commands, buttons, forms
+- [Raw Client](/docs/raw-client) — the underlying Slack API client

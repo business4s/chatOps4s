@@ -1,21 +1,21 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "ChatOps4s",
+  "short_name": "ChatOps4s",
   "icons": [
     {
-      "src": "",
+      "src": "/chatops4s/img/favicon/android-chrome-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "",
+      "src": "/chatops4s/img/favicon/android-chrome-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#ffffff",
+  "theme_color": "#002D62",
   "background_color": "#ffffff",
   "display": "standalone"
 }
