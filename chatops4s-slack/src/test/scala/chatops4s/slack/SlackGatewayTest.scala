@@ -732,6 +732,30 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         postMessageCallCount shouldBe 2
       }
 
+      "withIdempotencyCheck should swap strategy at runtime" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        var postMessageCallCount = 0
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            if (req.uri.toString().contains("chat.postMessage")) postMessageCallCount += 1
+            true
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        // Start with noCheck — both sends go through
+        val gateway = createGateway(backend, idempotencyCheck = Some(IdempotencyCheck.noCheck[IO]))
+        gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("k"))).unsafeRunSync()
+        gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("k"))).unsafeRunSync()
+        postMessageCallCount shouldBe 2
+
+        // Swap to inMemory — second send is deduplicated
+        val memCheck = IdempotencyCheck.inMemory[IO]().unsafeRunSync()
+        gateway.withIdempotencyCheck(memCheck).unsafeRunSync()
+        gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("k2"))).unsafeRunSync()
+        gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("k2"))).unsafeRunSync()
+        postMessageCallCount shouldBe 3
+      }
+
       "send with inMemory check should use local cache and skip Slack scan" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
         var historyCallCount = 0

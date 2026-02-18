@@ -158,9 +158,7 @@ private[slack] class SlackGatewayImpl[F[_]](
                         case None        =>
                           val metadata = Some(IdempotencyCheck.buildMetadataJson(key))
                           for {
-                            msgId <- withClient(
-                                       _.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts), metadata = metadata),
-                                     )
+                            msgId <- withClient(_.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts), metadata = metadata))
                             _     <- check.recordSent(key, msgId)
                           } yield msgId
                       }

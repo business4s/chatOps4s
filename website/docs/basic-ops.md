@@ -96,12 +96,14 @@ You can swap the idempotency strategy using `withIdempotencyCheck`:
 ```
 
 Available implementations:
-- **`IdempotencyCheck.slackScan`** (default) — scans recent Slack messages via the API. Survives restarts but makes an API call per send.
-- **`IdempotencyCheck.inMemory`** — fast in-memory cache with configurable TTL and max entries. Lost on restart. Doesn't work with multiple instances. 
+- **`IdempotencyCheck.slackScan`** (default) — scans recent Slack messages via the API. Survives restarts and works across multiple app instances, but makes an API call per send.
+- **`IdempotencyCheck.inMemory`** — fast in-memory cache with configurable TTL and max entries. No extra API calls, but state is lost on restart and **not shared across multiple app instances** — each instance maintains its own cache, so duplicates can still occur if the same key is sent from different instances.
 - **`IdempotencyCheck.noCheck`** — disables idempotency checks entirely. Messages are always sent.
+
+The `IdempotencyCheck` trait is simple to implement, so you can provide your own backed by Redis, a database, or any shared store if you need cross-instance deduplication without the per-send Slack API cost.
 
 ### Caveats
 
-- **Race condition**: If two processes send with the same key simultaneously, both may send before either's message appears in the history scan.
-- **Rate limiting**: The default `slackScan` makes a `conversations.history`/`conversations.replies` call for each send with a key. For high-volume use, prefer `inMemory`.
+- **Race condition**: If two processes send with the same key simultaneously, both may send before either's message appears in the history scan. The `inMemory` check has the same limitation across instances.
+- **Rate limiting**: The default `slackScan` makes a `conversations.history`/`conversations.replies` call for each send with a key. For high-volume use, prefer `inMemory` or a custom implementation.
 - `update` and `delete` are not affected — they are already naturally idempotent by `MessageId`.
