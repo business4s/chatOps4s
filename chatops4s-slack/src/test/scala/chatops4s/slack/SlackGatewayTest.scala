@@ -30,6 +30,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         given sttp.monad.MonadError[IO] = MockBackend.create().monad
         UserInfoCache.noCache[IO]
       },
+      idempotencyCheck: Option[IdempotencyCheck[IO]] = None,
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
     val client = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
@@ -38,7 +39,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
     val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val cacheRef = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
-    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, backend)
+    val check = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
+    val idempotencyRef = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
+    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
   }
 
   /** Creates a gateway without a client, for tests that only use registration/manifest methods. */
@@ -51,7 +54,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
     val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val cacheRef = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
-    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, backend)
+    val idempotencyRef = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
+    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
   }
 
   "SlackGateway" - {
@@ -589,6 +593,167 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         Files.deleteIfExists(manifestPath)
         Files.deleteIfExists(tmpDir)
+      }
+    }
+
+    "idempotency" - {
+      val okPostMsg = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
+
+      "send without key should send normally without conversations.history call" in {
+        var historyCallCount = 0
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            if (req.uri.toString().contains("conversations.history")) historyCallCount += 1
+            true
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val gateway = createGateway(backend)
+        val result = gateway.send("C123", "Hello").unsafeRunSync()
+
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
+        historyCallCount shouldBe 0
+      }
+
+      "send with key and no match in history should send with metadata" in {
+        var capturedBody: Option[String] = None
+        val historyResponse = """{"ok":true,"messages":[]}"""
+        val backend = MockBackend.create()
+          .whenRequestMatches(_.uri.toString().contains("conversations.history"))
+          .thenRespondAdjust(historyResponse)
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("chat.postMessage")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _ => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val gateway = createGateway(backend)
+        val result = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("my-key"))).unsafeRunSync()
+
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
+        capturedBody shouldBe defined
+        val json = parser.parse(capturedBody.get).toOption.get
+        val metadata = json.hcursor.downField("metadata")
+        metadata.downField("event_type").as[String] shouldBe Right("chatops4s_idempotency")
+        metadata.downField("event_payload").downField("key").as[String] shouldBe Right("my-key")
+      }
+
+      "send with key and match found in history should return existing MessageId" in {
+        var postMessageCalled = false
+        val metadataJson = """{"event_type":"chatops4s_idempotency","event_payload":{"key":"my-key"}}"""
+        val historyResponse = s"""{"ok":true,"messages":[{"ts":"1234567890.999","metadata":$metadataJson}]}"""
+        val backend = MockBackend.create()
+          .whenRequestMatches(_.uri.toString().contains("conversations.history"))
+          .thenRespondAdjust(historyResponse)
+          .whenRequestMatches { req =>
+            if (req.uri.toString().contains("chat.postMessage")) postMessageCalled = true
+            req.uri.toString().contains("chat.postMessage")
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val gateway = createGateway(backend)
+        val result = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("my-key"))).unsafeRunSync()
+
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.999"))
+        postMessageCalled shouldBe false
+      }
+
+      "reply with key and no match in thread should send with metadata" in {
+        var capturedBody: Option[String] = None
+        val repliesResponse = """{"ok":true,"messages":[]}"""
+        val backend = MockBackend.create()
+          .whenRequestMatches(_.uri.toString().contains("conversations.replies"))
+          .thenRespondAdjust(repliesResponse)
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("chat.postMessage")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _ => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val gateway = createGateway(backend)
+        val threadMsg = MessageId(ChannelId("C123"), Timestamp("1234567890.100"))
+        val result = gateway.reply(threadMsg, "Thread reply", idempotencyKey = Some(IdempotencyKey("reply-key"))).unsafeRunSync()
+
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
+        capturedBody shouldBe defined
+        val json = parser.parse(capturedBody.get).toOption.get
+        val metadata = json.hcursor.downField("metadata")
+        metadata.downField("event_type").as[String] shouldBe Right("chatops4s_idempotency")
+        metadata.downField("event_payload").downField("key").as[String] shouldBe Right("reply-key")
+      }
+
+      "reply with key and match found in thread should return existing MessageId" in {
+        var postMessageCalled = false
+        val metadataJson = """{"event_type":"chatops4s_idempotency","event_payload":{"key":"reply-key"}}"""
+        val repliesResponse = s"""{"ok":true,"messages":[{"ts":"1234567890.200","metadata":$metadataJson}]}"""
+        val backend = MockBackend.create()
+          .whenRequestMatches(_.uri.toString().contains("conversations.replies"))
+          .thenRespondAdjust(repliesResponse)
+          .whenRequestMatches { req =>
+            if (req.uri.toString().contains("chat.postMessage")) postMessageCalled = true
+            req.uri.toString().contains("chat.postMessage")
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val gateway = createGateway(backend)
+        val threadMsg = MessageId(ChannelId("C123"), Timestamp("1234567890.100"))
+        val result = gateway.reply(threadMsg, "Thread reply", idempotencyKey = Some(IdempotencyKey("reply-key"))).unsafeRunSync()
+
+        result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.200"))
+        postMessageCalled shouldBe false
+      }
+
+      "send with noCheck should always send even with key" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        var postMessageCallCount = 0
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            if (req.uri.toString().contains("chat.postMessage")) postMessageCallCount += 1
+            true
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val gateway = createGateway(backend, idempotencyCheck = Some(IdempotencyCheck.noCheck[IO]))
+        gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("key-1"))).unsafeRunSync()
+        gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("key-1"))).unsafeRunSync()
+
+        postMessageCallCount shouldBe 2
+      }
+
+      "send with inMemory check should use local cache and skip Slack scan" in {
+        given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
+        var historyCallCount = 0
+        var postMessageCallCount = 0
+        val backend = MockBackend.create()
+          .whenRequestMatches { req =>
+            if (req.uri.toString().contains("conversations.history")) historyCallCount += 1
+            if (req.uri.toString().contains("chat.postMessage")) postMessageCallCount += 1
+            true
+          }
+          .thenRespondAdjust(okPostMsg)
+
+        val cache = IdempotencyCheck.inMemory[IO]().unsafeRunSync()
+        val gateway = createGateway(backend, idempotencyCheck = Some(cache))
+
+        val result1 = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("key-1"))).unsafeRunSync()
+        val result2 = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("key-1"))).unsafeRunSync()
+
+        result1 shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
+        result2 shouldBe result1
+        historyCallCount shouldBe 0
+        postMessageCallCount shouldBe 1
       }
     }
 

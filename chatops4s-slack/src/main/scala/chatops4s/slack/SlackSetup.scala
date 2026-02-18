@@ -9,5 +9,6 @@ trait SlackSetup[F[_]] {
   def manifest(appName: String): F[String]
   def verifySetup(appName: String, manifestPath: String): F[Unit]
   def withUserInfoCache(cache: UserInfoCache[F]): F[Unit]
+  def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit]
   def start(botToken: SlackBotToken, appToken: Option[SlackAppToken] = None): F[Unit]
 }

@@ -276,6 +276,42 @@ object views {
   ) derives Codec.AsObject
 }
 
+object conversations {
+
+  case class HistoryRequest(
+      channel: ChannelId,
+      limit: Option[Int] = None,
+      include_all_metadata: Option[Boolean] = None,
+      oldest: Option[Timestamp] = None,
+      latest: Option[Timestamp] = None,
+      inclusive: Option[Boolean] = None,
+      cursor: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class HistoryResponse(
+      messages: List[Message],
+      has_more: Option[Boolean] = None,
+      response_metadata: Option[ResponseMetadata] = None,
+  ) derives Codec.AsObject
+
+  case class RepliesRequest(
+      channel: ChannelId,
+      ts: Timestamp,
+      limit: Option[Int] = None,
+      include_all_metadata: Option[Boolean] = None,
+      oldest: Option[Timestamp] = None,
+      latest: Option[Timestamp] = None,
+      inclusive: Option[Boolean] = None,
+      cursor: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class RepliesResponse(
+      messages: List[Message],
+      has_more: Option[Boolean] = None,
+      response_metadata: Option[ResponseMetadata] = None,
+  ) derives Codec.AsObject
+}
+
 object users {
 
   // https://docs.slack.dev/reference/methods/users.info

@@ -51,4 +51,36 @@ object MockBackend {
     create()
       .whenRequestMatches(_.uri.toString().contains("users.info"))
       .thenRespondAdjust(responseBody, statusCode)
+
+  def withConversationsHistory(responseBody: String, statusCode: StatusCode = StatusCode.Ok): WebSocketBackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("conversations.history"))
+      .thenRespondAdjust(responseBody, statusCode)
+
+  def withConversationsReplies(responseBody: String, statusCode: StatusCode = StatusCode.Ok): WebSocketBackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("conversations.replies"))
+      .thenRespondAdjust(responseBody, statusCode)
+
+  def withPostMessageAndConversationsHistory(
+      postMessageResponse: String,
+      historyResponse: String,
+      statusCode: StatusCode = StatusCode.Ok,
+  ): WebSocketBackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("conversations.history"))
+      .thenRespondAdjust(historyResponse, statusCode)
+      .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+      .thenRespondAdjust(postMessageResponse, statusCode)
+
+  def withPostMessageAndConversationsReplies(
+      postMessageResponse: String,
+      repliesResponse: String,
+      statusCode: StatusCode = StatusCode.Ok,
+  ): WebSocketBackendStub[IO] =
+    create()
+      .whenRequestMatches(_.uri.toString().contains("conversations.replies"))
+      .thenRespondAdjust(repliesResponse, statusCode)
+      .whenRequestMatches(_.uri.toString().contains("chat.postMessage"))
+      .thenRespondAdjust(postMessageResponse, statusCode)
 }

@@ -1,8 +1,9 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, SlackApi, SlackBotToken, Timestamp, TriggerId, UserId, chat, reactions, users, views}
+import chatops4s.slack.api.{ChannelId, Message, ResponseType, SlackApi, SlackBotToken, Timestamp, TriggerId, UserId, chat, conversations, reactions, users, views}
 import chatops4s.slack.api.socket.CommandResponsePayload
 import chatops4s.slack.api.blocks.{Block, View}
+import io.circe.Json
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.monad.syntax.*
@@ -14,12 +15,13 @@ private[slack] class SlackClient[F[_]](token: SlackBotToken, backend: Backend[F]
 
   private val api = new SlackApi[F](backend, token)
 
-  def postMessage(channel: String, text: String, blocks: Option[List[Block]], threadTs: Option[Timestamp]): F[MessageId] = {
+  def postMessage(channel: String, text: String, blocks: Option[List[Block]], threadTs: Option[Timestamp], metadata: Option[Json] = None): F[MessageId] = {
     val request = chat.PostMessageRequest(
       channel = channel,
       text = text,
       blocks = blocks,
       thread_ts = threadTs,
+      metadata = metadata,
     )
 
     api.chat.postMessage(request).map { resp =>
@@ -74,5 +76,24 @@ private[slack] class SlackClient[F[_]](token: SlackBotToken, backend: Backend[F]
       resp.okOrThrow
       messageId
     }
+  }
+
+  def fetchRecentMessages(channel: ChannelId, limit: Int): F[List[Message]] = {
+    val request = conversations.HistoryRequest(
+      channel = channel,
+      limit = Some(limit),
+      include_all_metadata = Some(true),
+    )
+    api.conversations.history(request).map(_.okOrThrow.messages)
+  }
+
+  def fetchThreadReplies(channel: ChannelId, threadTs: Timestamp, limit: Int): F[List[Message]] = {
+    val request = conversations.RepliesRequest(
+      channel = channel,
+      ts = threadTs,
+      limit = Some(limit),
+      include_all_metadata = Some(true),
+    )
+    api.conversations.replies(request).map(_.okOrThrow.messages)
   }
 }

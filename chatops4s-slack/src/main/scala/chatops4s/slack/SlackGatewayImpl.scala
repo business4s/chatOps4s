@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
+import chatops4s.slack.api.{ChannelId, ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.{Decoder, Json}
@@ -38,6 +38,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef: Ref[F, Map[CommandName, CommandEntry[F]]],
     formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
     cacheRef: Ref[F, UserInfoCache[F]],
+    idempotencyRef: Ref[F, IdempotencyCheck[F]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F]
     with SlackSetup[F] {
@@ -100,6 +101,9 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def withUserInfoCache(cache: UserInfoCache[F]): F[Unit] =
     cacheRef.update(_ => cache)
 
+  override def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit] =
+    idempotencyRef.update(_ => check)
+
   override def start(botToken: SlackBotToken, appToken: Option[SlackAppToken]): F[Unit] = {
     val client = new SlackClient[F](botToken, backend)
     for {
@@ -122,11 +126,46 @@ private[slack] class SlackGatewayImpl[F[_]](
     } yield ()
   }
 
-  override def send(channel: String, text: String, buttons: Seq[Button]): F[MessageId] =
-    withClient(_.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None))
+  override def send(channel: String, text: String, buttons: Seq[Button], idempotencyKey: Option[IdempotencyKey]): F[MessageId] =
+    idempotencyKey match {
+      case None      => withClient(_.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None))
+      case Some(key) =>
+        val channelId = ChannelId(channel)
+        for {
+          check    <- idempotencyRef.get
+          existing <- check.findExisting(channelId, threadTs = None, key)
+          result   <- existing match {
+                        case Some(found) => monad.unit(found)
+                        case None        =>
+                          val metadata = Some(IdempotencyCheck.buildMetadataJson(key))
+                          for {
+                            msgId <- withClient(_.postMessage(channel, text, buildBlocks(text, buttons), threadTs = None, metadata = metadata))
+                            _     <- check.recordSent(key, msgId)
+                          } yield msgId
+                      }
+        } yield result
+    }
 
-  override def reply(to: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
-    withClient(_.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts)))
+  override def reply(to: MessageId, text: String, buttons: Seq[Button], idempotencyKey: Option[IdempotencyKey]): F[MessageId] =
+    idempotencyKey match {
+      case None      => withClient(_.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts)))
+      case Some(key) =>
+        for {
+          check    <- idempotencyRef.get
+          existing <- check.findExisting(to.channel, threadTs = Some(to.ts), key)
+          result   <- existing match {
+                        case Some(found) => monad.unit(found)
+                        case None        =>
+                          val metadata = Some(IdempotencyCheck.buildMetadataJson(key))
+                          for {
+                            msgId <- withClient(
+                                       _.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts), metadata = metadata),
+                                     )
+                            _     <- check.recordSent(key, msgId)
+                          } yield msgId
+                      }
+        } yield result
+    }
 
   override def update(messageId: MessageId, text: String, buttons: Seq[Button]): F[MessageId] =
     withClient(_.updateMessage(messageId, text, buildBlocks(text, buttons)))

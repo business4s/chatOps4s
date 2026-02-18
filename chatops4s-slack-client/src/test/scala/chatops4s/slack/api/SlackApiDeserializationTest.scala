@@ -277,5 +277,95 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
         r.url should startWith("wss://")
       }
     }
+
+    // https://docs.slack.dev/reference/methods/conversations.history
+    "conversations.history" in {
+      parseOkInline[conversations.HistoryResponse](
+        """{
+          |  "ok": true,
+          |  "messages": [
+          |    {
+          |      "type": "message",
+          |      "user": "U123ABC456",
+          |      "text": "I find you punny and would like to smell your daisy",
+          |      "ts": "1512085950.000216"
+          |    },
+          |    {
+          |      "type": "message",
+          |      "user": "U222BBB222",
+          |      "text": "What, you want to see my caused a stir?",
+          |      "ts": "1512104434.000490"
+          |    }
+          |  ],
+          |  "has_more": true,
+          |  "response_metadata": {
+          |    "messages": ["something"]
+          |  }
+          |}""".stripMargin
+      ) { r =>
+        r.messages.size shouldBe 2
+        r.messages.head.text shouldBe Some("I find you punny and would like to smell your daisy")
+        r.messages.head.ts shouldBe Some(Timestamp("1512085950.000216"))
+        r.has_more shouldBe Some(true)
+      }
+    }
+
+    "conversations.history with metadata" in {
+      parseOkInline[conversations.HistoryResponse](
+        """{
+          |  "ok": true,
+          |  "messages": [
+          |    {
+          |      "type": "message",
+          |      "user": "U123",
+          |      "text": "Hello",
+          |      "ts": "1512085950.000216",
+          |      "metadata": {
+          |        "event_type": "chatops4s_idempotency",
+          |        "event_payload": {"key": "deploy-123"}
+          |      }
+          |    }
+          |  ]
+          |}""".stripMargin
+      ) { r =>
+        r.messages.size shouldBe 1
+        r.messages.head.metadata shouldBe defined
+        val meta = r.messages.head.metadata.get
+        meta.hcursor.downField("event_type").as[String] shouldBe Right("chatops4s_idempotency")
+        meta.hcursor.downField("event_payload").downField("key").as[String] shouldBe Right("deploy-123")
+      }
+    }
+
+    // https://docs.slack.dev/reference/methods/conversations.replies
+    "conversations.replies" in {
+      parseOkInline[conversations.RepliesResponse](
+        """{
+          |  "ok": true,
+          |  "messages": [
+          |    {
+          |      "type": "message",
+          |      "user": "U123ABC456",
+          |      "text": "Original message",
+          |      "thread_ts": "1512085950.000216",
+          |      "reply_count": 1,
+          |      "ts": "1512085950.000216"
+          |    },
+          |    {
+          |      "type": "message",
+          |      "user": "U222BBB222",
+          |      "text": "A reply",
+          |      "thread_ts": "1512085950.000216",
+          |      "ts": "1512085999.000300"
+          |    }
+          |  ],
+          |  "has_more": false
+          |}""".stripMargin
+      ) { r =>
+        r.messages.size shouldBe 2
+        r.messages(1).text shouldBe Some("A reply")
+        r.messages(1).thread_ts shouldBe Some(Timestamp("1512085950.000216"))
+        r.has_more shouldBe Some(false)
+      }
+    }
   }
 }

@@ -5,8 +5,8 @@ import sttp.client4.WebSocketBackend
 import sttp.monad.syntax.*
 
 trait SlackGateway[F[_]] {
-  def send(channel: String, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
-  def reply(to: MessageId, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
+  def send(channel: String, text: String, buttons: Seq[Button] = Seq.empty, idempotencyKey: Option[IdempotencyKey] = None): F[MessageId]
+  def reply(to: MessageId, text: String, buttons: Seq[Button] = Seq.empty, idempotencyKey: Option[IdempotencyKey] = None): F[MessageId]
   def update(messageId: MessageId, text: String, buttons: Seq[Button] = Seq.empty): F[MessageId]
   def delete(messageId: MessageId): F[Unit]
   def addReaction(messageId: MessageId, emoji: String): F[Unit]
@@ -29,8 +29,10 @@ object SlackGateway {
       formHandlersRef    <- Ref.of[F, Map[FormId[?], FormEntry[F]]](Map.empty)
       defaultCache       <- UserInfoCache.inMemory[F]()
       cacheRef           <- Ref.of[F, UserInfoCache[F]](defaultCache)
+      defaultCheck        = IdempotencyCheck.slackScan[F](clientRef)
+      idempotencyRef     <- Ref.of[F, IdempotencyCheck[F]](defaultCheck)
     } yield {
-      val gateway = new SlackGatewayImpl[F](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, backend)
+      val gateway = new SlackGatewayImpl[F](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
       gateway: SlackGateway[F] & SlackSetup[F]
     }
   }

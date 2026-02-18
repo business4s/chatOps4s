@@ -11,6 +11,12 @@ import chatops4s.slack.api.chat.{
   UpdateRequest,
   UpdateResponse,
 }
+import chatops4s.slack.api.conversations.{
+  HistoryRequest,
+  HistoryResponse,
+  RepliesRequest,
+  RepliesResponse,
+}
 import chatops4s.slack.api.reactions.{AddRequest, AddResponse, RemoveRequest, RemoveResponse}
 import chatops4s.slack.api.users.{InfoRequest as UsersInfoRequest, InfoResponse as UsersInfoResponse}
 import chatops4s.slack.api.views.{OpenRequest, OpenResponse}
@@ -54,6 +60,15 @@ class SlackApi[F[_]](backend: Backend[F], token: SlackBotToken) {
 
     // https://docs.slack.dev/reference/methods/views.open
     def open(req: OpenRequest): F[SlackResponse[OpenResponse]] = post("views.open", req)
+  }
+
+  object conversations {
+
+    // https://docs.slack.dev/reference/methods/conversations.history
+    def history(req: HistoryRequest): F[SlackResponse[HistoryResponse]] = post("conversations.history", req)
+
+    // https://docs.slack.dev/reference/methods/conversations.replies
+    def replies(req: RepliesRequest): F[SlackResponse[RepliesResponse]] = post("conversations.replies", req)
   }
 
   object users {

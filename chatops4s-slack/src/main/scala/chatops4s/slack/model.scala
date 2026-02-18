@@ -7,6 +7,12 @@ import scala.deriving.Mirror
 
 case class MessageId(channel: ChannelId, ts: Timestamp)
 
+opaque type IdempotencyKey = String
+object IdempotencyKey {
+  def apply(value: String): IdempotencyKey = value
+  extension (k: IdempotencyKey) def value: String = k
+}
+
 case class ButtonId[T <: String](value: String) {
   def render(label: String, value: T): Button = Button(label, this, value)
   def render(label: String)(using ev: String =:= T): Button = Button(label, this, ev.apply(""))

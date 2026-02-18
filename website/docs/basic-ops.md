@@ -69,3 +69,39 @@ You can provide a custom cache implementation:
 ```
 
 Or disable caching entirely with `UserInfoCache.noCache`.
+
+## Idempotent Sending
+
+`send` and `reply` accept an optional `idempotencyKey` parameter. When provided, the gateway checks for a recently sent message with the same key before posting a new one. If a match is found, the existing `MessageId` is returned and no duplicate message is sent.
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/BasicOps.scala start=start_idempotent_send end=end_idempotent_send
+```
+
+This also works for thread replies:
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/BasicOps.scala start=start_idempotent_reply end=end_idempotent_reply
+```
+
+The key is embedded in the message's [metadata](https://docs.slack.dev/metadata) field and is used for duplicate detection.
+
+### How it works
+
+By default, the gateway uses a **Slack scan** strategy: before posting, it calls `conversations.history` (or `conversations.replies` for threads) and looks for a message whose metadata contains the matching key. This works across restarts since the key is persisted on the message itself.
+
+### Customizing the check
+
+You can swap the idempotency strategy using `withIdempotencyCheck`:
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/BasicOps.scala start=start_custom_idempotency end=end_custom_idempotency
+```
+
+Available implementations:
+- **`IdempotencyCheck.slackScan`** (default) — scans recent Slack messages via the API. Survives restarts but makes an API call per send.
+- **`IdempotencyCheck.inMemory`** — fast in-memory cache with configurable TTL and max entries. Lost on restart. Doesn't work with multiple instances. 
+- **`IdempotencyCheck.noCheck`** — disables idempotency checks entirely. Messages are always sent.
+
+### Caveats
+
+- **Race condition**: If two processes send with the same key simultaneously, both may send before either's message appears in the history scan.
+- **Rate limiting**: The default `slackScan` makes a `conversations.history`/`conversations.replies` call for each send with a key. For high-volume use, prefer `inMemory`.
+- `update` and `delete` are not affected — they are already naturally idempotent by `MessageId`.

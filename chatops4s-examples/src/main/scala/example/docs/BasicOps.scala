@@ -1,7 +1,7 @@
 package example.docs
 
 import cats.effect.IO
-import chatops4s.slack.{ButtonId, MessageId, SlackGateway, SlackSetup, UserInfoCache}
+import chatops4s.slack.{ButtonId, IdempotencyCheck, IdempotencyKey, MessageId, SlackGateway, SlackSetup, UserInfoCache}
 import chatops4s.slack.api.UserId
 import sttp.client4.WebSocketBackend
 import java.time.Duration
@@ -68,6 +68,31 @@ private object BasicOps {
       customCache <- UserInfoCache.inMemory[IO](ttl = Duration.ofMinutes(30), maxEntries = 5000)
       _           <- slack.withUserInfoCache(customCache)
       // end_custom_cache
+    } yield ()
+  }
+
+  def idempotentSend(slack: SlackGateway[IO], channel: String): IO[Unit] =
+    for {
+      // start_idempotent_send
+      msgId <- slack.send(channel, "Deployment started", idempotencyKey = Some(IdempotencyKey("deploy-v1.2.3")))
+      // end_idempotent_send
+      _ <- IO.unit
+    } yield ()
+
+  def idempotentReply(slack: SlackGateway[IO], msgId: MessageId): IO[Unit] =
+    for {
+      // start_idempotent_reply
+      _ <- slack.reply(msgId, "Step 1 complete", idempotencyKey = Some(IdempotencyKey("step-1")))
+      // end_idempotent_reply
+    } yield ()
+
+  def customIdempotencyCheck(slack: SlackGateway[IO] & SlackSetup[IO], backend: WebSocketBackend[IO]): IO[Unit] = {
+    given sttp.monad.MonadError[IO] = backend.monad
+    for {
+      // start_custom_idempotency
+      check <- IdempotencyCheck.inMemory[IO](ttl = Duration.ofMinutes(30), maxEntries = 5000)
+      _     <- slack.withIdempotencyCheck(check)
+      // end_custom_idempotency
     } yield ()
   }
 }
