@@ -53,7 +53,7 @@ object ManifestCheck {
 
   def createAppUrl(manifest: String): String = {
     val encoded = URLEncoder.encode(manifest, "UTF-8")
-    s"https://api.slack.com/apps?new_app=1&manifest_yaml=$encoded"
+    s"https://api.slack.com/apps?new_app=1&manifest_json=$encoded"
   }
 
   private def buildDiff(old: String, current: String): String = {

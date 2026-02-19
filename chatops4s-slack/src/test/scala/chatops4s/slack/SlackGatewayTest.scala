@@ -482,7 +482,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
-        SnapshotTest.testSnapshot(result, "snapshots/manifest-minimal.yaml")
+        SnapshotTest.testSnapshot(result.renderJson, "snapshots/manifest-minimal.json")
       }
 
       "with commands" in {
@@ -494,7 +494,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
-        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-commands.yaml")
+        SnapshotTest.testSnapshot(result.renderJson, "snapshots/manifest-with-commands.json")
       }
 
       "with commands with usage hint" in {
@@ -506,7 +506,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
-        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-commands-usage-hint.yaml")
+        SnapshotTest.testSnapshot(result.renderJson, "snapshots/manifest-with-commands-usage-hint.json")
       }
 
       "with explicit usage hint override" in {
@@ -518,7 +518,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
-        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-explicit-usage-hint.yaml")
+        SnapshotTest.testSnapshot(result.renderJson, "snapshots/manifest-with-explicit-usage-hint.json")
       }
 
       "with buttons" in {
@@ -528,7 +528,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
-        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-buttons.yaml")
+        SnapshotTest.testSnapshot(result.renderJson, "snapshots/manifest-with-buttons.json")
       }
 
       "with forms" in {
@@ -540,7 +540,17 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
-        SnapshotTest.testSnapshot(result, "snapshots/manifest-with-forms.yaml")
+        SnapshotTest.testSnapshot(result.renderJson, "snapshots/manifest-with-forms.json")
+      }
+
+      "modifier should add extra scopes" in {
+        val gateway = createGateway()
+
+        val result = gateway.manifest("TestApp").unsafeRunSync()
+          .addBotScopes("channels:read")
+
+        val json = result.renderJson
+        json should include("channels:read")
       }
     }
 
@@ -568,7 +578,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val tmpDir = Files.createTempDirectory("manifest-test")
         val manifestPath = tmpDir.resolve("slack-manifest.yml")
 
-        val manifest = gateway.manifest("TestApp").unsafeRunSync()
+        val manifest = gateway.manifest("TestApp").unsafeRunSync().renderJson
         Files.writeString(manifestPath, manifest)
 
         // Should not throw

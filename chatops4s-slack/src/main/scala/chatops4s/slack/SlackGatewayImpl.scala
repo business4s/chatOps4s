@@ -3,6 +3,7 @@ package chatops4s.slack
 import chatops4s.slack.api.{ChannelId, ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
+import chatops4s.slack.manifest.SlackAppManifest
 import io.circe.{Decoder, Json}
 import sttp.client4.WebSocketBackend
 import sttp.monad.MonadError
@@ -80,7 +81,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     formHandlersRef.update(_ + (id -> entry)).as(id)
   }
 
-  override def manifest(appName: String): F[String] = {
+  override def manifest(appName: String): F[SlackAppManifest] = {
     for {
       handlers <- handlersRef.get
       commands <- commandHandlersRef.get
@@ -91,10 +92,11 @@ private[slack] class SlackGatewayImpl[F[_]](
     }
   }
 
-  override def verifySetup(appName: String, manifestPath: String): F[Unit] = {
+  override def verifySetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[Unit] = {
     for {
       m <- manifest(appName)
-      _ <- monad.eval(ManifestCheck.verify(m, appName, Paths.get(manifestPath)))
+      rendered = modifier(m).renderJson
+      _ <- monad.eval(ManifestCheck.verify(rendered, appName, Paths.get(manifestPath)))
     } yield ()
   }
 

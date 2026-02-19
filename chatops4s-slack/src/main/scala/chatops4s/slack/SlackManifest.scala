@@ -1,53 +1,57 @@
 package chatops4s.slack
 
+import chatops4s.slack.manifest.*
+
 private[slack] object SlackManifest {
 
   def generate(
       appName: String,
       commands: Map[String, (String, String)],
       hasInteractivity: Boolean,
-  ): String = {
-    val commandScopes = if (commands.nonEmpty) "\n      - commands" else ""
+  ): SlackAppManifest = {
+    val baseScopes = List(
+      "chat:write",
+      "chat:write.public",
+      "users:read",
+      "users:read.email",
+      "reactions:write",
+    )
 
-    val slashCommands = if (commands.nonEmpty) {
-      val entries = commands.toList.sortBy(_._1).map { case (name, (desc, hint)) =>
-        val usageHintLine = if (hint.nonEmpty) s"\n      usage_hint: $hint" else ""
-        s"""    - command: /$name
-           |      description: $desc$usageHintLine
-           |      should_escape: false""".stripMargin
-      }.mkString("\n")
-      s"""
-         |  slash_commands:
-         |$entries""".stripMargin
-    } else ""
+    val botScopes =
+      if (commands.nonEmpty) baseScopes :+ "commands"
+      else baseScopes
 
-    val interactivity = if (hasInteractivity) {
-      s"""
-         |  interactivity:
-         |    is_enabled: true""".stripMargin
-    } else ""
+    val slashCommands =
+      if (commands.nonEmpty)
+        Some(commands.toList.sortBy(_._1).map { case (name, (desc, hint)) =>
+          SlashCommand(
+            command = s"/$name",
+            description = desc,
+            should_escape = Some(false),
+            usage_hint = if (hint.nonEmpty) Some(hint) else None,
+          )
+        })
+      else None
 
-    s"""_metadata:
-       |  major_version: 1
-       |  minor_version: 1
-       |display_information:
-       |  name: $appName
-       |features:
-       |  bot_user:
-       |    display_name: $appName
-       |    always_online: true$slashCommands
-       |oauth_config:
-       |  scopes:
-       |    bot:
-       |      - chat:write
-       |      - chat:write.public
-       |      - users:read
-       |      - users:read.email
-       |      - reactions:write$commandScopes
-       |settings:$interactivity
-       |  org_deploy_enabled: false
-       |  socket_mode_enabled: true
-       |  token_rotation_enabled: false
-       |""".stripMargin
+    val interactivity =
+      if (hasInteractivity) Some(Interactivity(is_enabled = Some(true)))
+      else None
+
+    SlackAppManifest(
+      display_information = DisplayInformation(name = appName),
+      features = Features(
+        bot_user = Some(BotUser(display_name = appName, always_online = Some(true))),
+        slash_commands = slashCommands,
+      ),
+      oauth_config = OauthConfig(
+        scopes = Some(OauthScopes(bot = Some(botScopes))),
+      ),
+      settings = ManifestSettings(
+        interactivity = interactivity,
+        org_deploy_enabled = Some(false),
+        socket_mode_enabled = Some(true),
+        token_rotation_enabled = Some(false),
+      ),
+    )
   }
 }
