@@ -1,5 +1,6 @@
 package chatops4s.slack.api
 
+import chatops4s.slack.api.manifest.SlackAppManifest
 import io.circe.{Codec, Decoder, Encoder, Json}
 
 private type Block = chatops4s.slack.api.blocks.Block
@@ -22,6 +23,15 @@ object SlackAppToken {
     else Left(s"SlackAppToken must start with 'xapp-', got: ${value.take(10)}...")
   def unsafe(value: String): SlackAppToken = value
   extension (x: SlackAppToken) def value: String = x
+}
+
+opaque type SlackConfigToken = String
+object SlackConfigToken {
+  def apply(value: String): Either[String, SlackConfigToken] =
+    if value.startsWith("xoxe.xoxp-") then Right(value)
+    else Left(s"SlackConfigToken must start with 'xoxe.xoxp-', got: ${value.take(15)}...")
+  def unsafe(value: String): SlackConfigToken = value
+  extension (x: SlackConfigToken) def value: String = x
 }
 
 opaque type ChannelId = String
@@ -262,6 +272,56 @@ object apps {
   case class ConnectionsOpenResponse(
       url: String,
   ) derives Codec.AsObject
+
+  object manifest {
+    case class CreateRequest(manifest: SlackAppManifest) derives Codec.AsObject
+    case class CreateResponse(
+        app_id: String,
+        credentials: Option[AppCredentials] = None,
+        oauth_authorize_url: Option[String] = None,
+    ) derives Codec.AsObject
+
+    case class AppCredentials(
+        client_id: String,
+        client_secret: String,
+        verification_token: String,
+        signing_secret: String,
+    ) derives Codec.AsObject
+
+    case class UpdateRequest(app_id: String, manifest: SlackAppManifest) derives Codec.AsObject
+    case class UpdateResponse(
+        app_id: Option[String] = None,
+        permissions_updated: Option[Boolean] = None,
+    ) derives Codec.AsObject
+
+    case class ValidateRequest(manifest: SlackAppManifest, app_id: Option[String] = None) derives Codec.AsObject
+    case class ValidateResponse(
+        errors: Option[List[ManifestError]] = None,
+    ) derives Codec.AsObject
+
+    case class ExportRequest(app_id: String) derives Codec.AsObject
+    case class ExportResponse(manifest: Option[SlackAppManifest] = None) derives Codec.AsObject
+
+    case class ManifestError(
+        code: Option[String] = None,
+        message: String,
+        pointer: Option[String] = None,
+    ) derives Codec.AsObject
+  }
+}
+
+object tooling {
+  object tokens {
+    case class RotateRequest(refresh_token: String) derives Codec.AsObject
+    case class RotateResponse(
+        token: String,
+        refresh_token: String,
+        team_id: Option[String] = None,
+        user_id: Option[String] = None,
+        iat: Option[Int] = None,
+        exp: Option[Int] = None,
+    ) derives Codec.AsObject
+  }
 }
 
 object views {

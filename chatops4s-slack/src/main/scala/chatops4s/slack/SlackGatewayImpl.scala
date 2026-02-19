@@ -3,7 +3,7 @@ package chatops4s.slack
 import chatops4s.slack.api.{ChannelId, ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
-import chatops4s.slack.manifest.SlackAppManifest
+import chatops4s.slack.api.manifest.SlackAppManifest
 import io.circe.{Decoder, Json}
 import sttp.client4.WebSocketBackend
 import sttp.monad.MonadError

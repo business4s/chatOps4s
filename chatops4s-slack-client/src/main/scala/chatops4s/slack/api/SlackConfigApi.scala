@@ -1,0 +1,59 @@
+package chatops4s.slack.api
+
+import io.circe.syntax.*
+import sttp.client4.*
+import sttp.client4.circe.*
+import sttp.monad.MonadError
+import sttp.monad.syntax.*
+
+class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
+
+  private given MonadError[F] = backend.monad
+  private val baseUrl          = "https://slack.com/api"
+
+  object apps {
+    object manifest {
+
+      // https://docs.slack.dev/reference/methods/apps.manifest.create
+      def create(req: chatops4s.slack.api.apps.manifest.CreateRequest): F[SlackResponse[chatops4s.slack.api.apps.manifest.CreateResponse]] =
+        post("apps.manifest.create", req)
+
+      // https://docs.slack.dev/reference/methods/apps.manifest.update
+      def update(req: chatops4s.slack.api.apps.manifest.UpdateRequest): F[SlackResponse[chatops4s.slack.api.apps.manifest.UpdateResponse]] =
+        post("apps.manifest.update", req)
+
+      // https://docs.slack.dev/reference/methods/apps.manifest.validate
+      def validate(req: chatops4s.slack.api.apps.manifest.ValidateRequest): F[SlackResponse[chatops4s.slack.api.apps.manifest.ValidateResponse]] =
+        post("apps.manifest.validate", req)
+
+      // https://docs.slack.dev/reference/methods/apps.manifest.export
+      def `export`(req: chatops4s.slack.api.apps.manifest.ExportRequest): F[SlackResponse[chatops4s.slack.api.apps.manifest.ExportResponse]] =
+        post("apps.manifest.export", req)
+    }
+  }
+
+  object tooling {
+    object tokens {
+
+      // https://docs.slack.dev/reference/methods/tooling.tokens.rotate
+      def rotate(req: chatops4s.slack.api.tooling.tokens.RotateRequest): F[SlackResponse[chatops4s.slack.api.tooling.tokens.RotateResponse]] =
+        post("tooling.tokens.rotate", req)
+    }
+  }
+
+  private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =
+    backend
+      .send(
+        basicRequest
+          .post(uri"$baseUrl/$method")
+          .header("Authorization", s"Bearer ${token.value}")
+          .contentType("application/json")
+          .body(req.asJson.deepDropNullValues.noSpaces)
+          .response(asJsonAlways[SlackResponse[Res]]),
+      )
+      .map(_.body)
+      .map {
+        case Right(res) => res
+        case Left(err)  => throw SlackApiError("deserialization_error", List(s"$method: $err"))
+      }
+}

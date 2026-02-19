@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.manifest.*
+import chatops4s.slack.api.manifest.*
 
 private[slack] object SlackManifest {
 
