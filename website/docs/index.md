@@ -46,6 +46,15 @@ The `verifySetup` call is the recommended way to keep your Slack app configurati
    - Instructions for installing the app and obtaining tokens.
 2. **Subsequent runs** — compares the generated manifest against the file on disk. If they differ (e.g. you added a new command), it prints a diff and instructions to update your Slack app.
 
+You can also customize the generated manifest before it is verified and written to disk:
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/GettingStarted.scala start=start_custom_manifest end=end_custom_manifest
+```
+
+This is useful when your app needs extra settings that are not inferred from registered handlers.
+
+The generated (and optionally customized) manifest can also be used with the [Raw Client](/docs/raw-client) for automated app creation and updates via Slack's `apps.manifest.create` and `apps.manifest.update` APIs.
+
 This means you never need to manually figure out which OAuth scopes or event subscriptions your app needs — the library derives them from your handler registrations. Here's an example of what the generated manifest looks like:
 
 ```yaml file=chatops4s-slack/src/test/resources/snapshots/manifest-with-commands.yaml

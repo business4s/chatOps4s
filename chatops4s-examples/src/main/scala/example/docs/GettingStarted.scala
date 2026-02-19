@@ -3,6 +3,7 @@ package example.docs
 import cats.effect.{IO, IOApp}
 import chatops4s.slack.{CommandResponse, FormDef, SlackGateway, SlackSetup}
 import chatops4s.slack.api.{SlackAppToken, SlackBotToken}
+import chatops4s.slack.api.manifest.SlackAppManifest
 import sttp.client4.WebSocketBackend
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
@@ -22,6 +23,24 @@ object SendMessage extends IOApp.Simple {
     }
 }
 // end_minimal
+
+object CustomManifestSetup extends IOApp.Simple {
+
+  override def run: IO[Unit] =
+    HttpClientFs2Backend.resource[IO]().use { backend =>
+      for {
+        slack <- SlackGateway.create(backend)
+        // start_custom_manifest
+        _ <- slack.verifySetup(
+          appName = "MyApp",
+          manifestPath = "slack-manifest.yml",
+          modifier = (m: SlackAppManifest) =>
+            m.addOutgoingDomains("api.example.com"),
+        )
+        // end_custom_manifest
+      } yield ()
+    }
+}
 
 // start_buttons
 object InteractiveButtons extends IOApp.Simple {
