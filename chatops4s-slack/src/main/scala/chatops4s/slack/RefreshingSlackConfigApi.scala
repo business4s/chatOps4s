@@ -7,15 +7,12 @@ import sttp.monad.syntax.*
 
 import java.time.{Duration, Instant}
 
-/** A wrapper around [[SlackConfigApi]] that automatically rotates the config token
-  * when it is near expiry.
+/** A wrapper around [[SlackConfigApi]] that automatically rotates the config token when it is near expiry.
   *
-  * Config tokens (`xoxe.xoxp-`) expire after 12 hours. This class tracks the `exp`
-  * claim from the last `tooling.tokens.rotate` response and triggers a rotation when
-  * the token is within `refreshMargin` of expiry (default: 5 minutes).
+  * Config tokens (`xoxe.xoxp-`) expire after 12 hours. This class tracks the `exp` claim from the last `tooling.tokens.rotate` response and triggers
+  * a rotation when the token is within `refreshMargin` of expiry (default: 5 minutes).
   *
-  * On the very first call — when no expiry is known — a rotation is triggered to
-  * establish the expiry baseline.
+  * On the very first call — when no expiry is known — a rotation is triggered to establish the expiry baseline.
   *
   * Use [[withApi]] to obtain a [[SlackConfigApi]] with a fresh token:
   * {{{

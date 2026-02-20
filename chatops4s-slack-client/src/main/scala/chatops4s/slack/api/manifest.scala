@@ -5,9 +5,10 @@ package manifest {
   import io.circe.{Codec, Encoder, Json, Printer}
   import io.circe.syntax.*
 
-  /**
-    * @see [[https://docs.slack.dev/reference/app-manifest#fields Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java Java SDK]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#fields Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java Java SDK]]
     */
   case class SlackAppManifest(
       _metadata: ManifestMetadata = ManifestMetadata(),
@@ -26,7 +27,7 @@ package manifest {
       app_directory: Option[AppDirectory] = None,
   ) derives Codec.AsObject {
 
-    private val printer = Printer.spaces2.copy(dropNullValues = true)
+    private val printer    = Printer.spaces2.copy(dropNullValues = true)
     def renderJson: String = printer.print(this.asJson)
 
     def addBotScopes(scopes: String*): SlackAppManifest = {
@@ -41,7 +42,11 @@ package manifest {
 
     def addBotEvents(events: String*): SlackAppManifest = {
       val current = settings.event_subscriptions.getOrElse(EventSubscriptions()).bot_events.getOrElse(Nil)
-      copy(settings = settings.copy(event_subscriptions = Some(settings.event_subscriptions.getOrElse(EventSubscriptions()).copy(bot_events = Some(current ++ events)))))
+      copy(settings =
+        settings.copy(event_subscriptions =
+          Some(settings.event_subscriptions.getOrElse(EventSubscriptions()).copy(bot_events = Some(current ++ events))),
+        ),
+      )
     }
 
     def addOutgoingDomains(domains: String*): SlackAppManifest = {
@@ -50,16 +55,20 @@ package manifest {
     }
   }
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#metadata Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Metadata]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#metadata Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Metadata]]
     */
   case class ManifestMetadata(
       major_version: Option[Int] = Some(1),
       minor_version: Option[Int] = Some(1),
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#display Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.DisplayInformation]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#display Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.DisplayInformation]]
     */
   case class DisplayInformation(
       name: String,
@@ -68,8 +77,10 @@ package manifest {
       background_color: Option[String] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features]]
     */
   case class Features(
       app_home: Option[AppHome] = None,
@@ -82,8 +93,10 @@ package manifest {
       rich_previews: Option[RichPreviews] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.AppHome]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.AppHome]]
     */
   case class AppHome(
       home_tab_enabled: Option[Boolean] = None,
@@ -91,16 +104,20 @@ package manifest {
       messages_tab_read_only_enabled: Option[Boolean] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.BotUser]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.BotUser]]
     */
   case class BotUser(
       display_name: String,
       always_online: Option[Boolean] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.Shortcut]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.Shortcut]]
     */
   case class Shortcut(
       name: String,
@@ -109,8 +126,10 @@ package manifest {
       `type`: String,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.SlashCommand]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#features Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Features.SlashCommand]]
     */
   case class SlashCommand(
       command: String,
@@ -126,8 +145,10 @@ package manifest {
       callback_id: String,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#oauth Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.OAuthConfig]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#oauth Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.OAuthConfig]]
     */
   case class OauthConfig(
       scopes: Option[OauthScopes] = None,
@@ -135,16 +156,20 @@ package manifest {
       token_management_enabled: Option[Boolean] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#oauth Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.OAuthConfig.Scopes]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#oauth Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.OAuthConfig.Scopes]]
     */
   case class OauthScopes(
       bot: Option[List[String]] = None,
       user: Option[List[String]] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#settings Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Settings]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#settings Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Settings]]
     */
   case class ManifestSettings(
       allowed_ip_address_ranges: Option[List[String]] = None,
@@ -159,8 +184,10 @@ package manifest {
       is_hosted: Option[Boolean] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#settings Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Settings.EventSubscriptions]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#settings Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Settings.EventSubscriptions]]
     */
   case class EventSubscriptions(
       request_url: Option[String] = None,
@@ -174,8 +201,10 @@ package manifest {
       incoming_webhooks_enabled: Option[Boolean] = None,
   ) derives Codec.AsObject
 
-  /** @see [[https://docs.slack.dev/reference/app-manifest#settings Slack docs]]
-    * @see [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Settings.Interactivity]]
+  /** @see
+    *   [[https://docs.slack.dev/reference/app-manifest#settings Slack docs]]
+    * @see
+    *   [[https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/manifest/AppManifest.java AppManifest.Settings.Interactivity]]
     */
   case class Interactivity(
       is_enabled: Option[Boolean] = None,

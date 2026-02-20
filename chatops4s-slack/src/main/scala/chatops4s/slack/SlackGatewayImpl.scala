@@ -94,9 +94,9 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   override def verifySetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[Unit] = {
     for {
-      m <- manifest(appName)
+      m       <- manifest(appName)
       rendered = modifier(m).renderJson
-      _ <- monad.eval(ManifestCheck.verify(rendered, appName, Paths.get(manifestPath)))
+      _       <- monad.eval(ManifestCheck.verify(rendered, appName, Paths.get(manifestPath)))
     } yield ()
   }
 
@@ -160,7 +160,9 @@ private[slack] class SlackGatewayImpl[F[_]](
                         case None        =>
                           val metadata = Some(IdempotencyCheck.buildMetadataJson(key))
                           for {
-                            msgId <- withClient(_.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts), metadata = metadata))
+                            msgId <- withClient(
+                                       _.postMessage(to.channel.value, text, buildBlocks(text, buttons), threadTs = Some(to.ts), metadata = metadata),
+                                     )
                             _     <- check.recordSent(key, msgId)
                           } yield msgId
                       }

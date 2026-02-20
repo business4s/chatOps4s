@@ -5,7 +5,9 @@ import chatops4s.slack.api.manifest.SlackAppManifest
 
 trait SlackSetup[F[_]] {
   def registerButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]]
-  def registerCommand[T: CommandParser](name: String, description: String = "", usageHint: String = "")(handler: Command[T] => F[CommandResponse]): F[Unit]
+  def registerCommand[T: CommandParser](name: String, description: String = "", usageHint: String = "")(
+      handler: Command[T] => F[CommandResponse],
+  ): F[Unit]
   def registerForm[T: FormDef](handler: FormSubmission[T] => F[Unit]): F[FormId[T]]
   def manifest(appName: String): F[SlackAppManifest]
   def verifySetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[Unit]

@@ -56,7 +56,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
 
     "fresh token does not trigger rotation" in {
       var rotateCount = 0
-      val backend = BackendStub(monad)
+      val backend     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then rotateCount += 1
@@ -82,7 +82,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
     "near-expiry triggers rotation" in {
       var currentTime = Instant.ofEpochSecond(1700000000L)
       var rotateCount = 0
-      val backend = BackendStub(monad)
+      val backend     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then rotateCount += 1
@@ -107,7 +107,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
 
     "forceRotate always rotates" in {
       var rotateCount = 0
-      val backend = BackendStub(monad)
+      val backend     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then rotateCount += 1

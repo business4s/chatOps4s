@@ -3,8 +3,8 @@ package chatops4s.slack.api
 import chatops4s.slack.api.manifest.SlackAppManifest
 import io.circe.{Codec, Decoder, Encoder, Json}
 
-private type Block = chatops4s.slack.api.blocks.Block
-private type View = chatops4s.slack.api.blocks.View
+private type Block    = chatops4s.slack.api.blocks.Block
+private type View     = chatops4s.slack.api.blocks.View
 private type ViewType = chatops4s.slack.api.blocks.ViewType
 
 opaque type SlackBotToken = String
@@ -12,8 +12,8 @@ object SlackBotToken {
   def apply(value: String): Either[String, SlackBotToken] =
     if value.startsWith("xoxb-") then Right(value)
     else Left(s"SlackBotToken must start with 'xoxb-', got: ${value.take(10)}...")
-  def unsafe(value: String): SlackBotToken = value
-  extension (x: SlackBotToken) def value: String = x
+  def unsafe(value: String): SlackBotToken                = value
+  extension (x: SlackBotToken) def value: String          = x
 }
 
 opaque type SlackAppToken = String
@@ -21,8 +21,8 @@ object SlackAppToken {
   def apply(value: String): Either[String, SlackAppToken] =
     if value.startsWith("xapp-") then Right(value)
     else Left(s"SlackAppToken must start with 'xapp-', got: ${value.take(10)}...")
-  def unsafe(value: String): SlackAppToken = value
-  extension (x: SlackAppToken) def value: String = x
+  def unsafe(value: String): SlackAppToken                = value
+  extension (x: SlackAppToken) def value: String          = x
 }
 
 opaque type SlackConfigToken = String
@@ -30,10 +30,10 @@ object SlackConfigToken {
   def apply(value: String): Either[String, SlackConfigToken] =
     if value.startsWith("xoxe.xoxp-") then Right(value)
     else Left(s"SlackConfigToken must start with 'xoxe.xoxp-', got: ${value.take(15)}...")
-  def unsafe(value: String): SlackConfigToken = value
-  extension (x: SlackConfigToken) def value: String = x
-  given Encoder[SlackConfigToken] = Encoder[String]
-  given Decoder[SlackConfigToken] = Decoder[String]
+  def unsafe(value: String): SlackConfigToken                = value
+  extension (x: SlackConfigToken) def value: String          = x
+  given Encoder[SlackConfigToken]                            = Encoder[String]
+  given Decoder[SlackConfigToken]                            = Decoder[String]
 }
 
 opaque type SlackRefreshToken = String
@@ -41,84 +41,84 @@ object SlackRefreshToken {
   def apply(value: String): Either[String, SlackRefreshToken] =
     if value.startsWith("xoxe-") then Right(value)
     else Left(s"SlackRefreshToken must start with 'xoxe-', got: ${value.take(10)}...")
-  def unsafe(value: String): SlackRefreshToken = value
-  extension (x: SlackRefreshToken) def value: String = x
-  given Encoder[SlackRefreshToken] = Encoder[String]
-  given Decoder[SlackRefreshToken] = Decoder[String]
+  def unsafe(value: String): SlackRefreshToken                = value
+  extension (x: SlackRefreshToken) def value: String          = x
+  given Encoder[SlackRefreshToken]                            = Encoder[String]
+  given Decoder[SlackRefreshToken]                            = Decoder[String]
 }
 
 opaque type ChannelId = String
 object ChannelId {
-  def apply(value: String): ChannelId = value
+  def apply(value: String): ChannelId        = value
   extension (x: ChannelId) def value: String = x
-  given Encoder[ChannelId] = Encoder[String]
-  given Decoder[ChannelId] = Decoder[String]
+  given Encoder[ChannelId]                   = Encoder[String]
+  given Decoder[ChannelId]                   = Decoder[String]
 }
 
 opaque type UserId = String
 object UserId {
-  def apply(value: String): UserId = value
+  def apply(value: String): UserId        = value
   extension (x: UserId) def value: String = x
-  given Encoder[UserId] = Encoder[String]
-  given Decoder[UserId] = Decoder[String]
+  given Encoder[UserId]                   = Encoder[String]
+  given Decoder[UserId]                   = Decoder[String]
 }
 
 opaque type TeamId = String
 object TeamId {
-  def apply(value: String): TeamId = value
+  def apply(value: String): TeamId        = value
   extension (x: TeamId) def value: String = x
-  given Encoder[TeamId] = Encoder[String]
-  given Decoder[TeamId] = Decoder[String]
+  given Encoder[TeamId]                   = Encoder[String]
+  given Decoder[TeamId]                   = Decoder[String]
 }
 
 opaque type ConversationId = String
 object ConversationId {
-  def apply(value: String): ConversationId = value
+  def apply(value: String): ConversationId        = value
   extension (x: ConversationId) def value: String = x
-  given Encoder[ConversationId] = Encoder[String]
-  given Decoder[ConversationId] = Decoder[String]
+  given Encoder[ConversationId]                   = Encoder[String]
+  given Decoder[ConversationId]                   = Decoder[String]
 }
 
 opaque type Timestamp = String
 object Timestamp {
-  def apply(value: String): Timestamp = value
+  def apply(value: String): Timestamp        = value
   extension (x: Timestamp) def value: String = x
-  given Encoder[Timestamp] = Encoder[String]
-  given Decoder[Timestamp] = Decoder[String]
+  given Encoder[Timestamp]                   = Encoder[String]
+  given Decoder[Timestamp]                   = Decoder[String]
 }
 
 opaque type Email = String
 object Email {
-  def apply(value: String): Email = value
+  def apply(value: String): Email        = value
   extension (x: Email) def value: String = x
-  given Encoder[Email] = Encoder[String]
-  given Decoder[Email] = Decoder[String]
+  given Encoder[Email]                   = Encoder[String]
+  given Decoder[Email]                   = Decoder[String]
 }
 
 opaque type TriggerId = String
 object TriggerId {
-  def apply(value: String): TriggerId = value
+  def apply(value: String): TriggerId        = value
   extension (x: TriggerId) def value: String = x
-  given Encoder[TriggerId] = Encoder[String]
-  given Decoder[TriggerId] = Decoder[String]
+  given Encoder[TriggerId]                   = Encoder[String]
+  given Decoder[TriggerId]                   = Decoder[String]
 }
 
-enum ParseMode {
+enum ParseMode   {
   case Full, Raw
 }
 object ParseMode {
-  private val mapping = Map("full" -> Full, "none" -> Raw)
-  private val reverse = mapping.map(_.swap)
+  private val mapping      = Map("full" -> Full, "none" -> Raw)
+  private val reverse      = mapping.map(_.swap)
   given Encoder[ParseMode] = Encoder[String].contramap(reverse)
   given Decoder[ParseMode] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown parse mode: $s"))
 }
 
-enum ResponseType {
+enum ResponseType   {
   case InChannel, Ephemeral
 }
 object ResponseType {
-  private val mapping = Map("in_channel" -> InChannel, "ephemeral" -> Ephemeral)
-  private val reverse = mapping.map(_.swap)
+  private val mapping         = Map("in_channel" -> InChannel, "ephemeral" -> Ephemeral)
+  private val reverse         = mapping.map(_.swap)
   given Encoder[ResponseType] = Encoder[String].contramap(reverse)
   given Decoder[ResponseType] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown response type: $s"))
 }
@@ -169,7 +169,7 @@ sealed trait SlackResponse[+T] {
 }
 
 object SlackResponse {
-  case class Ok[+T](value: T) extends SlackResponse[T] {
+  case class Ok[+T](value: T)   extends SlackResponse[T]       {
     def okOrThrow: T = value
   }
   case class Err(error: String) extends SlackResponse[Nothing] {

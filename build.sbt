@@ -13,11 +13,11 @@ lazy val `chatops4s-slack-client` = (project in file("chatops4s-slack-client"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "io.circe"                      %% "circe-core"    % "0.14.14",
-      "io.circe"                      %% "circe-generic" % "0.14.14",
-      "io.circe"                      %% "circe-parser"  % "0.14.14",
-      "com.softwaremill.sttp.client4" %% "core"          % "4.0.9",
-      "com.softwaremill.sttp.client4" %% "circe"         % "4.0.9",
+      "io.circe"                      %% "circe-core"    % "0.14.15",
+      "io.circe"                      %% "circe-generic" % "0.14.15",
+      "io.circe"                      %% "circe-parser"  % "0.14.15",
+      "com.softwaremill.sttp.client4" %% "core"          % "4.0.19",
+      "com.softwaremill.sttp.client4" %% "circe"         % "4.0.19",
     ),
   )
 
@@ -26,8 +26,8 @@ lazy val `chatops4s-slack` = (project in file("chatops4s-slack"))
   .settings(
     libraryDependencies ++= Seq(
       "org.slf4j"                      % "slf4j-api"   % "2.0.17",
-      "org.typelevel"                 %% "cats-effect" % "3.6.3" % Test,
-      "com.softwaremill.sttp.client4" %% "cats"        % "4.0.9" % Test,
+      "org.typelevel"                 %% "cats-effect" % "3.6.3"  % Test,
+      "com.softwaremill.sttp.client4" %% "cats"        % "4.0.19" % Test,
     ),
     Test / parallelExecution := false,
   )
@@ -38,8 +38,8 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel"                 %% "cats-effect"     % "3.6.3",
-      "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.9",
-      "ch.qos.logback"                 % "logback-classic" % "1.5.29",
+      "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.19",
+      "ch.qos.logback"                 % "logback-classic" % "1.5.32",
     ),
     Test / parallelExecution := false,
     publish / skip           := true,
@@ -63,7 +63,7 @@ lazy val commonSettings = Seq(
   Test / scalacOptions := (Test / scalacOptions).value.filterNot(_ == "-Wunused:all"),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest"                     % "3.2.19" % Test,
-    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0"  % Test,
+    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.7.0"  % Test,
   ),
   organization         := "org.business4s",
   homepage             := Some(url("https://business4s.github.io/chatops4s/")),
