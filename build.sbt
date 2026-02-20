@@ -39,7 +39,7 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
     libraryDependencies ++= Seq(
       "org.typelevel"                 %% "cats-effect"     % "3.6.3",
       "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.9",
-      "ch.qos.logback"                 % "logback-classic" % "1.5.29",
+      "ch.qos.logback"                 % "logback-classic" % "1.5.32",
     ),
     Test / parallelExecution := false,
     publish / skip           := true,
