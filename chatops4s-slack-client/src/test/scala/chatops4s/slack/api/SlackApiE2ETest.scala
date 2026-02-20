@@ -29,7 +29,7 @@ class SlackApiE2ETest extends AnyFreeSpec with Matchers {
 
     "apps.connections.open should return a websocket URL" in {
       assume(appToken.isDefined, "SLACK_APP_TOKEN required")
-      val resp = SlackApi.apps.connectionsOpen[Identity](backend, appToken.get)
+      val resp = SlackAppApi[Identity](backend, appToken.get).apps.connections.open()
       val result = resp.okOrThrow
       info(s"connections.open url: ${result.url}")
       result.url.should(startWith("wss://"))

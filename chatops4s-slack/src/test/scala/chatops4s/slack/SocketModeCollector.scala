@@ -1,7 +1,7 @@
 package chatops4s.slack
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.api.{SlackApi, SlackAppToken, SlackBotToken}
+import chatops4s.slack.api.{SlackAppApi, SlackAppToken, SlackBotToken}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -39,7 +39,7 @@ object SocketModeCollector extends IOApp.Simple {
       for {
         _ <- IO(Files.createDirectories(outputDir))
         _ <- sendTestMessage(client, channel)
-        resp <- SlackApi.apps.connectionsOpen(backend, appToken)
+        resp <- SlackAppApi(backend, appToken).apps.connections.open()
         url = resp.okOrThrow.url
         _ <- IO.println(s"Listening on WebSocket. Click the button above or type a slash command.")
         _ <- IO.println("Press Ctrl+C to stop.\n")

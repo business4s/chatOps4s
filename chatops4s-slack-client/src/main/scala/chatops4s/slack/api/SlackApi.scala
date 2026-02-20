@@ -1,6 +1,5 @@
 package chatops4s.slack.api
 
-import chatops4s.slack.api.apps.ConnectionsOpenResponse
 import chatops4s.slack.api.chat.{
   DeleteRequest,
   DeleteResponse,
@@ -23,8 +22,6 @@ import chatops4s.slack.api.views.{OpenRequest, OpenResponse}
 import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*
-import sttp.client4.ws.async.*
-import sttp.monad.MonadError
 import sttp.monad.syntax.*
 
 class SlackApi[F[_]](backend: Backend[F], token: SlackBotToken) {
@@ -107,54 +104,4 @@ class SlackApi[F[_]](backend: Backend[F], token: SlackBotToken) {
         case Right(res) => res
         case Left(err)  => throw SlackApiError("deserialization_error", List(s"$method: $err"))
       }
-}
-
-object SlackApi {
-
-  object apps {
-    // https://docs.slack.dev/reference/methods/apps.connections.open
-    def connectionsOpen[F[_]](backend: Backend[F], appToken: SlackAppToken): F[SlackResponse[ConnectionsOpenResponse]] = {
-      given sttp.monad.MonadError[F] = backend.monad
-      backend
-        .send(
-          basicRequest
-            .post(uri"https://slack.com/api/apps.connections.open")
-            .header("Authorization", s"Bearer ${appToken.value}")
-            .contentType("application/x-www-form-urlencoded")
-            .response(asJsonAlways[SlackResponse[ConnectionsOpenResponse]]),
-        )
-        .map(_.body)
-        .map {
-          case Right(res) => res
-          case Left(err)  => throw SlackApiError("deserialization_error", List(s"apps.connections.open: $err"))
-        }
-    }
-
-    // https://docs.slack.dev/apis/events-api/using-socket-mode
-    def connectToSocket[F[_]](url: String, backend: WebSocketBackend[F])(
-        handler: socket.Envelope => F[Unit],
-    ): F[socket.DisconnectReason] = {
-      given monad: MonadError[F] = backend.monad
-      basicRequest
-        .get(uri"$url")
-        .response(asWebSocketOrFail[F, socket.DisconnectReason] { ws =>
-          def loop: F[socket.DisconnectReason] =
-            ws.receiveText().flatMap { text =>
-              io.circe.parser.decode[socket.Envelope](text) match {
-                case Right(envelope) =>
-                  val ack = ws.sendText(socket.Ack(envelope.envelope_id).asJson.noSpaces)
-                  ack.flatMap(_ => handler(envelope)).flatMap(_ => loop)
-                case Left(_) =>
-                  io.circe.parser.decode[socket.Disconnect](text) match {
-                    case Right(disconnect) => monad.unit(disconnect.reason)
-                    case Left(_)           => loop // Malformed frames skipped to avoid killing the connection
-                  }
-              }
-            }
-          loop
-        })
-        .send(backend)
-        .map(_.body)
-    }
-  }
 }

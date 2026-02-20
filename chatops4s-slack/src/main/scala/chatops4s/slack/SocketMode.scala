@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{SlackApi, SlackAppToken}
+import chatops4s.slack.api.{SlackAppApi, SlackAppToken}
 import chatops4s.slack.api.socket
 import sttp.client4.*
 import sttp.monad.MonadError
@@ -24,7 +24,7 @@ private[slack] object SocketMode {
 
     val loop: F[socket.DisconnectReason] = for {
       url    <- openSocketUrl(appToken, backend)
-      reason <- SlackApi.apps.connectToSocket(url, backend) { envelope =>
+      reason <- SlackAppApi.connectToSocket(url, backend) { envelope =>
                   handler(envelope).handleError { case e =>
                     monad.blocking(logger.error("Handler error", e))
                   }
@@ -52,6 +52,6 @@ private[slack] object SocketMode {
       backend: Backend[F],
   ): F[String] = {
     given sttp.monad.MonadError[F] = backend.monad
-    SlackApi.apps.connectionsOpen(backend, appToken).map(_.okOrThrow.url)
+    SlackAppApi(backend, appToken).apps.connections.open().map(_.okOrThrow.url)
   }
 }

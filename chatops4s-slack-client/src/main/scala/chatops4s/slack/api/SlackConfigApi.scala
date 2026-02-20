@@ -32,15 +32,6 @@ class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
     }
   }
 
-  object tooling {
-    object tokens {
-
-      // https://docs.slack.dev/reference/methods/tooling.tokens.rotate
-      def rotate(req: chatops4s.slack.api.tooling.tokens.RotateRequest): F[SlackResponse[chatops4s.slack.api.tooling.tokens.RotateResponse]] =
-        post("tooling.tokens.rotate", req)
-    }
-  }
-
   private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =
     backend
       .send(

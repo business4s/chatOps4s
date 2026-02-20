@@ -22,4 +22,13 @@ Construct a `SlackApi` with any sttp `Backend` and a `SlackBotToken`, then call 
 ```scala file=chatops4s-examples/src/main/scala/example/docs/RawClientPage.scala start=start_raw_client_usage end=end_raw_client_usage
 ```
 
+There are four client classes, one per token type:
+
+| Class             | Token type                        | Purpose                                           |
+|-------------------|-----------------------------------|---------------------------------------------------|
+| `SlackApi`        | `SlackBotToken` (`xoxb-`)         | Chat, reactions, views, conversations, users      |
+| `SlackAppApi`     | `SlackAppToken` (`xapp-`)         | Socket Mode connections (`apps.connections.open`) |
+| `SlackConfigApi`  | `SlackConfigToken` (`xoxe.xoxp-`) | App manifest management                           |
+| `SlackToolingApi` | `SlackRefreshToken` (`xoxe-`)     | Token rotation (`tooling.tokens.rotate`)          |
+
 The high-level `chatops4s-slack` module re-exports everything you typically need, so you only need to reach into `chatops4s.slack.api` for lower-level types.

@@ -1163,8 +1163,8 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |  "exp": 1700043200
           |}""".stripMargin
       ) { r =>
-        r.token shouldBe "xoxe.xoxp-new-token"
-        r.refresh_token shouldBe "xoxe-new-refresh"
+        r.token shouldBe SlackConfigToken.unsafe("xoxe.xoxp-new-token")
+        r.refresh_token shouldBe SlackRefreshToken.unsafe("xoxe-new-refresh")
         r.team_id shouldBe Some("T12345")
         r.user_id shouldBe Some("U12345")
         r.iat shouldBe Some(1700000000)

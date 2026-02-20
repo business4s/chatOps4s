@@ -32,6 +32,19 @@ object SlackConfigToken {
     else Left(s"SlackConfigToken must start with 'xoxe.xoxp-', got: ${value.take(15)}...")
   def unsafe(value: String): SlackConfigToken = value
   extension (x: SlackConfigToken) def value: String = x
+  given Encoder[SlackConfigToken] = Encoder[String]
+  given Decoder[SlackConfigToken] = Decoder[String]
+}
+
+opaque type SlackRefreshToken = String
+object SlackRefreshToken {
+  def apply(value: String): Either[String, SlackRefreshToken] =
+    if value.startsWith("xoxe-") then Right(value)
+    else Left(s"SlackRefreshToken must start with 'xoxe-', got: ${value.take(10)}...")
+  def unsafe(value: String): SlackRefreshToken = value
+  extension (x: SlackRefreshToken) def value: String = x
+  given Encoder[SlackRefreshToken] = Encoder[String]
+  given Decoder[SlackRefreshToken] = Decoder[String]
 }
 
 opaque type ChannelId = String
@@ -312,10 +325,10 @@ object apps {
 
 object tooling {
   object tokens {
-    case class RotateRequest(refresh_token: String) derives Codec.AsObject
+    case class RotateRequest(refresh_token: SlackRefreshToken) derives Codec.AsObject
     case class RotateResponse(
-        token: String,
-        refresh_token: String,
+        token: SlackConfigToken,
+        refresh_token: SlackRefreshToken,
         team_id: Option[String] = None,
         user_id: Option[String] = None,
         iat: Option[Int] = None,
