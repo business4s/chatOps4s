@@ -30,7 +30,7 @@ object UserInfoCache {
 
   def noCache[F[_]](using monad: MonadError[F]): UserInfoCache[F] =
     new UserInfoCache[F] {
-      def get(userId: UserId): F[Option[users.UserInfo]] = monad.unit(None)
+      def get(userId: UserId): F[Option[users.UserInfo]]     = monad.unit(None)
       def put(userId: UserId, info: users.UserInfo): F[Unit] = monad.unit(())
     }
 
@@ -55,7 +55,7 @@ object UserInfoCache {
       val now = clock()
       ref.update { entries =>
         val withNew = entries + (userId -> CacheEntry(info, now))
-        val swept = withNew.filter { case (_, entry) => !isExpired(entry, now) }
+        val swept   = withNew.filter { case (_, entry) => !isExpired(entry, now) }
         if (swept.size > maxEntries) {
           swept.toList.sortBy(_._2.insertedAt).drop(swept.size - maxEntries).toMap
         } else swept

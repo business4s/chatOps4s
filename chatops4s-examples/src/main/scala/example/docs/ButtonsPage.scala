@@ -19,10 +19,16 @@ private object ButtonsPage {
       approveBtn: ButtonId[String],
       rejectBtn: ButtonId[String],
   ): IO[Unit] =
-    slack.send(channel, "Deploy v1.2.3 to production?", Seq(
-      approveBtn.render("Approve", "v1.2.3"),
-      rejectBtn.render("Reject", "v1.2.3"),
-    )).void
+    slack
+      .send(
+        channel,
+        "Deploy v1.2.3 to production?",
+        Seq(
+          approveBtn.render("Approve", "v1.2.3"),
+          rejectBtn.render("Reject", "v1.2.3"),
+        ),
+      )
+      .void
   // end_render_buttons
 
   // start_constrained_type
@@ -40,10 +46,14 @@ private object ButtonsPage {
                      // click.value is guaranteed to be a valid Environment
                      slack.update(click.messageId, s"Deploying to ${click.value}...").void
                    }
-      _         <- slack.send(channel, "Where to deploy?", Seq(
-                     deployBtn.render("Production", Environment.Production),
-                     deployBtn.render("Staging", Environment.Staging),
-                   ))
+      _         <- slack.send(
+                     channel,
+                     "Where to deploy?",
+                     Seq(
+                       deployBtn.render("Production", Environment.Production),
+                       deployBtn.render("Staging", Environment.Staging),
+                     ),
+                   )
     } yield ()
   // end_constrained_usage
 

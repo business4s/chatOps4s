@@ -18,9 +18,11 @@ private object CommandsPage {
   def derivedCommand(slack: SlackGateway[IO] & SlackSetup[IO]): IO[Unit] =
     // /scale api 3 → parses to ScaleArgs("api", 3)
     slack.registerCommand[ScaleArgs]("scale", "Scale a service") { cmd =>
-      IO.pure(CommandResponse.Ephemeral(
-        s"Scaling *${cmd.args.service}* to *${cmd.args.replicas}* replicas."
-      ))
+      IO.pure(
+        CommandResponse.Ephemeral(
+          s"Scaling *${cmd.args.service}* to *${cmd.args.replicas}* replicas.",
+        ),
+      )
     }
   // end_derived_command
 
@@ -39,7 +41,7 @@ private object CommandsPage {
 
   given CommandParser[ServiceName] with {
     def parse(text: String): Either[String, ServiceName] = ServiceName.parse(text)
-    override def usageHint: String = "[service name]"
+    override def usageHint: String                       = "[service name]"
   }
   // end_parser_def
 
@@ -62,11 +64,11 @@ private object CommandsPage {
   // start_command_context
   def commandContext(slack: SlackGateway[IO] & SlackSetup[IO]): IO[Unit] =
     slack.registerCommand[String]("deploy", "Deploy to production") { cmd =>
-      val who     = cmd.userId      // UserId — who ran the command
-      val where   = cmd.channelId   // ChannelId — which channel
-      val raw     = cmd.text        // String — raw command text
-      val trigger = cmd.triggerId   // TriggerId — for opening forms
-      val args    = cmd.args        // T — parsed arguments
+      val who     = cmd.userId    // UserId — who ran the command
+      val where   = cmd.channelId // ChannelId — which channel
+      val raw     = cmd.text      // String — raw command text
+      val trigger = cmd.triggerId // TriggerId — for opening forms
+      val args    = cmd.args      // T — parsed arguments
       IO.pure(CommandResponse.Ephemeral(s"$who $where $raw $trigger $args"))
     }
   // end_command_context

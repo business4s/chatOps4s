@@ -12,7 +12,14 @@ trait SlackGateway[F[_]] {
   def addReaction(messageId: MessageId, emoji: String): F[Unit]
   def removeReaction(messageId: MessageId, emoji: String): F[Unit]
   def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit]
-  def openForm[T](triggerId: TriggerId, formId: FormId[T], title: String, submitLabel: String = "Submit", initialValues: InitialValues[T] = InitialValues.of[T], metadata: String = ""): F[Unit]
+  def openForm[T](
+      triggerId: TriggerId,
+      formId: FormId[T],
+      title: String,
+      submitLabel: String = "Submit",
+      initialValues: InitialValues[T] = InitialValues.of[T],
+      metadata: String = "",
+  ): F[Unit]
   def getUserInfo(userId: UserId): F[users.UserInfo]
 }
 

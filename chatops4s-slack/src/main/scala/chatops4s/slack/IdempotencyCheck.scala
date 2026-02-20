@@ -20,7 +20,7 @@ object IdempotencyCheck {
     new IdempotencyCheck[F] {
       def findExisting(channel: ChannelId, threadTs: Option[Timestamp], key: IdempotencyKey): F[Option[MessageId]] =
         monad.unit(None)
-      def recordSent(key: IdempotencyKey, messageId: MessageId): F[Unit] =
+      def recordSent(key: IdempotencyKey, messageId: MessageId): F[Unit]                                           =
         monad.unit(())
     }
 
@@ -47,7 +47,7 @@ object IdempotencyCheck {
 
   private[slack] def buildMetadataJson(key: IdempotencyKey): Json =
     Json.obj(
-      "event_type" -> Json.fromString(EventType),
+      "event_type"    -> Json.fromString(EventType),
       "event_payload" -> Json.obj(
         "key" -> Json.fromString(key.value),
       ),
@@ -58,7 +58,7 @@ object IdempotencyCheck {
     for {
       eventType <- cursor.downField("event_type").as[String].toOption
       if eventType == EventType
-      key <- cursor.downField("event_payload").downField("key").as[String].toOption
+      key       <- cursor.downField("event_payload").downField("key").as[String].toOption
     } yield key
   }
 

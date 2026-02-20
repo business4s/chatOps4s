@@ -9,7 +9,7 @@ import sttp.monad.syntax.*
 class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
 
   private given MonadError[F] = backend.monad
-  private val baseUrl          = "https://slack.com/api"
+  private val baseUrl         = "https://slack.com/api"
 
   object apps {
     object manifest {
