@@ -10,13 +10,12 @@ import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 import java.net.{InetSocketAddress, URI}
 import java.util.concurrent.atomic.AtomicReference
 
-/** Self-contained demo of the full Slack app lifecycle:
-  * create app → OAuth install → send/update messages → delete app.
+/** Self-contained demo of the full Slack app lifecycle: create app → OAuth install → send/update messages → delete app.
   *
   * Required env vars:
-  *   - SLACK_CONFIG_TOKEN  — a config token (xoxe.xoxp-...)
+  *   - SLACK_CONFIG_TOKEN — a config token (xoxe.xoxp-...)
   *   - SLACK_REFRESH_TOKEN — the matching refresh token (xoxe-...)
-  *   - SLACK_CHANNEL       — channel to post to (e.g. #test)
+  *   - SLACK_CHANNEL — channel to post to (e.g. #test)
   */
 object AppLifecycleDemo extends IOApp.Simple {
 
@@ -39,7 +38,7 @@ object AppLifecycleDemo extends IOApp.Simple {
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       given sttp.monad.MonadError[IO] = backend.monad
-      val initial = ConfigTokenStore.TokenPair(configToken, refreshToken)
+      val initial                     = ConfigTokenStore.TokenPair(configToken, refreshToken)
 
       for {
         store      <- ConfigTokenStore.inMemory[IO](initial)
@@ -58,59 +57,59 @@ object AppLifecycleDemo extends IOApp.Simple {
         _          <- refreshing.forceRotate()
 
         // 2. Start local HTTP server for OAuth callback
-        code       <- captureOAuthCode(oauthUrl)
-        _          <- IO.println("OAuth code received, exchanging for token...")
+        code <- captureOAuthCode(oauthUrl)
+        _    <- IO.println("OAuth code received, exchanging for token...")
 
         // 3. Exchange code for bot token
-        oauthResp  <- SlackOAuth.exchangeCode(
-                        backend,
-                        oauth.AccessRequest(
-                          code = code,
-                          client_id = creds.client_id,
-                          client_secret = creds.client_secret,
-                          redirect_uri = Some("http://localhost:8080/callback"),
-                        ),
-                      )
-        accessResp  = oauthResp.okOrThrow
-        botToken    = SlackBotToken.unsafe(accessResp.access_token)
-        _          <- IO.println(s"Bot token obtained for team: ${accessResp.team.flatMap(_.name).getOrElse("unknown")}")
+        oauthResp <- SlackOAuth.exchangeCode(
+                       backend,
+                       oauth.AccessRequest(
+                         code = code,
+                         client_id = creds.client_id,
+                         client_secret = creds.client_secret,
+                         redirect_uri = Some("http://localhost:8080/callback"),
+                       ),
+                     )
+        accessResp = oauthResp.okOrThrow
+        botToken   = SlackBotToken.unsafe(accessResp.access_token)
+        _         <- IO.println(s"Bot token obtained for team: ${accessResp.team.flatMap(_.name).getOrElse("unknown")}")
 
         // 4. Send initial message
-        slackApi    = new SlackApi[IO](backend, botToken)
-        postResp   <- slackApi.chat.postMessage(
-                        chat.PostMessageRequest(channel = channel, text = "App created, running lifecycle demo..."),
-                      )
-        posted      = postResp.okOrThrow
-        msgTs       = posted.ts
-        msgChannel  = posted.channel
-        _          <- IO.println(s"Message posted: ${msgTs.value}")
+        slackApi   = new SlackApi[IO](backend, botToken)
+        postResp  <- slackApi.chat.postMessage(
+                       chat.PostMessageRequest(channel = channel, text = "App created, running lifecycle demo..."),
+                     )
+        posted     = postResp.okOrThrow
+        msgTs      = posted.ts
+        msgChannel = posted.channel
+        _         <- IO.println(s"Message posted: ${msgTs.value}")
 
         // 5. Update manifest — rename app
-        _          <- IO.println("Updating app manifest...")
-        _          <- refreshing.withApi { api =>
-                        api.apps.manifest.update(
-                          apps.manifest.UpdateRequest(app_id = appId, manifest = manifest(s"$appName (updated)")),
-                        )
-                      }
-        _          <- IO.println("Manifest updated.")
+        _ <- IO.println("Updating app manifest...")
+        _ <- refreshing.withApi { api =>
+               api.apps.manifest.update(
+                 apps.manifest.UpdateRequest(app_id = appId, manifest = manifest(s"$appName (updated)")),
+               )
+             }
+        _ <- IO.println("Manifest updated.")
 
         // 6. Update the message
-        _          <- slackApi.chat.update(
-                        chat.UpdateRequest(channel = msgChannel, ts = msgTs, text = Some("App manifest updated.")),
-                      )
-        _          <- IO.println("Message updated.")
+        _ <- slackApi.chat.update(
+               chat.UpdateRequest(channel = msgChannel, ts = msgTs, text = Some("App manifest updated.")),
+             )
+        _ <- IO.println("Message updated.")
 
         // 7. Send farewell message
-        _          <- slackApi.chat.postMessage(
-                        chat.PostMessageRequest(channel = channel, text = "Lifecycle demo complete, deleting app..."),
-                      )
+        _ <- slackApi.chat.postMessage(
+               chat.PostMessageRequest(channel = channel, text = "Lifecycle demo complete, deleting app..."),
+             )
 
         // 8. Delete app
-        _          <- IO.println("Deleting app...")
-        _          <- refreshing.withApi { api =>
-                        api.apps.manifest.delete(apps.manifest.DeleteRequest(app_id = appId))
-                      }
-        _          <- IO.println("App deleted. Demo complete.")
+        _ <- IO.println("Deleting app...")
+        _ <- refreshing.withApi { api =>
+               api.apps.manifest.delete(apps.manifest.DeleteRequest(app_id = appId))
+             }
+        _ <- IO.println("App deleted. Demo complete.")
       } yield ()
     }
 

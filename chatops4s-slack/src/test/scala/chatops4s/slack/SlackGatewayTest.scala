@@ -3,7 +3,7 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
-import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackBotToken, Timestamp, TriggerId, UserId, TeamId, users}
+import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackBotToken, TeamId, Timestamp, TriggerId, UserId, users}
 import chatops4s.slack.api.manifest.{BotUser, DisplayInformation, Features, SlackAppManifest}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
@@ -33,14 +33,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       idempotencyCheck: Option[IdempotencyCheck[IO]] = None,
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
-    val client = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
-    val clientRef = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
-    val handlersRef = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val cacheRef = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
-    val check = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
-    val idempotencyRef = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
+    val client                      = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
+    val clientRef                   = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
+    val handlersRef                 = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef          = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef             = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef                    = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
+    val check                       = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
+    val idempotencyRef              = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
     new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
   }
 
@@ -49,12 +49,12 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
   ): SlackGatewayImpl[IO] = {
     given sttp.monad.MonadError[IO] = backend.monad
-    val clientRef = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
-    val handlersRef = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val cacheRef = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
-    val idempotencyRef = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
+    val clientRef                   = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
+    val handlersRef                 = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef          = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef             = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef                    = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
+    val idempotencyRef              = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
     new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
   }
 
@@ -72,19 +72,25 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "should send a message with buttons" in {
         val gateway = createGateway(MockBackend.withPostMessage(okPostMessage))
         val approve = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
-        val reject = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
+        val reject  = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
 
-        val result = gateway.send("C123", "Deploy?", Seq(
-          Button("Approve", approve, approve.value),
-          Button("Reject", reject, reject.value),
-        )).unsafeRunSync()
+        val result = gateway
+          .send(
+            "C123",
+            "Deploy?",
+            Seq(
+              Button("Approve", approve, approve.value),
+              Button("Reject", reject, reject.value),
+            ),
+          )
+          .unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
       }
 
       "should handle API errors" in {
         val errorBody = """{"ok":false,"error":"invalid_auth"}"""
-        val gateway = createGateway(MockBackend.withPostMessage(errorBody))
+        val gateway   = createGateway(MockBackend.withPostMessage(errorBody))
 
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.send("C123", "Test").unsafeRunSync()
@@ -104,7 +110,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "reply" - {
       "should reply in thread" in {
-        val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
+        val body    = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
         val gateway = createGateway(MockBackend.withPostMessage(body))
 
         val result = gateway.reply(MessageId(ChannelId("C123"), Timestamp("1234567890.123")), "Thread reply").unsafeRunSync()
@@ -113,15 +119,17 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should reply in thread with buttons" in {
-        val body = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
+        val body    = """{"ok":true,"channel":"C123","ts":"1234567891.456"}"""
         val gateway = createGateway(MockBackend.withPostMessage(body))
-        val btn = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
+        val btn     = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
 
-        val result = gateway.reply(
-          MessageId(ChannelId("C123"), Timestamp("1234567890.123")),
-          "Confirm?",
-          Seq(Button("OK", btn, btn.value)),
-        ).unsafeRunSync()
+        val result = gateway
+          .reply(
+            MessageId(ChannelId("C123"), Timestamp("1234567890.123")),
+            "Confirm?",
+            Seq(Button("OK", btn, btn.value)),
+          )
+          .unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567891.456"))
       }
@@ -129,11 +137,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "update" - {
       "should update a message" in {
-        val gateway = createGateway(MockBackend.withUpdate(
-          """{"ok":true,"channel":"C123","ts":"1234567890.123"}""",
-        ))
+        val gateway = createGateway(
+          MockBackend.withUpdate(
+            """{"ok":true,"channel":"C123","ts":"1234567890.123"}""",
+          ),
+        )
 
-        val msgId = MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
+        val msgId  = MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         val result = gateway.update(msgId, "Updated text").unsafeRunSync()
 
         result shouldBe msgId
@@ -141,10 +151,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should handle API errors on update" in {
         val errorBody = """{"ok":false,"error":"message_not_found"}"""
-        val gateway = createGateway(MockBackend.withUpdate(errorBody))
+        val gateway   = createGateway(MockBackend.withUpdate(errorBody))
 
         val msgId = MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
-        val ex = intercept[chatops4s.slack.api.SlackApiError] {
+        val ex    = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.update(msgId, "Updated text").unsafeRunSync()
         }
         ex.error shouldBe "message_not_found"
@@ -163,12 +173,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "interaction handling" - {
       "should dispatch button click to registered handler" in {
-        val gateway = createGateway()
+        val gateway                               = createGateway()
         var captured: Option[ButtonClick[String]] = None
 
-        val btnId = gateway.registerButton[String] { click =>
-          IO { captured = Some(click) }
-        }.unsafeRunSync()
+        val btnId = gateway
+          .registerButton[String] { click =>
+            IO { captured = Some(click) }
+          }
+          .unsafeRunSync()
 
         val payload = interactionPayload(btnId.value, "my-value")
         gateway.handleInteractionPayload(payload).unsafeRunSync()
@@ -181,7 +193,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should ignore unknown action IDs" in {
         val gateway = createGateway()
-        var called = false
+        var called  = false
 
         gateway.registerButton[String] { _ => IO { called = true } }.unsafeRunSync()
 
@@ -193,7 +205,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should dispatch multiple actions in one payload" in {
         val gateway = createGateway()
-        var count = 0
+        var count   = 0
 
         val btn1 = gateway.registerButton[String] { _ => IO { count += 1 } }.unsafeRunSync()
         val btn2 = gateway.registerButton[String] { _ => IO { count += 10 } }.unsafeRunSync()
@@ -219,7 +231,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "delete" - {
       "should delete a message" in {
-        val body = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
+        val body    = """{"ok":true,"channel":"C123","ts":"1234567890.123"}"""
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
         gateway.delete(MessageId(ChannelId("C123"), Timestamp("1234567890.123"))).unsafeRunSync()
@@ -227,7 +239,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should handle API errors on delete" in {
         val errorBody = """{"ok":false,"error":"message_not_found"}"""
-        val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(errorBody))
+        val gateway   = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(errorBody))
 
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.delete(MessageId(ChannelId("C123"), Timestamp("1234567890.123"))).unsafeRunSync()
@@ -252,7 +264,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "sendEphemeral" - {
       "should send an ephemeral message" in {
-        val body = """{"ok":true,"message_ts":"1234567890.123"}"""
+        val body    = """{"ok":true,"message_ts":"1234567890.123"}"""
         val gateway = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust(body))
 
         gateway.sendEphemeral("C123", UserId("U456"), "Only you can see this").unsafeRunSync()
@@ -261,7 +273,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "getUserInfo" - {
       "should return user info" in {
-        val body = """{"ok":true,"user":{"id":"U123","name":"testuser","real_name":"Test User","profile":{"email":"test@example.com","display_name":"testuser","real_name":"Test User"},"is_bot":false,"tz":"America/New_York"}}"""
+        val body    =
+          """{"ok":true,"user":{"id":"U123","name":"testuser","real_name":"Test User","profile":{"email":"test@example.com","display_name":"testuser","real_name":"Test User"},"is_bot":false,"tz":"America/New_York"}}"""
         val gateway = createGateway(MockBackend.withUsersInfo(body))
 
         val result = gateway.getUserInfo(UserId("U123")).unsafeRunSync()
@@ -277,7 +290,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should handle API errors" in {
         val errorBody = """{"ok":false,"error":"user_not_found"}"""
-        val gateway = createGateway(MockBackend.withUsersInfo(errorBody))
+        val gateway   = createGateway(MockBackend.withUsersInfo(errorBody))
 
         val ex = intercept[chatops4s.slack.api.SlackApiError] {
           gateway.getUserInfo(UserId("U999")).unsafeRunSync()
@@ -287,12 +300,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "UserInfoCache" - {
-      val userInfoBody = """{"ok":true,"user":{"id":"U123","name":"testuser","real_name":"Test User","profile":{"email":"test@example.com","display_name":"testuser","real_name":"Test User"},"is_bot":false,"tz":"America/New_York"}}"""
+      val userInfoBody =
+        """{"ok":true,"user":{"id":"U123","name":"testuser","real_name":"Test User","profile":{"email":"test@example.com","display_name":"testuser","real_name":"Test User"},"is_bot":false,"tz":"America/New_York"}}"""
 
       "should cache user info on first fetch and return cached on second" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        var apiCallCount = 0
-        val backend = MockBackend.create()
+        var apiCallCount                       = 0
+        val backend                            = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("users.info")
             if (matches) apiCallCount += 1
@@ -300,7 +315,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           }
           .thenRespondAdjust(userInfoBody)
 
-        val cache = UserInfoCache.inMemory[IO]().unsafeRunSync()
+        val cache   = UserInfoCache.inMemory[IO]().unsafeRunSync()
         val gateway = createGateway(backend, cache)
 
         val result1 = gateway.getUserInfo(UserId("U123")).unsafeRunSync()
@@ -313,16 +328,19 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should expire entries after TTL" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        val epoch = Instant.parse("2025-01-01T00:00:00Z")
-        var currentTime = epoch
-        val cache = UserInfoCache.inMemoryWithClock[IO](
-          ttl = java.time.Duration.ofSeconds(60),
-          maxEntries = 1000,
-          clock = () => currentTime,
-        ).unsafeRunSync()
+        val epoch                              = Instant.parse("2025-01-01T00:00:00Z")
+        var currentTime                        = epoch
+        val cache                              = UserInfoCache
+          .inMemoryWithClock[IO](
+            ttl = java.time.Duration.ofSeconds(60),
+            maxEntries = 1000,
+            clock = () => currentTime,
+          )
+          .unsafeRunSync()
 
         var apiCallCount = 0
-        val backend = MockBackend.create()
+        val backend      = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("users.info")
             if (matches) apiCallCount += 1
@@ -348,13 +366,15 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should evict oldest entries when over maxEntries" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        val epoch = Instant.parse("2025-01-01T00:00:00Z")
-        var currentTime = epoch
-        val cache = UserInfoCache.inMemoryWithClock[IO](
-          ttl = java.time.Duration.ofHours(1),
-          maxEntries = 2,
-          clock = () => currentTime,
-        ).unsafeRunSync()
+        val epoch                              = Instant.parse("2025-01-01T00:00:00Z")
+        var currentTime                        = epoch
+        val cache                              = UserInfoCache
+          .inMemoryWithClock[IO](
+            ttl = java.time.Duration.ofHours(1),
+            maxEntries = 2,
+            clock = () => currentTime,
+          )
+          .unsafeRunSync()
 
         val info1 = users.UserInfo(id = UserId("U1"))
         val info2 = users.UserInfo(id = UserId("U2"))
@@ -375,8 +395,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "noCache should always return None" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        val cache = UserInfoCache.noCache[IO]
-        val info = users.UserInfo(id = UserId("U1"))
+        val cache                              = UserInfoCache.noCache[IO]
+        val info                               = users.UserInfo(id = UserId("U1"))
 
         cache.put(UserId("U1"), info).unsafeRunSync()
         cache.get(UserId("U1")).unsafeRunSync() shouldBe None
@@ -385,12 +405,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "onCommand" - {
       "should dispatch slash command to registered handler" in {
-        val gateway = createGateway(MockBackend.withResponseUrl())
+        val gateway                           = createGateway(MockBackend.withResponseUrl())
         var captured: Option[Command[String]] = None
 
-        gateway.registerCommand[String]("/deploy") { cmd =>
-          IO { captured = Some(cmd) }.as(CommandResponse.InChannel(s"Deploying ${cmd.args}"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("/deploy") { cmd =>
+            IO { captured = Some(cmd) }.as(CommandResponse.InChannel(s"Deploying ${cmd.args}"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/deploy", "v1.2.3")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -404,11 +426,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should normalize command names (strip / and lowercase)" in {
         val gateway = createGateway(MockBackend.withResponseUrl())
-        var called = false
+        var called  = false
 
-        gateway.registerCommand[String]("Deploy") { _ =>
-          IO { called = true }.as(CommandResponse.Ephemeral("ok"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("Deploy") { _ =>
+            IO { called = true }.as(CommandResponse.Ephemeral("ok"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/deploy", "test")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -418,11 +442,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should ignore unregistered commands" in {
         val gateway = createGateway()
-        var called = false
+        var called  = false
 
-        gateway.registerCommand[String]("/deploy") { _ =>
-          IO { called = true }.as(CommandResponse.Ephemeral("ok"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("/deploy") { _ =>
+            IO { called = true }.as(CommandResponse.Ephemeral("ok"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/rollback", "test")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -438,9 +464,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             text.toIntOption.toRight(s"'$text' is not a number")
         }
 
-        gateway.registerCommand[Int]("/count") { cmd =>
-          IO.pure(CommandResponse.InChannel(s"Count: ${cmd.args}"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[Int]("/count") { cmd =>
+            IO.pure(CommandResponse.InChannel(s"Count: ${cmd.args}"))
+          }
+          .unsafeRunSync()
 
         // This should not throw - parse error is handled internally
         val payload = slashCommandPayload("/count", "not-a-number")
@@ -448,12 +476,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should dispatch derived case class command" in {
-        val gateway = createGateway(MockBackend.withResponseUrl())
+        val gateway                              = createGateway(MockBackend.withResponseUrl())
         var captured: Option[Command[ScaleArgs]] = None
 
-        gateway.registerCommand[ScaleArgs]("/scale") { cmd =>
-          IO { captured = Some(cmd) }.as(CommandResponse.Ephemeral("ok"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[ScaleArgs]("/scale") { cmd =>
+            IO { captured = Some(cmd) }.as(CommandResponse.Ephemeral("ok"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/scale", "api 3")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -466,9 +496,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "should return error for derived parser when args are missing" in {
         val gateway = createGateway(MockBackend.withResponseUrl())
 
-        gateway.registerCommand[ScaleArgs]("/scale") { _ =>
-          IO.pure(CommandResponse.Ephemeral("ok"))
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[ScaleArgs]("/scale") { _ =>
+            IO.pure(CommandResponse.Ephemeral("ok"))
+          }
+          .unsafeRunSync()
 
         val payload = slashCommandPayload("/scale", "api")
         gateway.handleSlashCommandPayload(payload).unsafeRunSync()
@@ -488,9 +520,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "with commands" in {
         val gateway = createGateway()
 
-        gateway.registerCommand[String]("deploy", "Deploy to prod") { _ =>
-          IO.pure(CommandResponse.Silent)
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("deploy", "Deploy to prod") { _ =>
+            IO.pure(CommandResponse.Silent)
+          }
+          .unsafeRunSync()
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
@@ -500,9 +534,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "with commands with usage hint" in {
         val gateway = createGateway()
 
-        gateway.registerCommand[ScaleArgs]("scale", "Scale a service") { _ =>
-          IO.pure(CommandResponse.Silent)
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[ScaleArgs]("scale", "Scale a service") { _ =>
+            IO.pure(CommandResponse.Silent)
+          }
+          .unsafeRunSync()
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
@@ -512,9 +548,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "with explicit usage hint override" in {
         val gateway = createGateway()
 
-        gateway.registerCommand[String]("search", "Search for something", usageHint = "[query]") { _ =>
-          IO.pure(CommandResponse.Silent)
-        }.unsafeRunSync()
+        gateway
+          .registerCommand[String]("search", "Search for something", usageHint = "[query]") { _ =>
+            IO.pure(CommandResponse.Silent)
+          }
+          .unsafeRunSync()
 
         val result = gateway.manifest("TestApp").unsafeRunSync()
 
@@ -546,7 +584,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "modifier should add extra scopes" in {
         val gateway = createGateway()
 
-        val result = gateway.manifest("TestApp").unsafeRunSync()
+        val result = gateway
+          .manifest("TestApp")
+          .unsafeRunSync()
           .addBotScopes("channels:read")
 
         val json = result.renderJson
@@ -575,8 +615,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
     "verifySetup" - {
       "should create manifest file on first run" in {
-        val gateway = createDisconnectedGateway()
-        val tmpDir = Files.createTempDirectory("manifest-test")
+        val gateway      = createDisconnectedGateway()
+        val tmpDir       = Files.createTempDirectory("manifest-test")
         val manifestPath = tmpDir.resolve("slack-manifest.yml")
 
         val ex = intercept[ManifestCheck.ManifestCreated] {
@@ -593,8 +633,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should succeed when manifest matches" in {
-        val gateway = createDisconnectedGateway()
-        val tmpDir = Files.createTempDirectory("manifest-test")
+        val gateway      = createDisconnectedGateway()
+        val tmpDir       = Files.createTempDirectory("manifest-test")
         val manifestPath = tmpDir.resolve("slack-manifest.yml")
 
         val manifest = gateway.manifest("TestApp").unsafeRunSync().renderJson
@@ -608,8 +648,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should detect manifest changes" in {
-        val gateway = createDisconnectedGateway()
-        val tmpDir = Files.createTempDirectory("manifest-test")
+        val gateway      = createDisconnectedGateway()
+        val tmpDir       = Files.createTempDirectory("manifest-test")
         val manifestPath = tmpDir.resolve("slack-manifest.yml")
 
         Files.writeString(manifestPath, "old content")
@@ -630,7 +670,8 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "send without key should send normally without conversations.history call" in {
         var historyCallCount = 0
-        val backend = MockBackend.create()
+        val backend          = MockBackend
+          .create()
           .whenRequestMatches { req =>
             if (req.uri.toString().contains("conversations.history")) historyCallCount += 1
             true
@@ -638,7 +679,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           .thenRespondAdjust(okPostMsg)
 
         val gateway = createGateway(backend)
-        val result = gateway.send("C123", "Hello").unsafeRunSync()
+        val result  = gateway.send("C123", "Hello").unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         historyCallCount shouldBe 0
@@ -646,8 +687,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "send with key and no match in history should send with metadata" in {
         var capturedBody: Option[String] = None
-        val historyResponse = """{"ok":true,"messages":[]}"""
-        val backend = MockBackend.create()
+        val historyResponse              = """{"ok":true,"messages":[]}"""
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches(_.uri.toString().contains("conversations.history"))
           .thenRespondAdjust(historyResponse)
           .whenRequestMatches { req =>
@@ -655,7 +697,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
@@ -663,11 +705,11 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           .thenRespondAdjust(okPostMsg)
 
         val gateway = createGateway(backend)
-        val result = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("my-key"))).unsafeRunSync()
+        val result  = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("my-key"))).unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         capturedBody shouldBe defined
-        val json = parser.parse(capturedBody.get).toOption.get
+        val json     = parser.parse(capturedBody.get).toOption.get
         val metadata = json.hcursor.downField("metadata")
         metadata.downField("event_type").as[String] shouldBe Right("chatops4s_idempotency")
         metadata.downField("event_payload").downField("key").as[String] shouldBe Right("my-key")
@@ -675,9 +717,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "send with key and match found in history should return existing MessageId" in {
         var postMessageCalled = false
-        val metadataJson = """{"event_type":"chatops4s_idempotency","event_payload":{"key":"my-key"}}"""
-        val historyResponse = s"""{"ok":true,"messages":[{"ts":"1234567890.999","metadata":$metadataJson}]}"""
-        val backend = MockBackend.create()
+        val metadataJson      = """{"event_type":"chatops4s_idempotency","event_payload":{"key":"my-key"}}"""
+        val historyResponse   = s"""{"ok":true,"messages":[{"ts":"1234567890.999","metadata":$metadataJson}]}"""
+        val backend           = MockBackend
+          .create()
           .whenRequestMatches(_.uri.toString().contains("conversations.history"))
           .thenRespondAdjust(historyResponse)
           .whenRequestMatches { req =>
@@ -687,7 +730,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           .thenRespondAdjust(okPostMsg)
 
         val gateway = createGateway(backend)
-        val result = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("my-key"))).unsafeRunSync()
+        val result  = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("my-key"))).unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.999"))
         postMessageCalled shouldBe false
@@ -695,8 +738,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "reply with key and no match in thread should send with metadata" in {
         var capturedBody: Option[String] = None
-        val repliesResponse = """{"ok":true,"messages":[]}"""
-        val backend = MockBackend.create()
+        val repliesResponse              = """{"ok":true,"messages":[]}"""
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches(_.uri.toString().contains("conversations.replies"))
           .thenRespondAdjust(repliesResponse)
           .whenRequestMatches { req =>
@@ -704,20 +748,20 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
           }
           .thenRespondAdjust(okPostMsg)
 
-        val gateway = createGateway(backend)
+        val gateway   = createGateway(backend)
         val threadMsg = MessageId(ChannelId("C123"), Timestamp("1234567890.100"))
-        val result = gateway.reply(threadMsg, "Thread reply", idempotencyKey = Some(IdempotencyKey("reply-key"))).unsafeRunSync()
+        val result    = gateway.reply(threadMsg, "Thread reply", idempotencyKey = Some(IdempotencyKey("reply-key"))).unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
         capturedBody shouldBe defined
-        val json = parser.parse(capturedBody.get).toOption.get
+        val json     = parser.parse(capturedBody.get).toOption.get
         val metadata = json.hcursor.downField("metadata")
         metadata.downField("event_type").as[String] shouldBe Right("chatops4s_idempotency")
         metadata.downField("event_payload").downField("key").as[String] shouldBe Right("reply-key")
@@ -725,9 +769,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "reply with key and match found in thread should return existing MessageId" in {
         var postMessageCalled = false
-        val metadataJson = """{"event_type":"chatops4s_idempotency","event_payload":{"key":"reply-key"}}"""
-        val repliesResponse = s"""{"ok":true,"messages":[{"ts":"1234567890.200","metadata":$metadataJson}]}"""
-        val backend = MockBackend.create()
+        val metadataJson      = """{"event_type":"chatops4s_idempotency","event_payload":{"key":"reply-key"}}"""
+        val repliesResponse   = s"""{"ok":true,"messages":[{"ts":"1234567890.200","metadata":$metadataJson}]}"""
+        val backend           = MockBackend
+          .create()
           .whenRequestMatches(_.uri.toString().contains("conversations.replies"))
           .thenRespondAdjust(repliesResponse)
           .whenRequestMatches { req =>
@@ -736,9 +781,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           }
           .thenRespondAdjust(okPostMsg)
 
-        val gateway = createGateway(backend)
+        val gateway   = createGateway(backend)
         val threadMsg = MessageId(ChannelId("C123"), Timestamp("1234567890.100"))
-        val result = gateway.reply(threadMsg, "Thread reply", idempotencyKey = Some(IdempotencyKey("reply-key"))).unsafeRunSync()
+        val result    = gateway.reply(threadMsg, "Thread reply", idempotencyKey = Some(IdempotencyKey("reply-key"))).unsafeRunSync()
 
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.200"))
         postMessageCalled shouldBe false
@@ -746,8 +791,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "send with noCheck should always send even with key" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        var postMessageCallCount = 0
-        val backend = MockBackend.create()
+        var postMessageCallCount               = 0
+        val backend                            = MockBackend
+          .create()
           .whenRequestMatches { req =>
             if (req.uri.toString().contains("chat.postMessage")) postMessageCallCount += 1
             true
@@ -763,8 +809,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "withIdempotencyCheck should swap strategy at runtime" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        var postMessageCallCount = 0
-        val backend = MockBackend.create()
+        var postMessageCallCount               = 0
+        val backend                            = MockBackend
+          .create()
           .whenRequestMatches { req =>
             if (req.uri.toString().contains("chat.postMessage")) postMessageCallCount += 1
             true
@@ -787,9 +834,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "send with inMemory check should use local cache and skip Slack scan" in {
         given monad: sttp.monad.MonadError[IO] = MockBackend.create().monad
-        var historyCallCount = 0
-        var postMessageCallCount = 0
-        val backend = MockBackend.create()
+        var historyCallCount                   = 0
+        var postMessageCallCount               = 0
+        val backend                            = MockBackend
+          .create()
           .whenRequestMatches { req =>
             if (req.uri.toString().contains("conversations.history")) historyCallCount += 1
             if (req.uri.toString().contains("chat.postMessage")) postMessageCallCount += 1
@@ -797,7 +845,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           }
           .thenRespondAdjust(okPostMsg)
 
-        val cache = IdempotencyCheck.inMemory[IO]().unsafeRunSync()
+        val cache   = IdempotencyCheck.inMemory[IO]().unsafeRunSync()
         val gateway = createGateway(backend, idempotencyCheck = Some(cache))
 
         val result1 = gateway.send("C123", "Hello", idempotencyKey = Some(IdempotencyKey("key-1"))).unsafeRunSync()
@@ -823,13 +871,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should open form with correct view JSON" in {
         var capturedBody: Option[String] = None
-        val backend = MockBackend.create()
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("views.open")
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
@@ -868,19 +917,21 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should dispatch view submission to registered handler" in {
-        val gateway = createGateway()
+        val gateway                                          = createGateway()
         var captured: Option[FormSubmission[TestSubmitForm]] = None
 
         case class TestSubmitForm(name: String, count: Int) derives FormDef
 
-        val formId = gateway.registerForm[TestSubmitForm] { submission =>
-          IO { captured = Some(submission) }
-        }.unsafeRunSync()
+        val formId = gateway
+          .registerForm[TestSubmitForm] { submission =>
+            IO { captured = Some(submission) }
+          }
+          .unsafeRunSync()
 
         val payload = viewSubmissionPayload(
           callbackId = formId.value,
           values = Map(
-            "name" -> Map("name" -> ViewStateValue(value = Some("my-service"))),
+            "name"  -> Map("name" -> ViewStateValue(value = Some("my-service"))),
             "count" -> Map("count" -> ViewStateValue(value = Some("42"))),
           ),
         )
@@ -894,13 +945,15 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should ignore unknown callback IDs in view submission" in {
         val gateway = createGateway()
-        var called = false
+        var called  = false
 
         case class TestForm(name: String) derives FormDef
 
-        gateway.registerForm[TestForm] { _ =>
-          IO { called = true }
-        }.unsafeRunSync()
+        gateway
+          .registerForm[TestForm] { _ =>
+            IO { called = true }
+          }
+          .unsafeRunSync()
 
         val payload = viewSubmissionPayload(
           callbackId = "unknown-id",
@@ -951,7 +1004,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
             nickname: Option[String],
         ) derives FormDef
 
-        val fd = summon[FormDef[SampleForm]]
+        val fd     = summon[FormDef[SampleForm]]
         val fields = fd.fields
 
         fields.size shouldBe 5
@@ -965,10 +1018,10 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse values correctly" in {
         case class SampleForm(name: String, count: Int, active: Boolean) derives FormDef
 
-        val fd = summon[FormDef[SampleForm]]
+        val fd     = summon[FormDef[SampleForm]]
         val values = Map(
-          "name" -> Map("name" -> ViewStateValue(value = Some("test"))),
-          "count" -> Map("count" -> ViewStateValue(value = Some("5"))),
+          "name"   -> Map("name" -> ViewStateValue(value = Some("test"))),
+          "count"  -> Map("count" -> ViewStateValue(value = Some("5"))),
           "active" -> Map("active" -> ViewStateValue(selected_options = Some(List(SelectedOption(value = "true"))))),
         )
 
@@ -979,7 +1032,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse boolean false (empty selected_options)" in {
         case class BoolForm(flag: Boolean) derives FormDef
 
-        val fd = summon[FormDef[BoolForm]]
+        val fd     = summon[FormDef[BoolForm]]
         val values = Map(
           "flag" -> Map("flag" -> ViewStateValue(selected_options = Some(List.empty))),
         )
@@ -990,7 +1043,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Option[String] as None when missing" in {
         case class OptForm(note: Option[String]) derives FormDef
 
-        val fd = summon[FormDef[OptForm]]
+        val fd     = summon[FormDef[OptForm]]
         val values = Map(
           "note" -> Map("note" -> ViewStateValue()),
         )
@@ -1001,7 +1054,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Option[String] as Some when present" in {
         case class OptForm(note: Option[String]) derives FormDef
 
-        val fd = summon[FormDef[OptForm]]
+        val fd     = summon[FormDef[OptForm]]
         val values = Map(
           "note" -> Map("note" -> ViewStateValue(value = Some("hello"))),
         )
@@ -1014,7 +1067,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse LocalDate" in {
         case class DateForm(date: LocalDate) derives FormDef
 
-        val fd = summon[FormDef[DateForm]]
+        val fd     = summon[FormDef[DateForm]]
         val values = Map(
           "date" -> Map("date" -> ViewStateValue(selected_date = Some("2025-01-15"))),
         )
@@ -1025,7 +1078,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse LocalTime" in {
         case class TimeForm(time: LocalTime) derives FormDef
 
-        val fd = summon[FormDef[TimeForm]]
+        val fd     = summon[FormDef[TimeForm]]
         val values = Map(
           "time" -> Map("time" -> ViewStateValue(selected_time = Some("14:30"))),
         )
@@ -1036,7 +1089,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Instant" in {
         case class InstantForm(timestamp: Instant) derives FormDef
 
-        val fd = summon[FormDef[InstantForm]]
+        val fd     = summon[FormDef[InstantForm]]
         val values = Map(
           "timestamp" -> Map("timestamp" -> ViewStateValue(selected_date_time = Some(1700000000))),
         )
@@ -1047,7 +1100,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Email" in {
         case class EmailForm(email: Email) derives FormDef
 
-        val fd = summon[FormDef[EmailForm]]
+        val fd     = summon[FormDef[EmailForm]]
         val values = Map(
           "email" -> Map("email" -> ViewStateValue(value = Some("test@example.com"))),
         )
@@ -1058,7 +1111,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Url" in {
         case class UrlForm(website: Url) derives FormDef
 
-        val fd = summon[FormDef[UrlForm]]
+        val fd     = summon[FormDef[UrlForm]]
         val values = Map(
           "website" -> Map("website" -> ViewStateValue(value = Some("https://example.com"))),
         )
@@ -1069,7 +1122,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse UserId" in {
         case class UserForm(user: UserId) derives FormDef
 
-        val fd = summon[FormDef[UserForm]]
+        val fd     = summon[FormDef[UserForm]]
         val values = Map(
           "user" -> Map("user" -> ViewStateValue(selected_user = Some(UserId("U456")))),
         )
@@ -1080,7 +1133,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse List[UserId]" in {
         case class UsersForm(users: List[UserId]) derives FormDef
 
-        val fd = summon[FormDef[UsersForm]]
+        val fd     = summon[FormDef[UsersForm]]
         val values = Map(
           "users" -> Map("users" -> ViewStateValue(selected_users = Some(List(UserId("U1"), UserId("U2"))))),
         )
@@ -1091,7 +1144,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse ChannelId" in {
         case class ChannelForm(channel: ChannelId) derives FormDef
 
-        val fd = summon[FormDef[ChannelForm]]
+        val fd     = summon[FormDef[ChannelForm]]
         val values = Map(
           "channel" -> Map("channel" -> ViewStateValue(selected_channel = Some("C789"))),
         )
@@ -1102,7 +1155,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse List[ChannelId]" in {
         case class ChannelsForm(channels: List[ChannelId]) derives FormDef
 
-        val fd = summon[FormDef[ChannelsForm]]
+        val fd     = summon[FormDef[ChannelsForm]]
         val values = Map(
           "channels" -> Map("channels" -> ViewStateValue(selected_channels = Some(List("C1", "C2")))),
         )
@@ -1113,7 +1166,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse ConversationId" in {
         case class ConvoForm(convo: ConversationId) derives FormDef
 
-        val fd = summon[FormDef[ConvoForm]]
+        val fd     = summon[FormDef[ConvoForm]]
         val values = Map(
           "convo" -> Map("convo" -> ViewStateValue(selected_conversation = Some("D123"))),
         )
@@ -1124,7 +1177,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse List[ConversationId]" in {
         case class ConvosForm(convos: List[ConversationId]) derives FormDef
 
-        val fd = summon[FormDef[ConvosForm]]
+        val fd     = summon[FormDef[ConvosForm]]
         val values = Map(
           "convos" -> Map("convos" -> ViewStateValue(selected_conversations = Some(List("D1", "D2")))),
         )
@@ -1135,11 +1188,13 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse RichTextBlock" in {
         case class RichForm(content: RichTextBlock) derives FormDef
 
-        val fd = summon[FormDef[RichForm]]
-        val richBlock = RichTextBlock(elements = List(
-          RichTextSection(elements = List(RichTextText("Hello"))),
-        ))
-        val values = Map(
+        val fd        = summon[FormDef[RichForm]]
+        val richBlock = RichTextBlock(elements =
+          List(
+            RichTextSection(elements = List(RichTextText("Hello"))),
+          ),
+        )
+        val values    = Map(
           "content" -> Map("content" -> ViewStateValue(rich_text_value = Some(richBlock))),
         )
 
@@ -1149,9 +1204,9 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse List[Json] (files)" in {
         case class FileForm(attachments: List[Json]) derives FormDef
 
-        val fd = summon[FormDef[FileForm]]
-        val file1 = Json.obj("id" -> Json.fromString("F1"))
-        val file2 = Json.obj("id" -> Json.fromString("F2"))
+        val fd     = summon[FormDef[FileForm]]
+        val file1  = Json.obj("id" -> Json.fromString("F1"))
+        val file2  = Json.obj("id" -> Json.fromString("F2"))
         val values = Map(
           "attachments" -> Map("attachments" -> ViewStateValue(files = Some(List(file1, file2)))),
         )
@@ -1164,7 +1219,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Option[LocalDate] as None" in {
         case class OptDateForm(date: Option[LocalDate]) derives FormDef
 
-        val fd = summon[FormDef[OptDateForm]]
+        val fd     = summon[FormDef[OptDateForm]]
         val values = Map(
           "date" -> Map("date" -> ViewStateValue()),
         )
@@ -1175,7 +1230,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Option[LocalDate] as Some" in {
         case class OptDateForm(date: Option[LocalDate]) derives FormDef
 
-        val fd = summon[FormDef[OptDateForm]]
+        val fd     = summon[FormDef[OptDateForm]]
         val values = Map(
           "date" -> Map("date" -> ViewStateValue(selected_date = Some("2025-06-15"))),
         )
@@ -1186,7 +1241,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Option[UserId] as None" in {
         case class OptUserForm(user: Option[UserId]) derives FormDef
 
-        val fd = summon[FormDef[OptUserForm]]
+        val fd     = summon[FormDef[OptUserForm]]
         val values = Map(
           "user" -> Map("user" -> ViewStateValue()),
         )
@@ -1197,7 +1252,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "FormDef.derived should parse Option[UserId] as Some" in {
         case class OptUserForm(user: Option[UserId]) derives FormDef
 
-        val fd = summon[FormDef[OptUserForm]]
+        val fd     = summon[FormDef[OptUserForm]]
         val values = Map(
           "user" -> Map("user" -> ViewStateValue(selected_user = Some(UserId("U999")))),
         )
@@ -1212,7 +1267,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           BlockOption(text = PlainTextObject("Small"), value = "s") -> "small",
           BlockOption(text = PlainTextObject("Large"), value = "l") -> "large",
         )
-        val codec = FieldCodec.staticSelect(mappings)
+        val codec    = FieldCodec.staticSelect(mappings)
 
         val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "s"))))
         result shouldBe Right("small")
@@ -1222,7 +1277,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val mappings = List(
           BlockOption(text = PlainTextObject("Small"), value = "s") -> "small",
         )
-        val codec = FieldCodec.staticSelect(mappings)
+        val codec    = FieldCodec.staticSelect(mappings)
 
         val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "x"))))
         result.isLeft shouldBe true
@@ -1234,21 +1289,27 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
           BlockOption(text = PlainTextObject("B"), value = "b") -> 2,
           BlockOption(text = PlainTextObject("C"), value = "c") -> 3,
         )
-        val codec = FieldCodec.multiStaticSelect(mappings)
+        val codec    = FieldCodec.multiStaticSelect(mappings)
 
-        val result = codec.parse(ViewStateValue(selected_options = Some(List(
-          SelectedOption(value = "a"),
-          SelectedOption(value = "c"),
-        ))))
+        val result = codec.parse(
+          ViewStateValue(selected_options =
+            Some(
+              List(
+                SelectedOption(value = "a"),
+                SelectedOption(value = "c"),
+              ),
+            ),
+          ),
+        )
         result shouldBe Right(List(1, 3))
       }
 
       "radioButtons should parse selected option" in {
         val mappings = List(
           BlockOption(text = PlainTextObject("Yes"), value = "y") -> true,
-          BlockOption(text = PlainTextObject("No"), value = "n") -> false,
+          BlockOption(text = PlainTextObject("No"), value = "n")  -> false,
         )
-        val codec = FieldCodec.radioButtons(mappings)
+        val codec    = FieldCodec.radioButtons(mappings)
 
         val result = codec.parse(ViewStateValue(selected_option = Some(SelectedOption(value = "n"))))
         result shouldBe Right(false)
@@ -1256,16 +1317,22 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "checkboxes should parse selected options" in {
         val mappings = List(
-          BlockOption(text = PlainTextObject("Read"), value = "r") -> "read",
-          BlockOption(text = PlainTextObject("Write"), value = "w") -> "write",
+          BlockOption(text = PlainTextObject("Read"), value = "r")    -> "read",
+          BlockOption(text = PlainTextObject("Write"), value = "w")   -> "write",
           BlockOption(text = PlainTextObject("Execute"), value = "x") -> "exec",
         )
-        val codec = FieldCodec.checkboxes(mappings)
+        val codec    = FieldCodec.checkboxes(mappings)
 
-        val result = codec.parse(ViewStateValue(selected_options = Some(List(
-          SelectedOption(value = "r"),
-          SelectedOption(value = "x"),
-        ))))
+        val result = codec.parse(
+          ViewStateValue(selected_options =
+            Some(
+              List(
+                SelectedOption(value = "r"),
+                SelectedOption(value = "x"),
+              ),
+            ),
+          ),
+        )
         result shouldBe Right(List("read", "exec"))
       }
 
@@ -1279,10 +1346,16 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       "multiExternalSelect should parse selected options" in {
         val codec = FieldCodec.multiExternalSelect()
 
-        val result = codec.parse(ViewStateValue(selected_options = Some(List(
-          SelectedOption(value = "v1"),
-          SelectedOption(value = "v2"),
-        ))))
+        val result = codec.parse(
+          ViewStateValue(selected_options =
+            Some(
+              List(
+                SelectedOption(value = "v1"),
+                SelectedOption(value = "v2"),
+              ),
+            ),
+          ),
+        )
         result shouldBe Right(List("v1", "v2"))
       }
 
@@ -1290,13 +1363,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should open form with date picker element" in {
         var capturedBody: Option[String] = None
-        val backend = MockBackend.create()
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("views.open")
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
@@ -1311,7 +1385,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.openForm(TriggerId("trigger-123"), formId, "Pick Date").unsafeRunSync()
 
         capturedBody shouldBe defined
-        val json = parser.parse(capturedBody.get).toOption.get
+        val json   = parser.parse(capturedBody.get).toOption.get
         val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
         blocks.size shouldBe 1
         blocks(0).hcursor.downField("element").downField("type").as[String] shouldBe Right("datepicker")
@@ -1319,13 +1393,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should open form with users select element" in {
         var capturedBody: Option[String] = None
-        val backend = MockBackend.create()
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("views.open")
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
@@ -1340,7 +1415,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.openForm(TriggerId("trigger-123"), formId, "Pick User").unsafeRunSync()
 
         capturedBody shouldBe defined
-        val json = parser.parse(capturedBody.get).toOption.get
+        val json   = parser.parse(capturedBody.get).toOption.get
         val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
         blocks.size shouldBe 1
         blocks(0).hcursor.downField("element").downField("type").as[String] shouldBe Right("users_select")
@@ -1348,13 +1423,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should open form with email input element" in {
         var capturedBody: Option[String] = None
-        val backend = MockBackend.create()
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("views.open")
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
@@ -1369,7 +1445,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.openForm(TriggerId("trigger-123"), formId, "Enter Email").unsafeRunSync()
 
         capturedBody shouldBe defined
-        val json = parser.parse(capturedBody.get).toOption.get
+        val json   = parser.parse(capturedBody.get).toOption.get
         val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
         blocks.size shouldBe 1
         blocks(0).hcursor.downField("element").downField("type").as[String] shouldBe Right("email_text_input")
@@ -1377,13 +1453,14 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should open form with all element types" in {
         var capturedBody: Option[String] = None
-        val backend = MockBackend.create()
+        val backend                      = MockBackend
+          .create()
           .whenRequestMatches { req =>
             val matches = req.uri.toString().contains("views.open")
             if (matches) {
               capturedBody = req.body match {
                 case sttp.client4.StringBody(s, _, _) => Some(s)
-                case _ => None
+                case _                                => None
               }
             }
             matches
@@ -1411,22 +1488,22 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         gateway.openForm(TriggerId("trigger-123"), formId, "Full Form").unsafeRunSync()
 
         capturedBody shouldBe defined
-        val json = parser.parse(capturedBody.get).toOption.get
+        val json   = parser.parse(capturedBody.get).toOption.get
         val blocks = json.hcursor.downField("view").downField("blocks").as[List[Json]].toOption.get
         blocks.size shouldBe 12
 
         val expectedTypes = List(
-          "plain_text_input",   // name: String
-          "number_input",       // age: Int
-          "number_input",       // score: Double
-          "checkboxes",         // active: Boolean
-          "email_text_input",   // email: Email
-          "url_text_input",     // website: Url
-          "datepicker",         // date: LocalDate
-          "timepicker",         // time: LocalTime
-          "datetimepicker",     // timestamp: Instant
-          "users_select",       // user: UserId
-          "channels_select",    // channel: ChannelId
+          "plain_text_input",    // name: String
+          "number_input",        // age: Int
+          "number_input",        // score: Double
+          "checkboxes",          // active: Boolean
+          "email_text_input",    // email: Email
+          "url_text_input",      // website: Url
+          "datepicker",          // date: LocalDate
+          "timepicker",          // time: LocalTime
+          "datetimepicker",      // timestamp: Instant
+          "users_select",        // user: UserId
+          "channels_select",     // channel: ChannelId
           "conversations_select", // convo: ConversationId
         )
 

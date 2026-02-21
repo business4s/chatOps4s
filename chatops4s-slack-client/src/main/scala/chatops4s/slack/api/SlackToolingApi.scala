@@ -8,7 +8,7 @@ import sttp.monad.syntax.*
 class SlackToolingApi[F[_]](backend: Backend[F], token: SlackRefreshToken) {
 
   private given MonadError[F] = backend.monad
-  private val baseUrl          = "https://slack.com/api"
+  private val baseUrl         = "https://slack.com/api"
 
   object tooling {
     object tokens {

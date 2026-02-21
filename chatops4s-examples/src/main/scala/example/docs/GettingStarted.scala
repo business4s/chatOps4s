@@ -13,12 +13,12 @@ object SendMessage extends IOApp.Simple {
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
-        slack    <- SlackGateway.create(backend)
-        _        <- slack.verifySetup("MyApp", "slack-manifest.yml")
-        _        <- slack.start(
-                      SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
-                      sys.env.get("SLACK_APP_TOKEN").map(SlackAppToken.unsafe),
-                    )
+        slack <- SlackGateway.create(backend)
+        _     <- slack.verifySetup("MyApp", "slack-manifest.yml")
+        _     <- slack.start(
+                   SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
+                   sys.env.get("SLACK_APP_TOKEN").map(SlackAppToken.unsafe),
+                 )
       } yield ()
     }
 }
@@ -31,12 +31,11 @@ object CustomManifestSetup extends IOApp.Simple {
       for {
         slack <- SlackGateway.create(backend)
         // start_custom_manifest
-        _ <- slack.verifySetup(
-          appName = "MyApp",
-          manifestPath = "slack-manifest.yml",
-          modifier = (m: SlackAppManifest) =>
-            m.addOutgoingDomains("api.example.com"),
-        )
+        _     <- slack.verifySetup(
+                   appName = "MyApp",
+                   manifestPath = "slack-manifest.yml",
+                   modifier = (m: SlackAppManifest) => m.addOutgoingDomains("api.example.com"),
+                 )
         // end_custom_manifest
       } yield ()
     }
@@ -45,29 +44,29 @@ object CustomManifestSetup extends IOApp.Simple {
 // start_buttons
 object InteractiveButtons extends IOApp.Simple {
 
-  private val channel  = sys.env("SLACK_CHANNEL")
+  private val channel = sys.env("SLACK_CHANNEL")
 
   override def run: IO[Unit] =
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack      <- SlackGateway.create(backend)
         approveBtn <- slack.registerButton[String] { click =>
-                        slack.update(click.messageId, s"Approved by <@${click.userId}>")
-                          .void
+                        slack.update(click.messageId, s"Approved by <@${click.userId}>").void
                       }
         rejectBtn  <- slack.registerButton[String] { click =>
-                        slack.update(click.messageId, s"Rejected by <@${click.userId}>")
-                          .void
+                        slack.update(click.messageId, s"Rejected by <@${click.userId}>").void
                       }
         _          <- slack.registerCommand[String]("deploy", "Deploy to production") { _ =>
-                        slack.send(
-                          channel,
-                          "Deploy v1.2.3 to production?",
-                          Seq(
-                            approveBtn.render("Approve", "v1.2.3"),
-                            rejectBtn.render("Reject", "v1.2.3"),
-                          ),
-                        ).as(CommandResponse.Silent)
+                        slack
+                          .send(
+                            channel,
+                            "Deploy v1.2.3 to production?",
+                            Seq(
+                              approveBtn.render("Approve", "v1.2.3"),
+                              rejectBtn.render("Reject", "v1.2.3"),
+                            ),
+                          )
+                          .as(CommandResponse.Silent)
                       }
         _          <- slack.verifySetup("InteractiveButtons", "slack-manifest.yml")
         _          <- slack.start(
@@ -82,7 +81,7 @@ object InteractiveButtons extends IOApp.Simple {
 // start_forms
 object InteractiveForms extends IOApp.Simple {
 
-  private val channel  = sys.env("SLACK_CHANNEL")
+  private val channel = sys.env("SLACK_CHANNEL")
 
   case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
 
@@ -93,11 +92,11 @@ object InteractiveForms extends IOApp.Simple {
         // start_form_register
         deployForm <- slack.registerForm[DeployForm] { submission =>
                         val form = submission.values
-                        slack.send(channel, s"Deploying ${form.service} ${form.version}")
-                          .void
+                        slack.send(channel, s"Deploying ${form.service} ${form.version}").void
                       }
         _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
-                        slack.openForm(cmd.triggerId, deployForm, "Deploy Service")
+                        slack
+                          .openForm(cmd.triggerId, deployForm, "Deploy Service")
                           .as(CommandResponse.Silent)
                       }
         // end_form_register
@@ -127,13 +126,19 @@ private object HeroSnippet {
                       slack.update(click.messageId, s"Rejected by <@${click.userId}>").void
                     }
       _          <- slack.registerCommand[String]("deploy", "Deploy to production") { _ =>
-                      slack.send(channel, "Deploy v1.2.3?", Seq(
-                        approveBtn.render("Approve", "v1.2.3"),
-                        rejectBtn.render("Reject", "v1.2.3"),
-                      )).as(CommandResponse.Silent)
+                      slack
+                        .send(
+                          channel,
+                          "Deploy v1.2.3?",
+                          Seq(
+                            approveBtn.render("Approve", "v1.2.3"),
+                            rejectBtn.render("Reject", "v1.2.3"),
+                          ),
+                        )
+                        .as(CommandResponse.Silent)
                     }
       _          <- slack.verifySetup("MyApp", "slack-manifest.yml")
       _          <- slack.start(botToken, Some(appToken))
     } yield ()
-    // end_hero
+  // end_hero
 }

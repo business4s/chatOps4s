@@ -18,7 +18,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     }
 
   private def parseOk[T: Decoder](name: String)(checks: T => Unit): Unit = {
-    val json = loadFixture(name)
+    val json   = loadFixture(name)
     assume(json.isDefined, s"Fixture $name not found — run ResponseCollector first")
     val result = decode[SlackResponse[T]](json.get)
     result match {
@@ -88,33 +88,33 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     }
 
     "error response parses as Err" in {
-      val json = loadFixture("error.json")
+      val json   = loadFixture("error.json")
       assume(json.isDefined, "Fixture error.json not found — run ResponseCollector first")
       val result = decode[SlackResponse[chat.DeleteResponse]](json.get)
       result match {
         case Right(SlackResponse.Err(error)) =>
           error should not be empty
-        case Right(SlackResponse.Ok(_)) =>
+        case Right(SlackResponse.Ok(_))      =>
           fail("Expected Err but got Ok")
-        case Left(err) =>
+        case Left(err)                       =>
           fail(s"Failed to decode: $err")
       }
     }
 
     "okOrThrow works on success" in {
-      val json = loadFixture("chat.postMessage.json")
+      val json     = loadFixture("chat.postMessage.json")
       assume(json.isDefined, "Fixture chat.postMessage.json not found — run ResponseCollector first")
       val response = decode[SlackResponse[chat.PostMessageResponse]](json.get).toOption.get
-      val value = response.okOrThrow
+      val value    = response.okOrThrow
       value.channel.value should not be empty
       value.ts.value should not be empty
     }
 
     "okOrThrow throws SlackApiError on error" in {
-      val json = loadFixture("error.json")
+      val json     = loadFixture("error.json")
       assume(json.isDefined, "Fixture error.json not found — run ResponseCollector first")
       val response = decode[SlackResponse[chat.DeleteResponse]](json.get).toOption.get
-      val ex = intercept[SlackApiError] {
+      val ex       = intercept[SlackApiError] {
         response.okOrThrow
       }
       ex.error should not be empty
@@ -140,7 +140,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |    "subtype": "bot_message",
           |    "ts": "1503435956.000247"
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.channel shouldBe ChannelId("C123456")
         r.ts shouldBe Timestamp("1503435956.000247")
@@ -160,7 +160,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |    "text": "Updated text you carefully authored",
           |    "user": "U34567"
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.channel shouldBe ChannelId("C123456")
         r.ts shouldBe Timestamp("1401383885.000061")
@@ -176,7 +176,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |  "ok": true,
           |  "channel": "C123456",
           |  "ts": "1401383885.000061"
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.channel shouldBe ChannelId("C123456")
         r.ts shouldBe Timestamp("1401383885.000061")
@@ -189,7 +189,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
         """{
           |  "ok": true,
           |  "message_ts": "1502210682.580145"
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.message_ts shouldBe Timestamp("1502210682.580145")
       }
@@ -260,7 +260,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |    "external_id": "",
           |    "app_installed_team_id": "T8N4K1JN"
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.view shouldBe defined
         r.view.get.hcursor.get[String]("id").toOption shouldBe Some("VMHU10V25")
@@ -274,7 +274,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
         """{
           |  "ok": true,
           |  "url": "wss://wss-primary.slack.com/link/?ticket=example-ticket&app_id=A123456"
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.url should startWith("wss://")
       }
@@ -303,7 +303,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |  "response_metadata": {
           |    "messages": ["something"]
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.messages.size shouldBe 2
         r.messages.head.text shouldBe Some("I find you punny and would like to smell your daisy")
@@ -328,7 +328,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |      }
           |    }
           |  ]
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.messages.size shouldBe 1
         r.messages.head.metadata shouldBe defined
@@ -361,7 +361,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |    }
           |  ],
           |  "has_more": false
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.messages.size shouldBe 2
         r.messages(1).text shouldBe Some("A reply")
@@ -606,14 +606,14 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
         case Left(err) => fail(s"Failed to decode: $err")
         case Right(m)  =>
           m.functions shouldBe defined
-          val fn = m.functions.get("greeting_fn")
+          val fn        = m.functions.get("greeting_fn")
           fn.title shouldBe "Greeting"
           fn.input_parameters.properties should have size 2
           fn.input_parameters.required shouldBe Some(List("recipient"))
           val recipient = fn.input_parameters.properties("recipient")
           recipient.`type` shouldBe "slack#/types/user_id"
           recipient.is_required shouldBe Some(true)
-          val style = fn.input_parameters.properties("style")
+          val style     = fn.input_parameters.properties("style")
           style.choices shouldBe defined
           style.choices.get should have size 2
           style.choices.get.head.title shouldBe "Formal"
@@ -919,9 +919,11 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
         ),
         features = Features(
           bot_user = Some(BotUser(display_name = "round-trip-app", always_online = Some(true))),
-          slash_commands = Some(List(
-            SlashCommand(command = "/deploy", description = "Deploy", usage_hint = Some("[env]")),
-          )),
+          slash_commands = Some(
+            List(
+              SlashCommand(command = "/deploy", description = "Deploy", usage_hint = Some("[env]")),
+            ),
+          ),
         ),
         oauth_config = OauthConfig(
           scopes = Some(OauthScopes(bot = Some(List("chat:write", "commands")))),
@@ -938,8 +940,8 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
       val decoded = json.as[SlackAppManifest]
 
       decoded match {
-        case Left(err)  => fail(s"Round-trip decode failed: $err")
-        case Right(m)   =>
+        case Left(err) => fail(s"Round-trip decode failed: $err")
+        case Right(m)  =>
           m.display_information shouldBe original.display_information
           m.features.bot_user shouldBe original.features.bot_user
           m.features.slash_commands shouldBe original.features.slash_commands
@@ -954,32 +956,38 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     "round-trip with new manifest sections" in {
       val original = SlackAppManifest(
         display_information = DisplayInformation(name = "full-app"),
-        functions = Some(Map(
-          "greet" -> ManifestFunction(
-            title = "Greet",
-            description = "Send greeting",
-            input_parameters = ParameterSet(
-              properties = Map("name" -> ParameterProperty(`type` = "string", title = Some("Name"))),
-              required = Some(List("name")),
-            ),
-            output_parameters = ParameterSet(
-              properties = Map("msg" -> ParameterProperty(`type` = "string")),
+        functions = Some(
+          Map(
+            "greet" -> ManifestFunction(
+              title = "Greet",
+              description = "Send greeting",
+              input_parameters = ParameterSet(
+                properties = Map("name" -> ParameterProperty(`type` = "string", title = Some("Name"))),
+                required = Some(List("name")),
+              ),
+              output_parameters = ParameterSet(
+                properties = Map("msg" -> ParameterProperty(`type` = "string")),
+              ),
             ),
           ),
-        )),
-        datastores = Some(Map(
-          "items" -> Datastore(
-            primary_key = "id",
-            attributes = Map("id" -> DatastoreAttribute(`type` = "string")),
+        ),
+        datastores = Some(
+          Map(
+            "items" -> Datastore(
+              primary_key = "id",
+              attributes = Map("id" -> DatastoreAttribute(`type` = "string")),
+            ),
           ),
-        )),
+        ),
         compliance = Some(Compliance(fedramp_authorization = Some("moderate"))),
         app_directory = Some(AppDirectory(pricing = Some("free"))),
         features = Features(
-          assistant_view = Some(AssistantView(
-            assistant_description = Some("Helper"),
-            suggested_prompts = Some(List(SuggestedPrompt("Hi", "Hello"))),
-          )),
+          assistant_view = Some(
+            AssistantView(
+              assistant_description = Some("Helper"),
+              suggested_prompts = Some(List(SuggestedPrompt("Hi", "Hello"))),
+            ),
+          ),
         ),
       )
 
@@ -1031,7 +1039,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |      "function_runtime": "remote"
           |    }
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.manifest shouldBe defined
         val m = r.manifest.get
@@ -1057,7 +1065,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |    "signing_secret": "ssecret"
           |  },
           |  "oauth_authorize_url": "https://slack.com/oauth/v2/authorize?client_id=12345.6789&scope=commands"
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.app_id shouldBe "A12345"
         r.credentials shouldBe defined
@@ -1075,7 +1083,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |  "ok": true,
           |  "app_id": "A12345",
           |  "permissions_updated": true
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.app_id shouldBe Some("A12345")
         r.permissions_updated shouldBe Some(true)
@@ -1086,7 +1094,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
       parseOkInline[apps.manifest.ValidateResponse](
         """{
           |  "ok": true
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.errors shouldBe None
       }
@@ -1103,7 +1111,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |      "pointer": "/display_information/name"
           |    }
           |  ]
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.errors shouldBe defined
         r.errors.get should have size 1
@@ -1140,7 +1148,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |      "socket_mode_enabled": true
           |    }
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.manifest shouldBe defined
         r.manifest.get.display_information.name shouldBe "exported-app"
@@ -1151,7 +1159,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
 
     "apps.manifest.delete" in {
       parseOkInline[apps.manifest.DeleteResponse](
-        """{"ok": true}"""
+        """{"ok": true}""",
       ) { _ => /* DeleteResponse is empty */ }
     }
 
@@ -1168,7 +1176,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |    "name": "Slack Softball Team",
           |    "id": "T9TK3CUKW"
           |  }
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.access_token shouldBe "xoxb-17653672481-19874698323-pdFZKVeTuE8sk7oOcBrzbqgy"
         r.token_type shouldBe Some("bot")
@@ -1186,7 +1194,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
         """{
           |  "ok": true,
           |  "access_token": "xoxp-user-token"
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.access_token shouldBe "xoxp-user-token"
         r.token_type shouldBe None
@@ -1204,7 +1212,7 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
           |  "user_id": "U12345",
           |  "iat": 1700000000,
           |  "exp": 1700043200
-          |}""".stripMargin
+          |}""".stripMargin,
       ) { r =>
         r.token shouldBe SlackConfigToken.unsafe("xoxe.xoxp-new-token")
         r.refresh_token shouldBe SlackRefreshToken.unsafe("xoxe-new-refresh")

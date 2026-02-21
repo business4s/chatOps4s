@@ -11,7 +11,7 @@ object Main extends IOApp.Simple {
 
   private lazy val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
   private lazy val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))
-  private val channel  = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
+  private val channel       = sys.env.getOrElse("SLACK_CHANNEL", "#testing-slack-app")
 
   override def run: IO[Unit] = {
     HttpClientFs2Backend.resource[IO]().use { backend =>
@@ -26,7 +26,8 @@ object Main extends IOApp.Simple {
                           val base = InitialValues.of[DeployForm]
                           if (cmd.args.trim.nonEmpty) base.set(_.service, cmd.args.trim) else base
                         }
-                        slack.openForm(cmd.triggerId, deployForm, "Deploy Service", initialValues = initial)
+                        slack
+                          .openForm(cmd.triggerId, deployForm, "Deploy Service", initialValues = initial)
                           .as(CommandResponse.Silent)
                       }
         // /status <service> → typed command with CommandParser[ServiceName]
@@ -49,22 +50,22 @@ object Main extends IOApp.Simple {
       approveBtn: ButtonId[ServiceVersion],
       rejectBtn: ButtonId[ServiceVersion],
   )(submission: FormSubmission[DeployForm]): IO[Unit] = {
-    val form = submission.values
+    val form      = submission.values
     val dryRunStr = if (form.dryRun) " (dry run)" else ""
-    val label = s"*${form.service}* *${form.version}*$dryRunStr"
-    val sv = ServiceVersion(form.service, form.version)
+    val label     = s"*${form.service}* *${form.version}*$dryRunStr"
+    val sv        = ServiceVersion(form.service, form.version)
     for {
-      msg <- slack.send(channel, s"<@${submission.userId}> requested deploy of $label")
-      _   <- slack.addReaction(msg, "hourglass_flowing_sand")
-      resp   <- slack.reply(
-               msg,
-               s"Approve deployment of $label?",
-               Seq(
-                 approveBtn.render("Approve", sv),
-                 rejectBtn.render("Reject", sv),
-               ),
-             )
-      _ = println(s"Deploy request reply: $resp")
+      msg  <- slack.send(channel, s"<@${submission.userId}> requested deploy of $label")
+      _    <- slack.addReaction(msg, "hourglass_flowing_sand")
+      resp <- slack.reply(
+                msg,
+                s"Approve deployment of $label?",
+                Seq(
+                  approveBtn.render("Approve", sv),
+                  rejectBtn.render("Reject", sv),
+                ),
+              )
+      _     = println(s"Deploy request reply: $resp")
     } yield ()
   }
 

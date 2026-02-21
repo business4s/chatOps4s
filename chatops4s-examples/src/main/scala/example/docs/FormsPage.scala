@@ -17,7 +17,8 @@ private object FormsPage {
                       slack.send(channel, s"Deploying ${form.service} ${form.version}").void
                     }
       _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
-                      slack.openForm(cmd.triggerId, deployForm, "Deploy Service")
+                      slack
+                        .openForm(cmd.triggerId, deployForm, "Deploy Service")
                         .as(CommandResponse.Silent)
                     }
       // end_form_open
@@ -29,7 +30,8 @@ private object FormsPage {
       triggerId: chatops4s.slack.api.TriggerId,
       formId: FormId[DeployForm],
   ): IO[Unit] = {
-    val initial = InitialValues.of[DeployForm]
+    val initial = InitialValues
+      .of[DeployForm]
       .set(_.service, "api-gateway")
       .set(_.version, "1.0.0")
       .set(_.dryRun, true)
@@ -49,8 +51,8 @@ private object FormsPage {
                       slack.send(channel, s"[$meta] Deploying ${form.service}").void
                     }
       _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
-                      slack.openForm(cmd.triggerId, deployForm, "Deploy",
-                        metadata = s"${cmd.channelId}:requested")
+                      slack
+                        .openForm(cmd.triggerId, deployForm, "Deploy", metadata = s"${cmd.channelId}:requested")
                         .as(CommandResponse.Silent)
                     }
     } yield ()

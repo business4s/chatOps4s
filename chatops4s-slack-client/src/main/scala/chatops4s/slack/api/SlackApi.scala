@@ -10,12 +10,7 @@ import chatops4s.slack.api.chat.{
   UpdateRequest,
   UpdateResponse,
 }
-import chatops4s.slack.api.conversations.{
-  HistoryRequest,
-  HistoryResponse,
-  RepliesRequest,
-  RepliesResponse,
-}
+import chatops4s.slack.api.conversations.{HistoryRequest, HistoryResponse, RepliesRequest, RepliesResponse}
 import chatops4s.slack.api.reactions.{AddRequest, AddResponse, RemoveRequest, RemoveResponse}
 import chatops4s.slack.api.users.{InfoRequest as UsersInfoRequest, InfoResponse as UsersInfoResponse}
 import chatops4s.slack.api.views.{OpenRequest, OpenResponse}

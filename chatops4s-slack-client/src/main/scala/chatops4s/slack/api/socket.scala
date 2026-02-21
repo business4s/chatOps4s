@@ -6,20 +6,20 @@ import chatops4s.slack.api.blocks.ViewType
 
 object socket {
 
-  private type Block = chatops4s.slack.api.blocks.Block
+  private type Block      = chatops4s.slack.api.blocks.Block
   private type TextObject = chatops4s.slack.api.blocks.TextObject
 
-  enum EnvelopeType {
+  enum EnvelopeType   {
     case Interactive, SlashCommands, EventsApi
     case Unknown(value: String)
   }
   object EnvelopeType {
-    private val mapping = Map(
-      "interactive" -> Interactive,
+    private val mapping         = Map(
+      "interactive"    -> Interactive,
       "slash_commands" -> SlashCommands,
-      "events_api" -> EventsApi,
+      "events_api"     -> EventsApi,
     )
-    private val reverse = mapping.map(_.swap)
+    private val reverse         = mapping.map(_.swap)
     given Encoder[EnvelopeType] = Encoder[String].contramap {
       case Unknown(s) => s
       case other      => reverse(other)
@@ -171,7 +171,7 @@ object socket {
       text: Option[TextObject] = None,
       value: String,
   ) derives Codec.AsObject
-  
+
   // https://docs.slack.dev/apis/events-api/using-socket-mode#disconnect
   case class Disconnect(
       reason: DisconnectReason,
@@ -185,15 +185,15 @@ object socket {
 
   object DisconnectReason {
     private val mapping = Map(
-      "link_disabled" -> LinkDisabled,
-      "warning" -> Warning,
+      "link_disabled"     -> LinkDisabled,
+      "warning"           -> Warning,
       "refresh_requested" -> RefreshRequested,
     )
     private val reverse = mapping.map(_.swap)
 
     given Encoder[DisconnectReason] = Encoder[String].contramap {
       case Unknown(s) => s
-      case other => reverse(other)
+      case other      => reverse(other)
     }
 
     given Decoder[DisconnectReason] = Decoder[String].map(s => mapping.getOrElse(s, Unknown(s)))

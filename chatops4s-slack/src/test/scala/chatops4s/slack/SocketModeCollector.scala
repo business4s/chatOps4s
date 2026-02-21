@@ -14,14 +14,11 @@ import java.nio.file.{Files, Path, Paths}
 
 /** Connects to Slack's SocketMode WebSocket and saves raw frames as test fixtures.
   *
-  * Usage:
-  *   SLACK_APP_TOKEN=xapp-... SLACK_BOT_TOKEN=xoxb-... SLACK_CHANNEL=#test \
-  *     sbt "chatops4s-slack/Test/runMain chatops4s.slack.SocketModeCollector"
+  * Usage: SLACK_APP_TOKEN=xapp-... SLACK_BOT_TOKEN=xoxb-... SLACK_CHANNEL=#test \ sbt "chatops4s-slack/Test/runMain
+  * chatops4s.slack.SocketModeCollector"
   *
-  * The collector posts a message with a test button, then listens on the WebSocket.
-  * Click the button in Slack to capture an interactive event.
-  * Type a registered slash command to capture a slash_commands event.
-  * Press Ctrl+C to stop.
+  * The collector posts a message with a test button, then listens on the WebSocket. Click the button in Slack to capture an interactive event. Type a
+  * registered slash command to capture a slash_commands event. Press Ctrl+C to stop.
   */
 object SocketModeCollector extends IOApp.Simple {
 
@@ -31,18 +28,18 @@ object SocketModeCollector extends IOApp.Simple {
   override def run: IO[Unit] = {
     val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", sys.error("SLACK_APP_TOKEN is required")))
     val botToken = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", sys.error("SLACK_BOT_TOKEN is required")))
-    val channel = sys.env.getOrElse("SLACK_CHANNEL", sys.error("SLACK_CHANNEL is required"))
+    val channel  = sys.env.getOrElse("SLACK_CHANNEL", sys.error("SLACK_CHANNEL is required"))
 
     HttpClientCatsBackend.resource[IO]().use { backend =>
       val client = new SlackClient[IO](botToken, backend)
       for {
-        _ <- IO(Files.createDirectories(outputDir))
-        _ <- sendTestMessage(client, channel)
+        _    <- IO(Files.createDirectories(outputDir))
+        _    <- sendTestMessage(client, channel)
         resp <- SlackAppApi(backend, appToken).apps.connections.open()
-        url = resp.okOrThrow.url
-        _ <- IO.println(s"Listening on WebSocket. Click the button above or type a slash command.")
-        _ <- IO.println("Press Ctrl+C to stop.\n")
-        _ <- connectAndCapture(url, backend)
+        url   = resp.okOrThrow.url
+        _    <- IO.println(s"Listening on WebSocket. Click the button above or type a slash command.")
+        _    <- IO.println("Press Ctrl+C to stop.\n")
+        _    <- connectAndCapture(url, backend)
       } yield ()
     }
   }
@@ -73,13 +70,13 @@ object SocketModeCollector extends IOApp.Simple {
       .response(asWebSocketAlways[IO, Unit] { ws =>
         def loop: IO[Unit] =
           ws.receiveText().flatMap { text =>
-            val json = parser.parse(text).getOrElse(io.circe.Json.Null)
-            val eventType = json.hcursor.get[String]("type").getOrElse("unknown")
+            val json       = parser.parse(text).getOrElse(io.circe.Json.Null)
+            val eventType  = json.hcursor.get[String]("type").getOrElse("unknown")
             val envelopeId = json.hcursor.get[String]("envelope_id").toOption
 
             val save = IO {
               val filename = s"$eventType.json"
-              val path = outputDir.resolve(filename)
+              val path     = outputDir.resolve(filename)
               Files.writeString(path, text)
               println(s"  [$eventType] Saved $path (${text.length} bytes)")
             }
@@ -88,7 +85,7 @@ object SocketModeCollector extends IOApp.Simple {
               case Some(id) =>
                 ws.sendText(Ack(id).asJson.noSpaces) *>
                   IO.println(s"  [$eventType] Acked envelope $id")
-              case None => IO.unit
+              case None     => IO.unit
             }
 
             save *> ack *> loop

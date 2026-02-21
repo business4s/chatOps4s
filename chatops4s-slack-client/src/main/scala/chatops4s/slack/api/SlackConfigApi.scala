@@ -9,7 +9,7 @@ import sttp.monad.syntax.*
 class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
 
   private given MonadError[F] = backend.monad
-  private val baseUrl          = "https://slack.com/api"
+  private val baseUrl         = "https://slack.com/api"
 
   object apps {
     object manifest {
@@ -52,10 +52,10 @@ class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
         case Left(err)  => throw SlackApiError("deserialization_error", List(s"$method: $err"))
       }
 
-  /** Slack requires the `manifest` field to be "a JSON app manifest encoded as a string",
-    * not a nested JSON object.
+  /** Slack requires the `manifest` field to be "a JSON app manifest encoded as a string", not a nested JSON object.
     *
-    * @see [[https://docs.slack.dev/reference/methods/apps.manifest.create]]
+    * @see
+    *   [[https://docs.slack.dev/reference/methods/apps.manifest.create]]
     */
   private def stringifyManifest(json: io.circe.Json): io.circe.Json =
     json.mapObject { obj =>

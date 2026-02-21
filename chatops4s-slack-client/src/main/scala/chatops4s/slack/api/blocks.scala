@@ -7,32 +7,32 @@ object blocks {
 
   // --- Enums ---
 
-  enum ButtonStyle {
+  enum ButtonStyle   {
     case Primary, Danger
   }
   object ButtonStyle {
-    private val mapping = Map("primary" -> Primary, "danger" -> Danger)
-    private val reverse = mapping.map(_.swap)
+    private val mapping        = Map("primary" -> Primary, "danger" -> Danger)
+    private val reverse        = mapping.map(_.swap)
     given Encoder[ButtonStyle] = Encoder[String].contramap(reverse)
     given Decoder[ButtonStyle] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown button style: $s"))
   }
 
-  enum TriggerAction {
+  enum TriggerAction   {
     case OnEnterPressed, OnCharacterEntered
   }
   object TriggerAction {
-    private val mapping = Map("on_enter_pressed" -> OnEnterPressed, "on_character_entered" -> OnCharacterEntered)
-    private val reverse = mapping.map(_.swap)
+    private val mapping          = Map("on_enter_pressed" -> OnEnterPressed, "on_character_entered" -> OnCharacterEntered)
+    private val reverse          = mapping.map(_.swap)
     given Encoder[TriggerAction] = Encoder[String].contramap(reverse)
     given Decoder[TriggerAction] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown trigger action: $s"))
   }
 
-  enum ViewType {
+  enum ViewType   {
     case Modal, Home
   }
   object ViewType {
-    private val mapping = Map("modal" -> Modal, "home" -> Home)
-    private val reverse = mapping.map(_.swap)
+    private val mapping     = Map("modal" -> Modal, "home" -> Home)
+    private val reverse     = mapping.map(_.swap)
     given Encoder[ViewType] = Encoder[String].contramap(reverse)
     given Decoder[ViewType] = Decoder[String].emap(s => mapping.get(s).toRight(s"Unknown view type: $s"))
   }
@@ -75,7 +75,7 @@ object blocks {
   ) extends TextObject derives Codec.AsObject
 
   given Encoder.AsObject[TextObject] = Encoder.AsObject.instance {
-    case p: PlainTextObject =>
+    case p: PlainTextObject    =>
       ("type" -> Json.fromString("plain_text")) +: Encoder.AsObject[PlainTextObject].encodeObject(p)
     case m: MarkdownTextObject =>
       ("type" -> Json.fromString("mrkdwn")) +: Encoder.AsObject[MarkdownTextObject].encodeObject(m)
@@ -291,7 +291,8 @@ object blocks {
       image_width: Option[Int] = None,
       image_height: Option[Int] = None,
       image_bytes: Option[Int] = None,
-  ) extends BlockElement with ContextBlockElement derives Codec.AsObject
+  ) extends BlockElement
+      with ContextBlockElement derives Codec.AsObject
 
   // https://docs.slack.dev/reference/block-kit/block-elements/select-menu-element#conversations_select
   // https://github.com/slackapi/java-slack-sdk/blob/main/slack-api-model/src/main/java/com/slack/api/model/block/element/ConversationsSelectElement.java
@@ -440,12 +441,14 @@ object blocks {
   given Encoder.AsObject[BlockElement] = Encoder.AsObject.instance {
     case e: UnknownBlockElement =>
       e.raw.asObject.getOrElse(JsonObject.empty)
-    case elem =>
-      elementEntries.iterator.flatMap { entry =>
-        if (entry.ct.runtimeClass.isInstance(elem))
-          Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(elem))
-        else scala.None
-      }.next()
+    case elem                   =>
+      elementEntries.iterator
+        .flatMap { entry =>
+          if (entry.ct.runtimeClass.isInstance(elem))
+            Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(elem))
+          else scala.None
+        }
+        .next()
   }
 
   given Decoder[BlockElement] = Decoder.instance { cursor =>
@@ -460,11 +463,11 @@ object blocks {
   // --- ContextBlockElement codecs ---
 
   given Encoder.AsObject[ContextBlockElement] = Encoder.AsObject.instance {
-    case p: PlainTextObject =>
+    case p: PlainTextObject    =>
       ("type" -> Json.fromString("plain_text")) +: Encoder.AsObject[PlainTextObject].encodeObject(p)
     case m: MarkdownTextObject =>
       ("type" -> Json.fromString("mrkdwn")) +: Encoder.AsObject[MarkdownTextObject].encodeObject(m)
-    case i: ImageElement =>
+    case i: ImageElement       =>
       ("type" -> Json.fromString("image")) +: Encoder.AsObject[ImageElement].encodeObject(i)
   }
 
@@ -670,12 +673,14 @@ object blocks {
   given Encoder.AsObject[RichTextElement] = Encoder.AsObject.instance {
     case e: UnknownRichTextElement =>
       e.raw.asObject.getOrElse(JsonObject.empty)
-    case elem =>
-      richTextElementEntries.iterator.flatMap { entry =>
-        if (entry.ct.runtimeClass.isInstance(elem))
-          Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(elem))
-        else scala.None
-      }.next()
+    case elem                      =>
+      richTextElementEntries.iterator
+        .flatMap { entry =>
+          if (entry.ct.runtimeClass.isInstance(elem))
+            Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(elem))
+          else scala.None
+        }
+        .next()
   }
 
   given Decoder[RichTextElement] = Decoder.instance { cursor =>
@@ -742,12 +747,14 @@ object blocks {
   given Encoder.AsObject[Block] = Encoder.AsObject.instance {
     case b: UnknownBlock =>
       b.raw.asObject.getOrElse(JsonObject.empty)
-    case block =>
-      blockEntries.iterator.flatMap { entry =>
-        if (entry.ct.runtimeClass.isInstance(block))
-          Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(block))
-        else scala.None
-      }.next()
+    case block           =>
+      blockEntries.iterator
+        .flatMap { entry =>
+          if (entry.ct.runtimeClass.isInstance(block))
+            Some(("type" -> Json.fromString(entry.typeName)) +: entry.encoder.asInstanceOf[Encoder.AsObject[Any]].encodeObject(block))
+          else scala.None
+        }
+        .next()
   }
 
   given Decoder[Block] = Decoder.instance { cursor =>

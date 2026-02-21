@@ -6,8 +6,8 @@ import sttp.monad.syntax.*
 private[slack] object monadSyntax {
 
   extension [F[_], A](fa: F[A])(using monad: MonadError[F]) {
-    def void: F[Unit] = fa.map(_ => ())
-    def as[B](b: B): F[B] = fa.map(_ => b)
+    def void: F[Unit]            = fa.map(_ => ())
+    def as[B](b: B): F[B]        = fa.map(_ => b)
     def >>[B](fb: => F[B]): F[B] = fa.flatMap(_ => fb)
   }
 

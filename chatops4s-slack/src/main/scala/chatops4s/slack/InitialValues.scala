@@ -19,15 +19,15 @@ object InitialValues {
     import quotes.reflect.*
 
     def extractName(term: Term): String = term match {
-      case Inlined(_, _, inner) => extractName(inner)
+      case Inlined(_, _, inner)                        => extractName(inner)
       case Block(List(DefDef(_, _, _, Some(body))), _) => extractFromBody(body)
-      case _ => report.errorAndAbort("Expected a simple field selector like _.fieldName")
+      case _                                           => report.errorAndAbort("Expected a simple field selector like _.fieldName")
     }
 
     def extractFromBody(term: Term): String = term match {
-      case Select(_, name) => name
+      case Select(_, name)      => name
       case Inlined(_, _, inner) => extractFromBody(inner)
-      case _ => report.errorAndAbort("Expected a simple field selector like _.fieldName")
+      case _                    => report.errorAndAbort("Expected a simple field selector like _.fieldName")
     }
 
     Expr(extractName(selector.asTerm))

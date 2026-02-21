@@ -43,9 +43,9 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       assume(fixture.isDefined, "Fixture ws-events/interactive.json not found")
 
       val envelope = decode[Envelope](fixture.get).toOption.get
-      val payload = envelope.payload.get.as[InteractionPayload]
+      val payload  = envelope.payload.get.as[InteractionPayload]
       payload.isRight shouldBe true
-      val p = payload.toOption.get
+      val p        = payload.toOption.get
       p.`type` shouldBe "block_actions"
       p.user.id shouldBe UserId("U05GUDS0A48")
       p.channel shouldBe Some(Channel(ChannelId("C0ADN3WUR8D"), Some("auto-tests")))
@@ -73,9 +73,9 @@ class SocketDeserializationTest extends AnyFreeSpec with Matchers {
       assume(fixture.isDefined, "Fixture ws-events/slash_commands.json not found")
 
       val envelope = decode[Envelope](fixture.get).toOption.get
-      val payload = envelope.payload.get.as[SlashCommandPayload]
+      val payload  = envelope.payload.get.as[SlashCommandPayload]
       payload.isRight shouldBe true
-      val p = payload.toOption.get
+      val p        = payload.toOption.get
       p.command shouldBe "/deploy"
       p.text shouldBe "1.2.3"
       p.user_id shouldBe UserId("U05GUDS0A48")

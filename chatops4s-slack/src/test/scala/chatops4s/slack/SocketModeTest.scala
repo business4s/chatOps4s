@@ -14,7 +14,7 @@ import scala.concurrent.duration.*
 import scala.io.Source
 import scala.util.Using
 
-import chatops4s.slack.api.{UserId}
+import chatops4s.slack.api.UserId
 import chatops4s.slack.api.socket.*
 
 class SocketModeTest extends AnyFreeSpec with Matchers {
@@ -30,9 +30,10 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
         var captured: Option[Envelope] = None
         run(
           fixture.get,
-          handler = e => IO {
-            if (e.`type` == EnvelopeType.Interactive) captured = Some(e)
-          },
+          handler = e =>
+            IO {
+              if (e.`type` == EnvelopeType.Interactive) captured = Some(e)
+            },
         )
 
         captured shouldBe defined
@@ -50,9 +51,10 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
         var captured: Option[Envelope] = None
         run(
           fixture.get,
-          handler = e => IO {
-            if (e.`type` == EnvelopeType.SlashCommands) captured = Some(e)
-          },
+          handler = e =>
+            IO {
+              if (e.`type` == EnvelopeType.SlashCommands) captured = Some(e)
+            },
         )
 
         captured shouldBe defined
@@ -68,7 +70,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
         assume(fixture.isDefined, "Fixture ws-events/interactive.json not found — run SocketModeCollector first")
 
         var sentFrames = List.empty[WebSocketFrame]
-        val wsStub = WebSocketStub
+        val wsStub     = WebSocketStub
           .initialReceive(List(WebSocketFrame.text(fixture.get)))
           .thenRespond { frame =>
             sentFrames = sentFrames :+ frame
@@ -86,7 +88,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
     "should ignore unknown envelope types" in {
       var handlerCalled = false
-      val envelope = Envelope("env-789", EnvelopeType.Unknown("unknown_type"), None).asJson.noSpaces
+      val envelope      = Envelope("env-789", EnvelopeType.Unknown("unknown_type"), None).asJson.noSpaces
 
       run(
         envelope,
@@ -99,11 +101,13 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
     "should continue processing after malformed JSON" in {
       var captured: Option[Envelope] = None
-      val wsStub = WebSocketStub
-        .initialReceive(List(
-          WebSocketFrame.text("not valid json"),
-          WebSocketFrame.text(syntheticInteractionEnvelope()),
-        ))
+      val wsStub                     = WebSocketStub
+        .initialReceive(
+          List(
+            WebSocketFrame.text("not valid json"),
+            WebSocketFrame.text(syntheticInteractionEnvelope()),
+          ),
+        )
         .thenRespond(_ => List.empty)
 
       runRaw(wsStub, handler = e => IO { captured = Some(e) })
@@ -114,14 +118,14 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
     "should handle missing payload gracefully" in {
       var handlerCalled = false
-      val envelope = Envelope("env-no-payload", EnvelopeType.Interactive, None).asJson.noSpaces
+      val envelope      = Envelope("env-no-payload", EnvelopeType.Interactive, None).asJson.noSpaces
       run(envelope, handler = _ => IO { handlerCalled = true })
       handlerCalled shouldBe true
     }
 
     "should handle invalid payload without crashing" in {
       var handlerCalled = false
-      val envelope = Envelope(
+      val envelope      = Envelope(
         "env-bad-payload",
         EnvelopeType.Interactive,
         Some(io.circe.Json.fromString("not-a-valid-payload")),
@@ -131,7 +135,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
     }
 
     "should process multiple messages in sequence" in {
-      var count = 0
+      var count  = 0
       val wsStub = WebSocketStub
         .initialReceive(List(WebSocketFrame.text(syntheticInteractionEnvelope("env-1"))))
         .thenRespondS(0) { (cnt, _) =>
@@ -151,14 +155,16 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
       "refresh_requested should cause reconnection" in {
         var handlerCallCount = 0
-        val disconnectMsg = Disconnect(DisconnectReason.RefreshRequested).asJson.noSpaces
+        val disconnectMsg    = Disconnect(DisconnectReason.RefreshRequested).asJson.noSpaces
         // Each WS connection receives an envelope then a disconnect.
         // On reconnect, the same stub is reused, so handler gets called again.
-        val wsStub = WebSocketStub
-          .initialReceive(List(
-            WebSocketFrame.text(syntheticInteractionEnvelope("env-dc-1")),
-            WebSocketFrame.text(disconnectMsg),
-          ))
+        val wsStub           = WebSocketStub
+          .initialReceive(
+            List(
+              WebSocketFrame.text(syntheticInteractionEnvelope("env-dc-1")),
+              WebSocketFrame.text(disconnectMsg),
+            ),
+          )
           .thenRespond(_ => List.empty)
 
         runRaw(wsStub, handler = _ => IO { handlerCallCount += 1 })
@@ -168,7 +174,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
       "link_disabled should stop the loop" in {
         val disconnectMsg = Disconnect(DisconnectReason.LinkDisabled).asJson.noSpaces
-        val wsStub = WebSocketStub
+        val wsStub        = WebSocketStub
           .initialReceive(List(WebSocketFrame.text(disconnectMsg)))
           .thenRespond(_ => List.empty)
 
@@ -179,12 +185,14 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
       "should process messages before disconnect" in {
         var captured: Option[Envelope] = None
-        val disconnectMsg = Disconnect(DisconnectReason.RefreshRequested).asJson.noSpaces
-        val wsStub = WebSocketStub
-          .initialReceive(List(
-            WebSocketFrame.text(syntheticInteractionEnvelope("env-before-dc")),
-            WebSocketFrame.text(disconnectMsg),
-          ))
+        val disconnectMsg              = Disconnect(DisconnectReason.RefreshRequested).asJson.noSpaces
+        val wsStub                     = WebSocketStub
+          .initialReceive(
+            List(
+              WebSocketFrame.text(syntheticInteractionEnvelope("env-before-dc")),
+              WebSocketFrame.text(disconnectMsg),
+            ),
+          )
           .thenRespond(_ => List.empty)
 
         runRaw(wsStub, handler = e => IO { captured = Some(e) })
@@ -196,7 +204,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
     "should recover from handler errors and continue processing" in {
       var callCount = 0
-      val wsStub = WebSocketStub
+      val wsStub    = WebSocketStub
         .initialReceive(List(WebSocketFrame.text(syntheticInteractionEnvelope("env-1"))))
         .thenRespondS(0) { (count, _) =>
           if (count == 0) (1, List(WebSocketFrame.text(syntheticInteractionEnvelope("env-2"))))
@@ -259,36 +267,38 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
 
   private def syntheticInteractionEnvelope(envelopeId: String = "env-123"): String = {
     val payload = io.circe.Json.obj(
-      "type" -> io.circe.Json.fromString("block_actions"),
+      "type"       -> io.circe.Json.fromString("block_actions"),
       "trigger_id" -> io.circe.Json.fromString("test-trigger-id"),
-      "user" -> io.circe.Json.obj("id" -> io.circe.Json.fromString("U123")),
+      "user"       -> io.circe.Json.obj("id" -> io.circe.Json.fromString("U123")),
       "api_app_id" -> io.circe.Json.fromString("A123"),
-      "token" -> io.circe.Json.fromString("tok"),
-      "container" -> io.circe.Json.obj("message_ts" -> io.circe.Json.fromString("1234567890.123")),
-      "actions" -> io.circe.Json.arr(io.circe.Json.obj(
-        "action_id" -> io.circe.Json.fromString("btn-1"),
-        "block_id" -> io.circe.Json.fromString("blk-1"),
-        "type" -> io.circe.Json.fromString("button"),
-        "action_ts" -> io.circe.Json.fromString("1234567890.123"),
-        "value" -> io.circe.Json.fromString("approve"),
-      )),
-      "hash" -> io.circe.Json.fromString("h123"),
+      "token"      -> io.circe.Json.fromString("tok"),
+      "container"  -> io.circe.Json.obj("message_ts" -> io.circe.Json.fromString("1234567890.123")),
+      "actions"    -> io.circe.Json.arr(
+        io.circe.Json.obj(
+          "action_id" -> io.circe.Json.fromString("btn-1"),
+          "block_id"  -> io.circe.Json.fromString("blk-1"),
+          "type"      -> io.circe.Json.fromString("button"),
+          "action_ts" -> io.circe.Json.fromString("1234567890.123"),
+          "value"     -> io.circe.Json.fromString("approve"),
+        ),
+      ),
+      "hash"       -> io.circe.Json.fromString("h123"),
     )
     Envelope(envelopeId, EnvelopeType.Interactive, Some(payload)).asJson.noSpaces
   }
 
   private def syntheticSlashCommandEnvelope(envelopeId: String): String = {
     val payload = io.circe.Json.obj(
-      "command" -> io.circe.Json.fromString("/deploy"),
-      "text" -> io.circe.Json.fromString("v1.2.3"),
-      "user_id" -> io.circe.Json.fromString("U123"),
-      "channel_id" -> io.circe.Json.fromString("C123"),
+      "command"      -> io.circe.Json.fromString("/deploy"),
+      "text"         -> io.circe.Json.fromString("v1.2.3"),
+      "user_id"      -> io.circe.Json.fromString("U123"),
+      "channel_id"   -> io.circe.Json.fromString("C123"),
       "response_url" -> io.circe.Json.fromString("https://hooks.slack.com/commands/T123/456/789"),
-      "trigger_id" -> io.circe.Json.fromString("test-trigger-id"),
-      "team_id" -> io.circe.Json.fromString("T123"),
-      "team_domain" -> io.circe.Json.fromString("test"),
+      "trigger_id"   -> io.circe.Json.fromString("test-trigger-id"),
+      "team_id"      -> io.circe.Json.fromString("T123"),
+      "team_domain"  -> io.circe.Json.fromString("test"),
       "channel_name" -> io.circe.Json.fromString("general"),
-      "api_app_id" -> io.circe.Json.fromString("A123"),
+      "api_app_id"   -> io.circe.Json.fromString("A123"),
     )
     Envelope(envelopeId, EnvelopeType.SlashCommands, Some(payload)).asJson.noSpaces
   }

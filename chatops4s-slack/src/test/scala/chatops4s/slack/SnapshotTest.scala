@@ -14,7 +14,7 @@ object SnapshotTest {
     .resolve("src/test/resources")
 
   def testSnapshot(content: String, path: String): Unit = {
-    val filePath = testResourcesPath.resolve(path)
+    val filePath    = testResourcesPath.resolve(path)
     val existingOpt = Option.when(Files.exists(filePath)) {
       Files.readString(testResourcesPath.resolve(path))
     }

@@ -13,10 +13,10 @@ object SlackOAuth {
 
   /** Exchange an OAuth authorization code for an access token.
     *
-    * Uses HTTP Basic Auth with `client_id:client_secret` as recommended by Slack,
-    * and posts `code` and `redirect_uri` as form-urlencoded body.
+    * Uses HTTP Basic Auth with `client_id:client_secret` as recommended by Slack, and posts `code` and `redirect_uri` as form-urlencoded body.
     *
-    * @see [[https://docs.slack.dev/reference/methods/oauth.v2.access]]
+    * @see
+    *   [[https://docs.slack.dev/reference/methods/oauth.v2.access]]
     */
   def exchangeCode[F[_]](backend: Backend[F], req: oauth.AccessRequest): F[SlackResponse[oauth.AccessResponse]] = {
     given MonadError[F] = backend.monad

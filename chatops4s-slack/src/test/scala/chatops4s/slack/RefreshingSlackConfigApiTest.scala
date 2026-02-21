@@ -57,7 +57,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
 
     "fresh token does not trigger rotation" in {
       var rotateCount = 0
-      val backend = BackendStub(monad)
+      val backend     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then rotateCount += 1
@@ -83,7 +83,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
     "near-expiry triggers rotation" in {
       var currentTime = Instant.ofEpochSecond(1700000000L)
       var rotateCount = 0
-      val backend = BackendStub(monad)
+      val backend     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then rotateCount += 1
@@ -107,10 +107,10 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
     }
 
     "rotation sends refresh token as form-urlencoded body" in {
-      var capturedAuthHeader: Option[String] = None
+      var capturedAuthHeader: Option[String]  = None
       var capturedContentType: Option[String] = None
-      var capturedBody: Option[String] = None
-      val backend: BackendStub[IO] = BackendStub(monad)
+      var capturedBody: Option[String]        = None
+      val backend: BackendStub[IO]            = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then {
@@ -138,7 +138,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
 
     "SlackConfigApi sends manifest as a JSON string, not a nested object" in {
       var capturedBody: Option[String] = None
-      val backend: BackendStub[IO] = BackendStub(monad)
+      val backend: BackendStub[IO]     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("apps.manifest.create")
           if matches then {
@@ -149,27 +149,29 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
           }
           matches
         }
-        .thenRespondAdjust("""{"ok": true, "app_id": "A123", "credentials": {"client_id": "c", "client_secret": "s", "verification_token": "v", "signing_secret": "ss"}}""")
+        .thenRespondAdjust(
+          """{"ok": true, "app_id": "A123", "credentials": {"client_id": "c", "client_secret": "s", "verification_token": "v", "signing_secret": "ss"}}""",
+        )
 
       val manifest = SlackAppManifest(display_information = DisplayInformation(name = "TestApp"))
       val api      = new SlackConfigApi[IO](backend, initialConfig)
 
       api.apps.manifest.create(apps.manifest.CreateRequest(manifest = manifest)).asserting { _ =>
-        val json = io.circe.parser.parse(capturedBody.get).toOption.get
+        val json          = io.circe.parser.parse(capturedBody.get).toOption.get
         val manifestField = json.hcursor.get[io.circe.Json]("manifest").toOption.get
         // must be a JSON string (stringified manifest), not a nested JSON object
         manifestField.isString shouldBe true
         // the string content should be valid JSON containing the app name
-        val inner = io.circe.parser.parse(manifestField.asString.get).toOption.get
+        val inner         = io.circe.parser.parse(manifestField.asString.get).toOption.get
         inner.hcursor.downField("display_information").get[String]("name").toOption shouldBe Some("TestApp")
       }
     }
 
     "SlackOAuth sends Basic auth and form-urlencoded body" in {
-      var capturedAuthHeader: Option[String] = None
+      var capturedAuthHeader: Option[String]  = None
       var capturedContentType: Option[String] = None
-      var capturedBody: Option[String] = None
-      val backend: BackendStub[IO] = BackendStub(monad)
+      var capturedBody: Option[String]        = None
+      val backend: BackendStub[IO]            = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("oauth.v2.access")
           if matches then {
@@ -203,7 +205,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
 
     "forceRotate always rotates" in {
       var rotateCount = 0
-      val backend = BackendStub(monad)
+      val backend     = BackendStub(monad)
         .whenRequestMatches { req =>
           val matches = req.uri.toString().contains("tooling.tokens.rotate")
           if matches then rotateCount += 1

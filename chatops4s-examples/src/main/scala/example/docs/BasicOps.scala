@@ -14,13 +14,13 @@ private object BasicOps {
       msgId <- slack.send(channel, "Deployment started")
       // end_send
       // start_reply
-      _ <- slack.reply(msgId, "Step 1 complete")
+      _     <- slack.reply(msgId, "Step 1 complete")
       // end_reply
       // start_update
-      _ <- slack.update(msgId, "Deployment finished")
+      _     <- slack.update(msgId, "Deployment finished")
       // end_update
       // start_delete
-      _ <- slack.delete(msgId)
+      _     <- slack.delete(msgId)
       // end_delete
     } yield ()
 
@@ -36,7 +36,7 @@ private object BasicOps {
   def ephemeral(slack: SlackGateway[IO], channel: String, userId: UserId): IO[Unit] =
     // start_ephemeral
     slack.sendEphemeral(channel, userId, "Only you can see this")
-    // end_ephemeral
+  // end_ephemeral
 
   def buttonsOnMessages(
       slack: SlackGateway[IO],
@@ -45,11 +45,15 @@ private object BasicOps {
       rejectBtn: ButtonId[String],
   ): IO[MessageId] =
     // start_buttons_on_messages
-    slack.send(channel, "Approve deployment?", Seq(
-      approveBtn.render("Approve", "v1.2.3"),
-      rejectBtn.render("Reject", "v1.2.3"),
-    ))
-    // end_buttons_on_messages
+    slack.send(
+      channel,
+      "Approve deployment?",
+      Seq(
+        approveBtn.render("Approve", "v1.2.3"),
+        rejectBtn.render("Reject", "v1.2.3"),
+      ),
+    )
+  // end_buttons_on_messages
 
   def userInfo(slack: SlackGateway[IO], userId: UserId): IO[Unit] =
     for {
@@ -58,7 +62,7 @@ private object BasicOps {
       // info.profile.flatMap(_.email)      — user's email
       // info.profile.flatMap(_.real_name)  — display name
       // end_user_info
-      _ <- IO.unit
+      _    <- IO.unit
     } yield ()
 
   def customCache(slack: SlackGateway[IO] & SlackSetup[IO], backend: WebSocketBackend[IO]): IO[Unit] = {
@@ -76,7 +80,7 @@ private object BasicOps {
       // start_idempotent_send
       msgId <- slack.send(channel, "Deployment started", idempotencyKey = Some(IdempotencyKey("deploy-v1.2.3")))
       // end_idempotent_send
-      _ <- IO.unit
+      _     <- IO.unit
     } yield ()
 
   def idempotentReply(slack: SlackGateway[IO], msgId: MessageId): IO[Unit] =

@@ -11,9 +11,9 @@ object ResponseCollector {
 
   def main(args: Array[String]): Unit = {
     val botToken = sys.env.getOrElse("SLACK_BOT_TOKEN", sys.error("SLACK_BOT_TOKEN is required"))
-    val channel = sys.env.getOrElse("SLACK_CHANNEL", sys.error("SLACK_CHANNEL is required"))
+    val channel  = sys.env.getOrElse("SLACK_CHANNEL", sys.error("SLACK_CHANNEL is required"))
     val appToken = sys.env.get("SLACK_APP_TOKEN")
-    val userId = sys.env.get("SLACK_TEST_USER_ID")
+    val userId   = sys.env.get("SLACK_TEST_USER_ID")
 
     Files.createDirectories(outputDir)
 
@@ -52,10 +52,14 @@ object ResponseCollector {
     val postMessageJson = postRaw("chat.postMessage", s"""{"channel":"$channel","text":"chatops4s ResponseCollector test message"}""")
     save("chat.postMessage.json", postMessageJson)
 
-    val ts = io.circe.parser.parse(postMessageJson).toOption
+    val ts        = io.circe.parser
+      .parse(postMessageJson)
+      .toOption
       .flatMap(_.hcursor.get[String]("ts").toOption)
       .getOrElse(sys.error("Failed to extract ts from chat.postMessage response"))
-    val channelId = io.circe.parser.parse(postMessageJson).toOption
+    val channelId = io.circe.parser
+      .parse(postMessageJson)
+      .toOption
       .flatMap(_.hcursor.get[String]("channel").toOption)
       .getOrElse(sys.error("Failed to extract channel from chat.postMessage response"))
 

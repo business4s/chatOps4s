@@ -18,19 +18,19 @@ class SlackAppApi[F[_]](backend: Backend[F], token: SlackAppToken) {
 
       // https://docs.slack.dev/reference/methods/apps.connections.open
       def open(): F[SlackResponse[ConnectionsOpenResponse]] =
-      backend
-        .send(
-          basicRequest
-            .post(uri"$baseUrl/apps.connections.open")
-            .header("Authorization", s"Bearer ${token.value}")
-            .contentType("application/x-www-form-urlencoded")
-            .response(asJsonAlways[SlackResponse[ConnectionsOpenResponse]]),
-        )
-        .map(_.body)
-        .map {
-          case Right(res) => res
-          case Left(err)  => throw SlackApiError("deserialization_error", List(s"apps.connections.open: $err"))
-        }
+        backend
+          .send(
+            basicRequest
+              .post(uri"$baseUrl/apps.connections.open")
+              .header("Authorization", s"Bearer ${token.value}")
+              .contentType("application/x-www-form-urlencoded")
+              .response(asJsonAlways[SlackResponse[ConnectionsOpenResponse]]),
+          )
+          .map(_.body)
+          .map {
+            case Right(res) => res
+            case Left(err)  => throw SlackApiError("deserialization_error", List(s"apps.connections.open: $err"))
+          }
     }
   }
 }
@@ -51,7 +51,7 @@ object SlackAppApi {
               case Right(envelope) =>
                 val ack = ws.sendText(socket.Ack(envelope.envelope_id).asJson.noSpaces)
                 ack.flatMap(_ => handler(envelope)).flatMap(_ => loop)
-              case Left(_) =>
+              case Left(_)         =>
                 io.circe.parser.decode[socket.Disconnect](text) match {
                   case Right(disconnect) => monad.unit(disconnect.reason)
                   case Left(_)           => loop // Malformed frames skipped to avoid killing the connection
