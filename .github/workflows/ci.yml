@@ -18,6 +18,10 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - name: Build and Test
         run: sbt test
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_APP_TOKEN: ${{ secrets.SLACK_APP_TOKEN }}
+          SLACK_CHANNEL: "#e2e-test"
       - name: scalafmt check
         run: sbt scalafmtCheckAll
       - name: Check for uncommitted changes
