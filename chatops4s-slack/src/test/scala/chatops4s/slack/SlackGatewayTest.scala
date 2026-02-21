@@ -5,6 +5,7 @@ import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
 import chatops4s.slack.api
 import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackBotToken, Timestamp, TriggerId, UserId, TeamId, users}
+import chatops4s.slack.api.manifest.{BotUser, DisplayInformation, Features, SlackAppManifest}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.Json
@@ -551,6 +552,25 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
         val json = result.renderJson
         json should include("channels:read")
+      }
+
+      "addBotScopes should auto-populate bot_user when missing" in {
+        val manifest = SlackAppManifest(
+          display_information = DisplayInformation(name = "MyBot"),
+        ).addBotScopes("chat:write")
+
+        manifest.features.bot_user shouldBe defined
+        manifest.features.bot_user.get.display_name shouldBe "MyBot"
+      }
+
+      "addBotScopes should preserve existing bot_user" in {
+        val manifest = SlackAppManifest(
+          display_information = DisplayInformation(name = "MyBot"),
+          features = Features(bot_user = Some(BotUser(display_name = "Custom Name", always_online = Some(true)))),
+        ).addBotScopes("chat:write")
+
+        manifest.features.bot_user.get.display_name shouldBe "Custom Name"
+        manifest.features.bot_user.get.always_online shouldBe Some(true)
       }
     }
 

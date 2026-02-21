@@ -29,6 +29,10 @@ class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
       // https://docs.slack.dev/reference/methods/apps.manifest.export
       def `export`(req: chatops4s.slack.api.apps.manifest.ExportRequest): F[SlackResponse[chatops4s.slack.api.apps.manifest.ExportResponse]] =
         post("apps.manifest.export", req)
+
+      // https://docs.slack.dev/reference/methods/apps.manifest.delete
+      def delete(req: chatops4s.slack.api.apps.manifest.DeleteRequest): F[SlackResponse[chatops4s.slack.api.apps.manifest.DeleteResponse]] =
+        post("apps.manifest.delete", req)
     }
   }
 
@@ -39,7 +43,7 @@ class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
           .post(uri"$baseUrl/$method")
           .header("Authorization", s"Bearer ${token.value}")
           .contentType("application/json")
-          .body(req.asJson.deepDropNullValues.noSpaces)
+          .body(stringifyManifest(req.asJson.deepDropNullValues).noSpaces)
           .response(asJsonAlways[SlackResponse[Res]]),
       )
       .map(_.body)
@@ -47,4 +51,17 @@ class SlackConfigApi[F[_]](backend: Backend[F], token: SlackConfigToken) {
         case Right(res) => res
         case Left(err)  => throw SlackApiError("deserialization_error", List(s"$method: $err"))
       }
+
+  /** Slack requires the `manifest` field to be "a JSON app manifest encoded as a string",
+    * not a nested JSON object.
+    *
+    * @see [[https://docs.slack.dev/reference/methods/apps.manifest.create]]
+    */
+  private def stringifyManifest(json: io.circe.Json): io.circe.Json =
+    json.mapObject { obj =>
+      obj("manifest") match {
+        case Some(v) if !v.isString => obj.add("manifest", io.circe.Json.fromString(v.noSpaces))
+        case _                      => obj
+      }
+    }
 }

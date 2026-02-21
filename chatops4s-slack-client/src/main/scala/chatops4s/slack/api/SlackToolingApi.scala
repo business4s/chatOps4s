@@ -1,6 +1,5 @@
 package chatops4s.slack.api
 
-import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.circe.*
 import sttp.monad.MonadError
@@ -16,18 +15,17 @@ class SlackToolingApi[F[_]](backend: Backend[F], token: SlackRefreshToken) {
 
       // https://docs.slack.dev/reference/methods/tooling.tokens.rotate
       def rotate(): F[SlackResponse[chatops4s.slack.api.tooling.tokens.RotateResponse]] =
-        post("tooling.tokens.rotate", chatops4s.slack.api.tooling.tokens.RotateRequest(refresh_token = token))
+        postForm("tooling.tokens.rotate", Map("refresh_token" -> token.value))
     }
   }
 
-  private def post[Req: io.circe.Encoder, Res: io.circe.Decoder](method: String, req: Req): F[SlackResponse[Res]] =
+  private def postForm[Res: io.circe.Decoder](method: String, params: Map[String, String]): F[SlackResponse[Res]] =
     backend
       .send(
         basicRequest
           .post(uri"$baseUrl/$method")
           .header("Authorization", s"Bearer ${token.value}")
-          .contentType("application/json")
-          .body(req.asJson.deepDropNullValues.noSpaces)
+          .body(params)
           .response(asJsonAlways[SlackResponse[Res]]),
       )
       .map(_.body)

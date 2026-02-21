@@ -16,3 +16,6 @@ target/
 .bsp/
 
 .env
+.metals/
+.bloop/
+metals.sbt

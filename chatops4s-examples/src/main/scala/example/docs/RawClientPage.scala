@@ -1,9 +1,8 @@
 package example.docs
 
 import cats.effect.IO
-import chatops4s.slack.api.{SlackApi, SlackBotToken, SlackConfigApi, SlackConfigToken, SlackRefreshToken, apps, chat, reactions, users, UserId, ChannelId, Timestamp}
+import chatops4s.slack.api.{SlackApi, SlackBotToken, SlackConfigApi, SlackConfigToken, apps, chat, reactions, users, UserId, ChannelId, Timestamp}
 import chatops4s.slack.api.manifest.SlackAppManifest
-import chatops4s.slack.{ConfigTokenStore, RefreshingSlackConfigApi}
 import sttp.client4.Backend
 
 private object RawClientPage {
@@ -50,24 +49,4 @@ private object RawClientPage {
     // end_manifest_automation
   }
 
-  def tokenRotation(
-      backend: Backend[IO],
-      configToken: SlackConfigToken,
-      refreshToken: SlackRefreshToken,
-      manifest: SlackAppManifest,
-  ): IO[Unit] = {
-    given sttp.monad.MonadError[IO] = new sttp.client4.impl.cats.CatsMonadAsyncError[IO]
-
-    // start_token_rotation
-    val initial = ConfigTokenStore.TokenPair(configToken, refreshToken)
-
-    for {
-      store      <- ConfigTokenStore.inMemory[IO](initial)
-      refreshing <- RefreshingSlackConfigApi.create[IO](backend, store)
-      result     <- refreshing.withApi { api =>
-                      api.apps.manifest.validate(apps.manifest.ValidateRequest(manifest = manifest))
-                    }
-    } yield ()
-    // end_token_rotation
-  }
 }

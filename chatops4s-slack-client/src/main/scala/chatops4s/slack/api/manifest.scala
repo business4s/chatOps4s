@@ -30,8 +30,12 @@ package manifest {
     def renderJson: String = printer.print(this.asJson)
 
     def addBotScopes(scopes: String*): SlackAppManifest = {
-      val current = oauth_config.scopes.getOrElse(OauthScopes()).bot.getOrElse(Nil)
-      copy(oauth_config = oauth_config.copy(scopes = Some(oauth_config.scopes.getOrElse(OauthScopes()).copy(bot = Some(current ++ scopes)))))
+      val current      = oauth_config.scopes.getOrElse(OauthScopes()).bot.getOrElse(Nil)
+      val withScopes   = copy(oauth_config = oauth_config.copy(scopes = Some(oauth_config.scopes.getOrElse(OauthScopes()).copy(bot = Some(current ++ scopes)))))
+      val withBotUser  = if withScopes.features.bot_user.isEmpty then
+        withScopes.copy(features = withScopes.features.copy(bot_user = Some(BotUser(display_name = display_information.name))))
+      else withScopes
+      withBotUser
     }
 
     def addUserScopes(scopes: String*): SlackAppManifest = {

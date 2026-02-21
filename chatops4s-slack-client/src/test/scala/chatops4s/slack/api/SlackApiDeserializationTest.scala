@@ -1151,6 +1151,51 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
       }
     }
 
+    "apps.manifest.delete" in {
+      parseOkInline[apps.manifest.DeleteResponse](
+        """{"ok": true}"""
+      ) { _ => /* DeleteResponse is empty */ }
+    }
+
+    "oauth.v2.access" in {
+      parseOkInline[oauth.AccessResponse](
+        """{
+          |  "ok": true,
+          |  "access_token": "xoxb-17653672481-19874698323-pdFZKVeTuE8sk7oOcBrzbqgy",
+          |  "token_type": "bot",
+          |  "scope": "chat:write,chat:write.public",
+          |  "bot_user_id": "U0KRQLJ9H",
+          |  "app_id": "A0KRD7HC3",
+          |  "team": {
+          |    "name": "Slack Softball Team",
+          |    "id": "T9TK3CUKW"
+          |  }
+          |}""".stripMargin
+      ) { r =>
+        r.access_token shouldBe "xoxb-17653672481-19874698323-pdFZKVeTuE8sk7oOcBrzbqgy"
+        r.token_type shouldBe Some("bot")
+        r.scope shouldBe Some("chat:write,chat:write.public")
+        r.bot_user_id shouldBe Some("U0KRQLJ9H")
+        r.app_id shouldBe Some("A0KRD7HC3")
+        r.team shouldBe defined
+        r.team.get.name shouldBe Some("Slack Softball Team")
+        r.team.get.id shouldBe Some("T9TK3CUKW")
+      }
+    }
+
+    "oauth.v2.access with minimal response" in {
+      parseOkInline[oauth.AccessResponse](
+        """{
+          |  "ok": true,
+          |  "access_token": "xoxp-user-token"
+          |}""".stripMargin
+      ) { r =>
+        r.access_token shouldBe "xoxp-user-token"
+        r.token_type shouldBe None
+        r.team shouldBe None
+      }
+    }
+
     "tooling.tokens.rotate" in {
       parseOkInline[tooling.tokens.RotateResponse](
         """{

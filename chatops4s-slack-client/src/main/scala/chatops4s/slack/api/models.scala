@@ -312,6 +312,9 @@ object apps {
         errors: Option[List[ManifestError]] = None,
     ) derives Codec.AsObject
 
+    case class DeleteRequest(app_id: String) derives Codec.AsObject
+    case class DeleteResponse() derives Codec.AsObject
+
     case class ExportRequest(app_id: String) derives Codec.AsObject
     case class ExportResponse(manifest: Option[SlackAppManifest] = None) derives Codec.AsObject
 
@@ -406,4 +409,28 @@ object users {
   ) derives Codec.AsObject
 
   case class InfoResponse(user: UserInfo) derives Codec.AsObject
+}
+
+object oauth {
+
+  case class AccessRequest(
+      code: String,
+      client_id: String,
+      client_secret: String,
+      redirect_uri: Option[String] = None,
+  ) derives Codec.AsObject
+
+  case class AccessResponse(
+      access_token: String,
+      token_type: Option[String] = None,
+      scope: Option[String] = None,
+      bot_user_id: Option[String] = None,
+      app_id: Option[String] = None,
+      team: Option[AccessResponseTeam] = None,
+  ) derives Codec.AsObject
+
+  case class AccessResponseTeam(
+      name: Option[String] = None,
+      id: Option[String] = None,
+  ) derives Codec.AsObject
 }
