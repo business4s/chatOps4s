@@ -4,7 +4,6 @@ import cats.effect.{IO, IOApp}
 import chatops4s.slack.api.{SlackAppApi, SlackAppToken, SlackBotToken}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
-import io.circe.Json
 import io.circe.parser
 import io.circe.syntax.*
 import sttp.client4.*

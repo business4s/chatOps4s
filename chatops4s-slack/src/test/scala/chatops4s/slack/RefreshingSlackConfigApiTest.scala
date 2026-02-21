@@ -47,7 +47,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
       (for {
         store      <- ConfigTokenStore.inMemory[IO](initialPair)
         refreshing <- RefreshingSlackConfigApi.createWithClock(stubBackend, store, margin, () => Instant.ofEpochSecond(1700000000L))
-        _          <- refreshing.withApi(api => monad.unit(()))
+        _          <- refreshing.withApi(_ => monad.unit(()))
         pair       <- store.get
       } yield pair).asserting { pair =>
         pair.configToken shouldBe rotatedConfig
@@ -72,9 +72,9 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
         // Clock well before expiry (exp=1700043200, margin=5min → threshold=1700042900)
         refreshing <- RefreshingSlackConfigApi.createWithClock(backend, store, margin, () => Instant.ofEpochSecond(1700000100L))
         // First call always rotates (no known exp)
-        _          <- refreshing.withApi(api => monad.unit(()))
+        _          <- refreshing.withApi(_ => monad.unit(()))
         // Second call should NOT rotate (token is fresh)
-        _          <- refreshing.withApi(api => monad.unit(()))
+        _          <- refreshing.withApi(_ => monad.unit(()))
       } yield rotateCount).asserting { count =>
         count shouldBe 1
       }
@@ -97,10 +97,10 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
         store      <- ConfigTokenStore.inMemory[IO](initialPair)
         refreshing <- RefreshingSlackConfigApi.createWithClock(backend, store, margin, () => currentTime)
         // First call rotates (no known exp)
-        _          <- refreshing.withApi(api => monad.unit(()))
+        _          <- refreshing.withApi(_ => monad.unit(()))
         _          <- IO { currentTime = Instant.ofEpochSecond(rotatedExp - 100L) } // within margin
         // Second call should rotate (near expiry)
-        _          <- refreshing.withApi(api => monad.unit(()))
+        _          <- refreshing.withApi(_ => monad.unit(()))
       } yield rotateCount).asserting { count =>
         count shouldBe 2
       }
@@ -190,7 +190,7 @@ class RefreshingSlackConfigApiTest extends AsyncFreeSpec with AsyncIOSpec with M
         client_secret = "secret",
         redirect_uri = Some("http://localhost:8080/callback"),
       )
-      SlackOAuth.exchangeCode(backend, req).asserting { resp =>
+      SlackOAuth.exchangeCode(backend, req).asserting { _ =>
         capturedAuthHeader shouldBe defined
         capturedAuthHeader.get should startWith("Basic ")
         val decoded = new String(java.util.Base64.getDecoder.decode(capturedAuthHeader.get.stripPrefix("Basic ")))

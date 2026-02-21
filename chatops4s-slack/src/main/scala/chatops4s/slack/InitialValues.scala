@@ -3,7 +3,7 @@ package chatops4s.slack
 import scala.quoted.*
 
 class InitialValues[T] private[slack] (private[slack] val toMap: Map[String, Any]) {
-  inline def set[V: FieldCodec](inline selector: T => V, value: V): InitialValues[T] =
+  inline def set[V](inline selector: T => V, value: V): InitialValues[T] =
     InitialValues.create[T](toMap + (InitialValues.fieldName[T, V](selector) -> value))
 }
 

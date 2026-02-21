@@ -217,7 +217,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
   /** Convenience: wraps a single envelope text into a WebSocketStub and calls runRaw. */
   private def run(
       envelopeText: String,
-      handler: Envelope => IO[Unit] = _ => IO.unit,
+      handler: Envelope => IO[Unit],
   ): Unit = {
     val wsStub = WebSocketStub
       .initialReceive(List(WebSocketFrame.text(envelopeText)))
@@ -277,7 +277,7 @@ class SocketModeTest extends AnyFreeSpec with Matchers {
     Envelope(envelopeId, EnvelopeType.Interactive, Some(payload)).asJson.noSpaces
   }
 
-  private def syntheticSlashCommandEnvelope(envelopeId: String = "env-456"): String = {
+  private def syntheticSlashCommandEnvelope(envelopeId: String): String = {
     val payload = io.circe.Json.obj(
       "command" -> io.circe.Json.fromString("/deploy"),
       "text" -> io.circe.Json.fromString("v1.2.3"),

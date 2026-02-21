@@ -107,6 +107,7 @@ object CommandParser {
     def parse(text: String): Either[String, String] = Right(text)
   }
 
+  @scala.annotation.nowarn("msg=New anonymous class definition will be duplicated at each inline site")
   inline def derived[T](using m: Mirror.ProductOf[T]): CommandParser[T] = {
     val fieldInfo = buildFieldInfo[m.MirroredElemTypes, m.MirroredElemLabels]
     val hint = fieldInfo.map((name, _) => s"[$name]").mkString(" ")

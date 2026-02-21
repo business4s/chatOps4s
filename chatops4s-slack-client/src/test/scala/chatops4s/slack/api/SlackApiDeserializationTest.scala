@@ -1,7 +1,7 @@
 package chatops4s.slack.api
 
 import chatops4s.slack.api.manifest.*
-import io.circe.{Decoder, Encoder}
+import io.circe.Decoder
 import io.circe.parser.decode
 import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
@@ -952,8 +952,6 @@ class SlackApiDeserializationTest extends AnyFreeSpec with Matchers {
     }
 
     "round-trip with new manifest sections" in {
-      import io.circe.Json
-
       val original = SlackAppManifest(
         display_information = DisplayInformation(name = "full-app"),
         functions = Some(Map(

@@ -1,7 +1,6 @@
 package chatops4s.slack.api
 
 import sttp.client4.*
-import sttp.shared.Identity
 
 import java.nio.file.{Files, Path, Paths}
 

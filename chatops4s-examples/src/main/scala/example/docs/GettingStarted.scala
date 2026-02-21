@@ -1,7 +1,7 @@
 package example.docs
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{CommandResponse, FormDef, SlackGateway, SlackSetup}
+import chatops4s.slack.{CommandResponse, FormDef, SlackGateway}
 import chatops4s.slack.api.{SlackAppToken, SlackBotToken}
 import chatops4s.slack.api.manifest.SlackAppManifest
 import sttp.client4.WebSocketBackend
@@ -59,7 +59,7 @@ object InteractiveButtons extends IOApp.Simple {
                         slack.update(click.messageId, s"Rejected by <@${click.userId}>")
                           .void
                       }
-        _          <- slack.registerCommand[String]("deploy", "Deploy to production") { cmd =>
+        _          <- slack.registerCommand[String]("deploy", "Deploy to production") { _ =>
                         slack.send(
                           channel,
                           "Deploy v1.2.3 to production?",
@@ -126,7 +126,7 @@ private object HeroSnippet {
       rejectBtn  <- slack.registerButton[String] { click =>
                       slack.update(click.messageId, s"Rejected by <@${click.userId}>").void
                     }
-      _          <- slack.registerCommand[String]("deploy", "Deploy to production") { cmd =>
+      _          <- slack.registerCommand[String]("deploy", "Deploy to production") { _ =>
                       slack.send(channel, "Deploy v1.2.3?", Seq(
                         approveBtn.render("Approve", "v1.2.3"),
                         rejectBtn.render("Reject", "v1.2.3"),

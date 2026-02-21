@@ -2,7 +2,6 @@ package chatops4s.slack.api
 
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.parser.decode
-import io.circe.syntax.*
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 

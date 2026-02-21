@@ -338,6 +338,7 @@ trait FormDef[T] {
 
 object FormDef {
 
+  @scala.annotation.nowarn("msg=New anonymous class definition will be duplicated at each inline site")
   inline def derived[T](using m: Mirror.ProductOf[T]): FormDef[T] = {
     val fieldsAndCodecs = buildFieldsAndCodecs[m.MirroredElemTypes, m.MirroredElemLabels]
 

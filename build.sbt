@@ -1,3 +1,5 @@
+import org.typelevel.scalacoptions.ScalacOptions
+
 lazy val `chatops4s` = (project in file("."))
   .settings(commonSettings)
   .settings(
@@ -50,17 +52,16 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
 lazy val commonSettings = Seq(
   scalaVersion         := "3.7.1",
   scalacOptions ++= Seq(
-    "-deprecation",
-    "-feature",
-    "-unchecked",
-    "-Wunused:all",
     "-no-indent",
     "-Xmax-inlines",
     "64",
     "-explain-cyclic",
     "-Ydebug-cyclic",
   ),
-  Test / scalacOptions := (Test / scalacOptions).value.filterNot(_ == "-Wunused:all"),
+  Test / tpolecatExcludeOptions ++= Set(
+    ScalacOptions.warnValueDiscard,
+    ScalacOptions.warnNonUnitStatement,
+  ),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest"                     % "3.2.19" % Test,
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0"  % Test,

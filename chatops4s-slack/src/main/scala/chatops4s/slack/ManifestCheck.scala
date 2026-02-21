@@ -14,7 +14,7 @@ object ManifestCheck {
   def verify(manifest: String, appName: String, path: Path): Unit = {
     if (!Files.exists(path)) {
       val parent = path.getParent
-      if (parent != null) Files.createDirectories(parent)
+      if (parent != null) Files.createDirectories(parent): Unit
       Files.writeString(path, manifest)
       val url    = createAppUrl(manifest)
       val guide  =

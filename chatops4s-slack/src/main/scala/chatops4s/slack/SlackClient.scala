@@ -73,7 +73,7 @@ private[slack] class SlackClient[F[_]](token: SlackBotToken, backend: Backend[F]
     )
 
     api.chat.update(request).map { resp =>
-      resp.okOrThrow
+      val _ = resp.okOrThrow
       messageId
     }
   }

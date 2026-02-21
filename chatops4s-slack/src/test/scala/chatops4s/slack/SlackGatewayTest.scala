@@ -3,7 +3,6 @@ package chatops4s.slack
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.traverse.*
-import chatops4s.slack.api
 import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackBotToken, Timestamp, TriggerId, UserId, TeamId, users}
 import chatops4s.slack.api.manifest.{BotUser, DisplayInformation, Features, SlackAppManifest}
 import chatops4s.slack.api.socket.*
@@ -970,7 +969,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         val values = Map(
           "name" -> Map("name" -> ViewStateValue(value = Some("test"))),
           "count" -> Map("count" -> ViewStateValue(value = Some("5"))),
-          "active" -> Map("active" -> ViewStateValue(selected_options = Some(List(api.socket.SelectedOption(value = "true"))))),
+          "active" -> Map("active" -> ViewStateValue(selected_options = Some(List(SelectedOption(value = "true"))))),
         )
 
         val result = fd.parse(values)
