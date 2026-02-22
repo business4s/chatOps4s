@@ -8,7 +8,7 @@ const config: Config = {
   favicon: "img/favicon/favicon.ico",
 
   // GitHub pages deployment config.
-  url: "https://business4s.github.io/",
+  url: "https://business4s.org/",
   baseUrl: "/chatops4s/",
   organizationName: "business4s",
   projectName: "chatops4s",
