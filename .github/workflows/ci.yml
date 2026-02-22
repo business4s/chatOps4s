@@ -32,3 +32,27 @@ jobs:
             exit 1
           fi
         shell: bash
+  test-website:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./website
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: sbt/setup-sbt@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: yarn
+          cache-dependency-path: 'website/yarn.lock'
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+      - name: Build
+        run: yarn build
