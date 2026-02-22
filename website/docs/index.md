@@ -57,7 +57,7 @@ The generated (and optionally customized) manifest can also be used with the [Ra
 
 This means you never need to manually figure out which OAuth scopes or event subscriptions your app needs — the library derives them from your handler registrations. Here's an example of what the generated manifest looks like:
 
-```yaml file=chatops4s-slack/src/test/resources/snapshots/manifest-with-commands.yaml
+```json file=chatops4s-slack/src/test/resources/snapshots/manifest-with-commands.json
 ```
 
 ## Next Steps
