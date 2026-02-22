@@ -64,7 +64,7 @@ lazy val commonSettings = Seq(
   ),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest"                     % "3.2.19" % Test,
-    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0"  % Test,
+    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.7.0"  % Test,
   ),
   organization  := "org.business4s",
   homepage      := Some(url("https://business4s.github.io/chatops4s/")),
