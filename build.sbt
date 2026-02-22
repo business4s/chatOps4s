@@ -16,7 +16,7 @@ lazy val `chatops4s-slack-client` = (project in file("chatops4s-slack-client"))
   .settings(
     libraryDependencies ++= Seq(
       "io.circe"                      %% "circe-core"    % "0.14.15",
-      "io.circe"                      %% "circe-generic" % "0.14.14",
+      "io.circe"                      %% "circe-generic" % "0.14.15",
       "io.circe"                      %% "circe-parser"  % "0.14.14",
       "com.softwaremill.sttp.client4" %% "core"          % "4.0.19",
       "com.softwaremill.sttp.client4" %% "circe"         % "4.0.19",
