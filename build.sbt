@@ -41,7 +41,7 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
     libraryDependencies ++= Seq(
       "org.typelevel"                 %% "cats-effect"     % "3.6.3",
       "com.softwaremill.sttp.client4" %% "fs2"             % "4.0.9",
-      "ch.qos.logback"                 % "logback-classic" % "1.5.29",
+      "ch.qos.logback"                 % "logback-classic" % "1.5.32",
     ),
     Test / parallelExecution := false,
     publish / skip           := true,
@@ -50,7 +50,7 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   .dependsOn(`chatops4s-slack`)
 
 lazy val commonSettings = Seq(
-  scalaVersion         := "3.7.1",
+  scalaVersion  := "3.7.1",
   scalacOptions ++= Seq(
     "-no-indent",
     "-Xmax-inlines",
@@ -66,10 +66,10 @@ lazy val commonSettings = Seq(
     "org.scalatest" %% "scalatest"                     % "3.2.19" % Test,
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0"  % Test,
   ),
-  organization         := "org.business4s",
-  homepage             := Some(url("https://business4s.github.io/chatops4s/")),
-  licenses             := List(License.MIT),
-  developers           := List(
+  organization  := "org.business4s",
+  homepage      := Some(url("https://business4s.github.io/chatops4s/")),
+  licenses      := List(License.MIT),
+  developers    := List(
     Developer(
       "Krever",
       "Voytek Pituła",
@@ -77,6 +77,6 @@ lazy val commonSettings = Seq(
       url("https://v.pitula.me"),
     ),
   ),
-  versionScheme        := Some("semver-spec"),
-  version              := "0.1.0-SNAPSHOT",
+  versionScheme := Some("semver-spec"),
+  version       := "0.1.0-SNAPSHOT",
 )
