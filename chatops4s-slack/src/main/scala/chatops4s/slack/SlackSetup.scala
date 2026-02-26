@@ -14,5 +14,6 @@ trait SlackSetup[F[_]] {
   def validateSetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[Unit]
   def withUserInfoCache(cache: UserInfoCache[F]): F[Unit]
   def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit]
+  def onError(handler: Throwable => F[Unit]): F[Unit]
   def start(botToken: SlackBotToken, appToken: Option[SlackAppToken] = None): F[Unit]
 }

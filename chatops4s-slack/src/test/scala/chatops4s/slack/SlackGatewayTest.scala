@@ -32,30 +32,34 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       },
       idempotencyCheck: Option[IdempotencyCheck[IO]] = None,
   ): SlackGatewayImpl[IO] = {
-    given sttp.monad.MonadError[IO] = backend.monad
-    val client                      = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
-    val clientRef                   = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
-    val handlersRef                 = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef          = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef             = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val cacheRef                    = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
-    val check                       = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
-    val idempotencyRef              = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
-    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
+    given monad: sttp.monad.MonadError[IO] = backend.monad
+    val client                             = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
+    val clientRef                          = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
+    val handlersRef                        = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef                 = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef                    = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef                           = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
+    val check                              = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
+    val idempotencyRef                     = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
+    val defaultErrorHandler: Throwable => IO[Unit] = e => monad.blocking(println(s"Test error handler: ${e.getMessage}"))
+    val errorHandlerRef                    = Ref.of[IO, Throwable => IO[Unit]](defaultErrorHandler).unsafeRunSync()
+    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, errorHandlerRef, backend)
   }
 
   /** Creates a gateway without a client, for tests that only use registration/manifest methods. */
   private def createDisconnectedGateway(
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
   ): SlackGatewayImpl[IO] = {
-    given sttp.monad.MonadError[IO] = backend.monad
-    val clientRef                   = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
-    val handlersRef                 = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef          = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef             = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val cacheRef                    = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
-    val idempotencyRef              = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
-    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, backend)
+    given monad: sttp.monad.MonadError[IO] = backend.monad
+    val clientRef                          = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
+    val handlersRef                        = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef                 = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef                    = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef                           = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
+    val idempotencyRef                     = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
+    val defaultErrorHandler: Throwable => IO[Unit] = e => monad.blocking(println(s"Test error handler: ${e.getMessage}"))
+    val errorHandlerRef                    = Ref.of[IO, Throwable => IO[Unit]](defaultErrorHandler).unsafeRunSync()
+    new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, errorHandlerRef, backend)
   }
 
   "SlackGateway" - {

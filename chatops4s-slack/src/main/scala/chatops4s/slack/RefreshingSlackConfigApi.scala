@@ -6,6 +6,7 @@ import sttp.monad.MonadError
 import sttp.monad.syntax.*
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** A wrapper around [[SlackConfigApi]] that automatically rotates the config token when it is near expiry.
   *
@@ -29,7 +30,13 @@ class RefreshingSlackConfigApi[F[_]] private (
     clock: () => Instant,
 )(using monad: MonadError[F]) {
 
-  /** Obtain a [[SlackConfigApi]] with a valid (rotated if necessary) token and run `f`. */
+  private val rotating = new AtomicBoolean(false)
+
+  /** Obtain a [[SlackConfigApi]] with a valid (rotated if necessary) token and run `f`.
+    *
+    * Token rotation is serialized: if multiple threads call `withApi` concurrently and a rotation is needed, only one
+    * thread will actually rotate. Others will skip (the guard uses `AtomicBoolean.compareAndSet`).
+    */
   def withApi[A](f: SlackConfigApi[F] => F[A]): F[A] =
     for {
       _    <- rotateIfNeeded
@@ -38,15 +45,26 @@ class RefreshingSlackConfigApi[F[_]] private (
     } yield a
 
   /** Force an immediate token rotation regardless of expiry. */
-  def forceRotate(): F[Unit] = rotate()
+  def forceRotate(): F[Unit] = guardedRotate()
 
   private def rotateIfNeeded: F[Unit] =
     expRef.get.flatMap {
-      case None      => rotate()
+      case None      => guardedRotate()
       case Some(exp) =>
         val now = clock()
-        if !now.plus(refreshMargin).isBefore(exp) then rotate()
+        if !now.plus(refreshMargin).isBefore(exp) then guardedRotate()
         else monad.unit(())
+    }
+
+  private def guardedRotate(): F[Unit] =
+    monad.eval(rotating.compareAndSet(false, true)).flatMap {
+      case false => monad.unit(()) // Another call is already rotating, skip
+      case true  =>
+        rotate()
+          .flatMap(_ => monad.eval(rotating.set(false)))
+          .handleError { case e =>
+            monad.eval(rotating.set(false)).flatMap(_ => monad.error(e))
+          }
     }
 
   private def rotate(): F[Unit] =

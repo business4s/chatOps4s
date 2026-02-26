@@ -40,6 +40,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
     cacheRef: Ref[F, UserInfoCache[F]],
     idempotencyRef: Ref[F, IdempotencyCheck[F]],
+    errorHandlerRef: Ref[F, Throwable => F[Unit]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F]
     with SlackSetup[F] {
@@ -115,6 +116,9 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   override def withUserInfoCache(cache: UserInfoCache[F]): F[Unit] =
     cacheRef.update(_ => cache)
+
+  override def onError(handler: Throwable => F[Unit]): F[Unit] =
+    errorHandlerRef.update(_ => handler)
 
   override def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit] =
     idempotencyRef.update(_ => check)
@@ -244,8 +248,8 @@ private[slack] class SlackGatewayImpl[F[_]](
       case None    => monad.error(new RuntimeException("Not connected. Call start() first."))
     }
 
-  private[slack] def handleEnvelope(envelope: Envelope): F[Unit] =
-    envelope.`type` match {
+  private[slack] def handleEnvelope(envelope: Envelope): F[Unit] = {
+    val dispatch = envelope.`type` match {
       case EnvelopeType.Interactive   =>
         envelope.payload.traverse_ { json =>
           val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
@@ -255,6 +259,10 @@ private[slack] class SlackGatewayImpl[F[_]](
       case EnvelopeType.SlashCommands => envelope.payload.traverse_(dispatchPayload[SlashCommandPayload](_, handleSlashCommandPayload))
       case _                          => monad.unit(())
     }
+    dispatch.handleError { case e =>
+      errorHandlerRef.get.flatMap(handler => handler(e))
+    }
+  }
 
   private def dispatchPayload[A: Decoder](json: Json, handler: A => F[Unit]): F[Unit] =
     json.as[A] match {
