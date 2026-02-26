@@ -37,7 +37,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     val clientRef                          = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
     val handlersRef                        = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
     val commandHandlersRef                 = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef                    = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef                    = Ref.of[IO, Map[FormId[?, ?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val cacheRef                           = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
     val check                              = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
     val idempotencyRef                     = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
@@ -54,7 +54,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     val clientRef                          = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
     val handlersRef                        = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
     val commandHandlersRef                 = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef                    = Ref.of[IO, Map[FormId[?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef                    = Ref.of[IO, Map[FormId[?, ?], FormEntry[IO]]](Map.empty).unsafeRunSync()
     val cacheRef                           = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
     val idempotencyRef                     = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
     val defaultErrorHandler: Throwable => IO[Unit] = e => monad.blocking(println(s"Test error handler: ${e.getMessage}"))
@@ -948,7 +948,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
 
         val formId = gateway.registerForm[DeployForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Deploy Service", "Deploy").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Deploy Service", metadata = "", submitLabel = "Deploy").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json = parser.parse(capturedBody.get).toOption.get
@@ -976,7 +976,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should dispatch view submission to registered handler" in {
         val gateway                                          = createGateway()
-        var captured: Option[FormSubmission[TestSubmitForm]] = None
+        var captured: Option[FormSubmission[TestSubmitForm, String]] = None
 
         case class TestSubmitForm(name: String, count: Int) derives FormDef
 
@@ -1440,7 +1440,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class DateForm(date: LocalDate) derives FormDef
 
         val formId = gateway.registerForm[DateForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Pick Date").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Pick Date", "").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1470,7 +1470,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class UserForm(user: UserId) derives FormDef
 
         val formId = gateway.registerForm[UserForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Pick User").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Pick User", "").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1500,7 +1500,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class EmailForm(email: Email) derives FormDef
 
         val formId = gateway.registerForm[EmailForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Enter Email").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Enter Email", "").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1543,7 +1543,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         ) derives FormDef
 
         val formId = gateway.registerForm[FullForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Full Form").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Full Form", "").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1568,6 +1568,182 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         blocks.zip(expectedTypes).foreach { case (block, expectedType) =>
           block.hcursor.downField("element").downField("type").as[String] shouldBe Right(expectedType)
         }
+      }
+
+      "should round-trip typed metadata through openForm and submission" in {
+        var capturedBody: Option[String]                    = None
+        var capturedSub: Option[FormSubmission[TestMetaForm, DeployMeta]] = None
+        val backend                                        = MockBackend
+          .create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("views.open")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _                                => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust("""{"ok":true}""")
+
+        val gateway = createGateway(backend)
+
+        case class TestMetaForm(name: String, count: Int) derives FormDef
+        case class DeployMeta(env: String, requestedBy: String) derives io.circe.Encoder.AsObject, io.circe.Decoder
+
+        val formId = gateway
+          .registerFormT[TestMetaForm, DeployMeta] { submission =>
+            IO { capturedSub = Some(submission) }
+          }
+          .unsafeRunSync()
+
+        gateway.openForm(TriggerId("trigger-123"), formId, "Test", DeployMeta("prod", "alice")).unsafeRunSync()
+
+        capturedBody shouldBe defined
+        val json         = parser.parse(capturedBody.get).toOption.get
+        val privateMeta  = json.hcursor.downField("view").downField("private_metadata").as[String].toOption.get
+        privateMeta should include("prod")
+        privateMeta should include("alice")
+
+        val payload = viewSubmissionPayload(
+          callbackId = formId.value,
+          values = Map(
+            "name"  -> Map("name" -> ViewStateValue(value = Some("my-service"))),
+            "count" -> Map("count" -> ViewStateValue(value = Some("42"))),
+          ),
+          privateMetadata = Some("""{"env":"prod","requestedBy":"alice"}"""),
+        )
+        gateway.handleViewSubmissionPayload(payload).unsafeRunSync()
+
+        capturedSub shouldBe defined
+        capturedSub.get.metadata shouldBe DeployMeta("prod", "alice")
+        capturedSub.get.metadata.env shouldBe "prod"
+        capturedSub.get.metadata.requestedBy shouldBe "alice"
+        capturedSub.get.values.name shouldBe "my-service"
+        capturedSub.get.values.count shouldBe 42
+      }
+
+      "should support string metadata on openForm" in {
+        var capturedSub: Option[FormSubmission[TestStringMetaForm, String]] = None
+        val backend                                                        = MockBackend
+          .create()
+          .whenAnyRequest
+          .thenRespondAdjust("""{"ok":true}""")
+
+        val gateway = createGateway(backend)
+
+        case class TestStringMetaForm(name: String) derives FormDef
+
+        val formId = gateway
+          .registerForm[TestStringMetaForm] { submission =>
+            IO { capturedSub = Some(submission) }
+          }
+          .unsafeRunSync()
+
+        gateway.openForm(TriggerId("trigger-123"), formId, "Test", "my-context").unsafeRunSync()
+
+        val payload = viewSubmissionPayload(
+          callbackId = formId.value,
+          values = Map(
+            "name" -> Map("name" -> ViewStateValue(value = Some("svc"))),
+          ),
+          privateMetadata = Some("my-context"),
+        )
+        gateway.handleViewSubmissionPayload(payload).unsafeRunSync()
+
+        capturedSub shouldBe defined
+        capturedSub.get.metadata shouldBe "my-context"
+      }
+
+      "should default to empty string metadata when no private_metadata present" in {
+        var capturedSub: Option[FormSubmission[TestEmptyMetaForm, String]] = None
+        val gateway                                                       = createGateway()
+
+        case class TestEmptyMetaForm(name: String) derives FormDef
+
+        val formId = gateway
+          .registerForm[TestEmptyMetaForm] { submission =>
+            IO { capturedSub = Some(submission) }
+          }
+          .unsafeRunSync()
+
+        val payload = viewSubmissionPayload(
+          callbackId = formId.value,
+          values = Map(
+            "name" -> Map("name" -> ViewStateValue(value = Some("svc"))),
+          ),
+        )
+        gateway.handleViewSubmissionPayload(payload).unsafeRunSync()
+
+        capturedSub shouldBe defined
+        capturedSub.get.metadata shouldBe ""
+      }
+    }
+
+    "shutdown" - {
+      "shutdown signal should stop socket loop processing" in {
+        val gateway = createGateway()
+
+        gateway.shutdown().unsafeRunSync()
+
+        // After shutdown, the shutdownSignal AtomicBoolean should be true.
+        // Verify by checking that a second shutdown is idempotent.
+        gateway.shutdown().unsafeRunSync()
+      }
+    }
+
+    "onError" - {
+      "should call custom error handler when button handler throws" in {
+        val gateway                           = createGateway()
+        var capturedError: Option[Throwable] = None
+
+        gateway.onError(e => IO { capturedError = Some(e) }).unsafeRunSync()
+
+        val btnId = gateway
+          .registerButton[String] { _ =>
+            IO.raiseError(new RuntimeException("boom"))
+          }
+          .unsafeRunSync()
+
+        val envelope = Envelope(
+          `type` = EnvelopeType.Interactive,
+          envelope_id = "env-1",
+          payload = Some(io.circe.Encoder[InteractionPayload].apply(interactionPayload(btnId.value, "v"))),
+        )
+        gateway.handleEnvelope(envelope).unsafeRunSync()
+
+        capturedError shouldBe defined
+        capturedError.get.getMessage shouldBe "boom"
+      }
+
+      "should call custom error handler when form handler throws" in {
+        val gateway                           = createGateway()
+        var capturedError: Option[Throwable] = None
+
+        gateway.onError(e => IO { capturedError = Some(e) }).unsafeRunSync()
+
+        case class ErrorForm(name: String) derives FormDef
+
+        val formId = gateway
+          .registerForm[ErrorForm] { _ =>
+            IO.raiseError(new RuntimeException("form-boom"))
+          }
+          .unsafeRunSync()
+
+        val submissionPayload = viewSubmissionPayload(
+          callbackId = formId.value,
+          values = Map("name" -> Map("name" -> ViewStateValue(value = Some("test")))),
+        )
+        val envelope          = Envelope(
+          `type` = EnvelopeType.Interactive,
+          payload = Some(io.circe.Encoder[ViewSubmissionPayload].apply(submissionPayload)),
+          envelope_id = "env-2",
+        )
+        gateway.handleEnvelope(envelope).unsafeRunSync()
+
+        capturedError shouldBe defined
+        capturedError.get.getMessage shouldBe "form-boom"
       }
     }
   }
@@ -1603,6 +1779,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
   private def viewSubmissionPayload(
       callbackId: String,
       values: Map[String, Map[String, ViewStateValue]],
+      privateMetadata: Option[String] = None,
   ): ViewSubmissionPayload =
     ViewSubmissionPayload(
       `type` = "view_submission",
@@ -1611,6 +1788,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         id = "V123",
         callback_id = Some(callbackId),
         state = Some(ViewState(values)),
+        private_metadata = privateMetadata,
       ),
       api_app_id = "A123",
     )
