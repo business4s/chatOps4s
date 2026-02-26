@@ -8,14 +8,7 @@ import sttp.monad.syntax.*
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** A wrapper around [[SlackConfigApi]] that automatically rotates the config token when it is near expiry.
-  *
-  * Config tokens (`xoxe.xoxp-`) expire after 12 hours. This class tracks the `exp` claim from the last `tooling.tokens.rotate` response and triggers
-  * a rotation when the token is within `refreshMargin` of expiry (default: 5 minutes).
-  *
-  * On the very first call — when no expiry is known — a rotation is triggered to establish the expiry baseline.
-  *
-  * Use [[withApi]] to obtain a [[SlackConfigApi]] with a fresh token:
+/** Automatically rotates the config token when it is near expiry.
   * {{{
   * refreshing.withApi { api =>
   *   api.apps.manifest.validate(...)
@@ -32,11 +25,7 @@ class RefreshingSlackConfigApi[F[_]] private (
 
   private val rotating = new AtomicBoolean(false)
 
-  /** Obtain a [[SlackConfigApi]] with a valid (rotated if necessary) token and run `f`.
-    *
-    * Token rotation is serialized: if multiple threads call `withApi` concurrently and a rotation is needed, only one
-    * thread will actually rotate. Others will skip (the guard uses `AtomicBoolean.compareAndSet`).
-    */
+  /** Concurrent callers skip if a rotation is already in progress. */
   def withApi[A](f: SlackConfigApi[F] => F[A]): F[A] =
     for {
       _    <- rotateIfNeeded
@@ -44,7 +33,6 @@ class RefreshingSlackConfigApi[F[_]] private (
       a    <- f(new SlackConfigApi[F](backend, pair.configToken))
     } yield a
 
-  /** Force an immediate token rotation regardless of expiry. */
   def forceRotate(): F[Unit] = guardedRotate()
 
   private def rotateIfNeeded: F[Unit] =

@@ -27,7 +27,7 @@ object Main extends IOApp.Simple {
                           if (cmd.args.trim.nonEmpty) base.set(_.service, cmd.args.trim) else base
                         }
                         slack
-                          .openForm(cmd.triggerId, deployForm, "Deploy Service", initialValues = initial)
+                          .openForm(cmd.triggerId, deployForm, "Deploy Service", metadata = "", initialValues = initial)
                           .as(CommandResponse.Silent)
                       }
         // /status <service> → typed command with CommandParser[ServiceName]
@@ -49,7 +49,7 @@ object Main extends IOApp.Simple {
       slack: SlackGateway[IO],
       approveBtn: ButtonId[ServiceVersion],
       rejectBtn: ButtonId[ServiceVersion],
-  )(submission: FormSubmission[DeployForm]): IO[Unit] = {
+  )(submission: FormSubmission[DeployForm, String]): IO[Unit] = {
     val form      = submission.values
     val dryRunStr = if (form.dryRun) " (dry run)" else ""
     val label     = s"*${form.service}* *${form.version}*$dryRunStr"

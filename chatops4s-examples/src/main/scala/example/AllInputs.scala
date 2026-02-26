@@ -20,11 +20,11 @@ object AllInputs extends IOApp.Simple {
         slack        <- SlackGateway.create(backend)
         form         <- slack.registerForm[AllInputsForm](onSubmit(slack))
         openBtn      <- slack.registerButton[String] { click =>
-                          slack.openForm(click.triggerId, form, "All Inputs", metadata = encodeMessageId(click.messageId))
+                          slack.openForm(click.triggerId, form, "All Inputs", encodeMessageId(click.messageId))
                         }
         prefilledBtn <- slack.registerButton[String](openPrefilled(slack, form, _))
         _            <- slack.registerCommand[String]("all-inputs", "Open all-inputs form") { cmd =>
-                          slack.openForm(cmd.triggerId, form, "All Inputs").as(CommandResponse.Silent)
+                          slack.openForm(cmd.triggerId, form, "All Inputs", "").as(CommandResponse.Silent)
                         }
         _            <- slack.validateSetup("AllInputs", "/tmp/slack-manifest.yml")
         fiber        <- slack.start(token, Some(appToken)).start
@@ -37,14 +37,14 @@ object AllInputs extends IOApp.Simple {
       } yield ()
     }
 
-  private def openPrefilled(slack: SlackGateway[IO], form: FormId[AllInputsForm], click: ButtonClick[String]): IO[Unit] = {
+  private def openPrefilled(slack: SlackGateway[IO], form: FormId[AllInputsForm, String], click: ButtonClick[String]): IO[Unit] = {
     for {
       initialValues <- prefilled(slack, click)
-      _             <- slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", initialValues = initialValues, metadata = encodeMessageId(click.messageId))
+      _             <- slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", encodeMessageId(click.messageId), initialValues = initialValues)
     } yield ()
   }
 
-  private def onSubmit(slack: SlackGateway[IO])(submission: FormSubmission[AllInputsForm]): IO[Unit] = {
+  private def onSubmit(slack: SlackGateway[IO])(submission: FormSubmission[AllInputsForm, String]): IO[Unit] = {
     val f       = submission.values
     val lines   = List(
       s"*Text:* ${f.text.getOrElse("_empty_")}",

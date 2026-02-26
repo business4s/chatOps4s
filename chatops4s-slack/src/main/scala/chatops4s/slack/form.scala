@@ -390,19 +390,28 @@ object FormDef {
     }
 }
 
-case class FormId[T](value: String)
+trait MetadataCodec[M] {
+  def encode(value: M): String
+  def decode(raw: String): M
+}
 
-case class FormSubmission[T](payload: ViewSubmissionPayload, values: T) {
-  def userId: UserId   = payload.user.id
-  def metadata: String = payload.view.private_metadata.getOrElse("")
+object MetadataCodec {
+  given string: MetadataCodec[String] with {
+    def encode(value: String): String = value
+    def decode(raw: String): String   = raw
+  }
 
-  /** Decode the form's private_metadata as typed value M.
-    * Throws if metadata cannot be decoded (closed-world assumption: metadata was set via openFormTyped).
-    */
-  def typedMetadata[M: io.circe.Decoder]: M =
-    io.circe.parser.decode[M](metadata) match {
+  given circe[M](using enc: io.circe.Encoder[M], dec: io.circe.Decoder[M]): MetadataCodec[M] with {
+    def encode(value: M): String = enc(value).noSpaces
+    def decode(raw: String): M   = io.circe.parser.decode[M](raw)(using dec) match {
       case Right(m)  => m
-      case Left(err) =>
-        throw new RuntimeException(s"Failed to decode form metadata: ${err.getMessage}. Was this form opened with openFormTyped?")
+      case Left(err) => throw new RuntimeException(s"Failed to decode form metadata: ${err.getMessage}")
     }
+  }
+}
+
+case class FormId[T, M](value: String)
+
+case class FormSubmission[T, M](payload: ViewSubmissionPayload, values: T, metadata: M) {
+  def userId: UserId = payload.user.id
 }

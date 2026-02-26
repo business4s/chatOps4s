@@ -30,14 +30,15 @@ private[slack] case class CommandEntry[F[_]](
 
 private[slack] case class FormEntry[F[_]](
     formDef: FormDef[Any],
-    handler: FormSubmission[Any] => F[Unit],
+    handler: FormSubmission[Any, Any] => F[Unit],
+    decodeMetadata: String => Any,
 )
 
 private[slack] class SlackGatewayImpl[F[_]](
     clientRef: Ref[F, Option[SlackClient[F]]],
     handlersRef: Ref[F, Map[ButtonId[?], ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[CommandName, CommandEntry[F]]],
-    formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
+    formHandlersRef: Ref[F, Map[FormId[?, ?], FormEntry[F]]],
     cacheRef: Ref[F, UserInfoCache[F]],
     idempotencyRef: Ref[F, IdempotencyCheck[F]],
     errorHandlerRef: Ref[F, Throwable => F[Unit]],
@@ -77,13 +78,28 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description, resolvedHint)))
   }
 
-  override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T] => F[Unit]): F[FormId[T]] = {
-    val id    = FormId[T](UUID.randomUUID().toString)
-    // NOTE: asInstanceOf is safe here -- type parameter T is erased at runtime but the FormDef and
-    // handler are constructed with the same T. The cast back at dispatch time uses the same codec.
+  override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T, String] => F[Unit]): F[FormId[T, String]] = {
+    val id    = FormId[T, String](UUID.randomUUID().toString)
     val entry = FormEntry[F](
       formDef = fd.asInstanceOf[FormDef[Any]],
-      handler = handler.asInstanceOf[FormSubmission[Any] => F[Unit]],
+      handler = handler.asInstanceOf[FormSubmission[Any, Any] => F[Unit]],
+      decodeMetadata = identity,
+    )
+    formHandlersRef.update(_ + (id -> entry)).as(id)
+  }
+
+  override def registerFormT[T: {FormDef as fd}, M: {io.circe.Encoder, io.circe.Decoder as dec}](
+      handler: FormSubmission[T, M] => F[Unit],
+  ): F[FormId[T, M]] = {
+    val id    = FormId[T, M](UUID.randomUUID().toString)
+    val entry = FormEntry[F](
+      formDef = fd.asInstanceOf[FormDef[Any]],
+      handler = handler.asInstanceOf[FormSubmission[Any, Any] => F[Unit]],
+      decodeMetadata = raw =>
+        io.circe.parser.decode[M](raw)(using dec) match {
+          case Right(m)  => m
+          case Left(err) => throw new RuntimeException(s"Failed to decode form metadata: ${err.getMessage}")
+        },
     )
     formHandlersRef.update(_ + (id -> entry)).as(id)
   }
@@ -229,13 +245,13 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
     }
 
-  override def openForm[T](
+  override def openForm[T, M: MetadataCodec](
       triggerId: TriggerId,
-      formId: FormId[T],
+      formId: FormId[T, M],
       title: String,
+      metadata: M,
       submitLabel: String = "Submit",
       initialValues: InitialValues[T] = InitialValues.of[T],
-      metadata: String = "",
   ): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>
       forms.get(formId) match {
@@ -243,29 +259,20 @@ private[slack] class SlackGatewayImpl[F[_]](
         case Some(entry) =>
           withClient { client =>
             val viewBlocks = entry.formDef.buildBlocks(initialValues.toMap)
+            val encoded    = summon[MetadataCodec[M]].encode(metadata)
             val view       = View(
               `type` = ViewType.Modal,
               callback_id = Some(formId.value),
               title = PlainTextObject(text = title),
               submit = Some(PlainTextObject(text = submitLabel)),
               blocks = viewBlocks,
-              private_metadata = if (metadata.nonEmpty) Some(metadata) else None,
+              private_metadata = if (encoded.nonEmpty) Some(encoded) else None,
             )
             client.openView(triggerId, view)
           }
       }
     }
   }
-
-  override def openFormTyped[T, M: io.circe.Encoder](
-      triggerId: TriggerId,
-      formId: FormId[T],
-      title: String,
-      metadata: M,
-      submitLabel: String = "Submit",
-      initialValues: InitialValues[T] = InitialValues.of[T],
-  ): F[Unit] =
-    openForm(triggerId, formId, title, submitLabel, initialValues, io.circe.Encoder[M].apply(metadata).noSpaces)
 
   private def withClient[A](f: SlackClient[F] => F[A]): F[A] =
     clientRef.get.flatMap {
@@ -325,7 +332,7 @@ private[slack] class SlackGatewayImpl[F[_]](
   }
 
   private[slack] def handleViewSubmissionPayload(payload: ViewSubmissionPayload): F[Unit] = {
-    val callbackId = FormId[Any](payload.view.callback_id.getOrElse(""))
+    val callbackId = FormId[Any, Any](payload.view.callback_id.getOrElse(""))
     formHandlersRef.get.flatMap { forms =>
       forms.get(callbackId).traverse_ { entry =>
         val values = payload.view.state.map(_.values).getOrElse(Map.empty)
@@ -335,7 +342,9 @@ private[slack] class SlackGatewayImpl[F[_]](
               s"Form parse error for form '${callbackId.value}': $error. This usually indicates a mismatch between the FormDef fields and the submitted form state.",
             ))
           case Right(parsed) =>
-            val submission = FormSubmission(payload = payload, values = parsed)
+            val rawMeta     = payload.view.private_metadata.getOrElse("")
+            val decodedMeta = entry.decodeMetadata(rawMeta)
+            val submission  = FormSubmission(payload = payload, values = parsed, metadata = decodedMeta)
             entry.handler(submission)
         }
       }

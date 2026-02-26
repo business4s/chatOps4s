@@ -1,7 +1,7 @@
 package example.docs
 
 import cats.effect.IO
-import chatops4s.slack.{CommandResponse, FormDef, FormId, InitialValues, SlackGateway, SlackSetup}
+import chatops4s.slack.{CommandResponse, FormDef, FormId, InitialValues, MetadataCodec, SlackGateway, SlackSetup}
 
 private object FormsPage {
 
@@ -18,7 +18,7 @@ private object FormsPage {
                     }
       _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
                       slack
-                        .openForm(cmd.triggerId, deployForm, "Deploy Service")
+                        .openForm(cmd.triggerId, deployForm, "Deploy Service", metadata = "")
                         .as(CommandResponse.Silent)
                     }
       // end_form_open
@@ -28,14 +28,14 @@ private object FormsPage {
   def withInitialValues(
       slack: SlackGateway[IO],
       triggerId: chatops4s.slack.api.TriggerId,
-      formId: FormId[DeployForm],
+      formId: FormId[DeployForm, String],
   ): IO[Unit] = {
     val initial = InitialValues
       .of[DeployForm]
       .set(_.service, "api-gateway")
       .set(_.version, "1.0.0")
       .set(_.dryRun, true)
-    slack.openForm(triggerId, formId, "Deploy Service", initialValues = initial)
+    slack.openForm(triggerId, formId, "Deploy Service", metadata = "", initialValues = initial)
   }
   // end_initial_values
 
@@ -52,7 +52,7 @@ private object FormsPage {
                     }
       _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
                       slack
-                        .openForm(cmd.triggerId, deployForm, "Deploy", metadata = s"${cmd.channelId}:requested")
+                        .openForm(cmd.triggerId, deployForm, "Deploy", s"${cmd.channelId}:requested")
                         .as(CommandResponse.Silent)
                     }
     } yield ()

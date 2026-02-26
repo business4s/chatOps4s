@@ -12,24 +12,9 @@ trait SlackGateway[F[_]] {
   def addReaction(messageId: MessageId, emoji: String): F[Unit]
   def removeReaction(messageId: MessageId, emoji: String): F[Unit]
   def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit]
-  /** Open a modal form. The `metadata` string is stored in Slack's `private_metadata` field
-    * and accessible via `FormSubmission.metadata`. For type-safe metadata, use `openFormTyped`.
-    */
-  def openForm[T](
+  def openForm[T, M: MetadataCodec](
       triggerId: TriggerId,
-      formId: FormId[T],
-      title: String,
-      submitLabel: String = "Submit",
-      initialValues: InitialValues[T] = InitialValues.of[T],
-      metadata: String = "",
-  ): F[Unit]
-
-  /** Open a form with typed metadata. The metadata is encoded to JSON using the provided Encoder
-    * and stored in Slack's `private_metadata` field. Retrieve it with `FormSubmission.typedMetadata[M]`.
-    */
-  def openFormTyped[T, M: io.circe.Encoder](
-      triggerId: TriggerId,
-      formId: FormId[T],
+      formId: FormId[T, M],
       title: String,
       metadata: M,
       submitLabel: String = "Submit",
@@ -51,7 +36,7 @@ object SlackGateway {
       clientRef          <- Ref.of[F, Option[SlackClient[F]]](None)
       handlersRef        <- Ref.of[F, Map[ButtonId[?], ErasedHandler[F]]](Map.empty)
       commandHandlersRef <- Ref.of[F, Map[CommandName, CommandEntry[F]]](Map.empty)
-      formHandlersRef    <- Ref.of[F, Map[FormId[?], FormEntry[F]]](Map.empty)
+      formHandlersRef    <- Ref.of[F, Map[FormId[?, ?], FormEntry[F]]](Map.empty)
       defaultCache       <- UserInfoCache.inMemory[F]()
       cacheRef           <- Ref.of[F, UserInfoCache[F]](defaultCache)
       defaultCheck        = IdempotencyCheck.slackScan[F](clientRef)
