@@ -20,6 +20,19 @@ trait SlackGateway[F[_]] {
       initialValues: InitialValues[T] = InitialValues.of[T],
       metadata: String = "",
   ): F[Unit]
+
+  /** Open a form with typed metadata. The metadata is encoded to JSON using the provided Encoder
+    * and stored in Slack's `private_metadata` field. Retrieve it with `FormSubmission.typedMetadata[M]`.
+    */
+  def openFormTyped[T, M: io.circe.Encoder](
+      triggerId: TriggerId,
+      formId: FormId[T],
+      title: String,
+      metadata: M,
+      submitLabel: String = "Submit",
+      initialValues: InitialValues[T] = InitialValues.of[T],
+  ): F[Unit]
+
   def getUserInfo(userId: UserId): F[users.UserInfo]
 }
 

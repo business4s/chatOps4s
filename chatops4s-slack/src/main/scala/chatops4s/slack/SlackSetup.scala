@@ -22,5 +22,10 @@ trait SlackSetup[F[_]] {
     */
   def shutdown(): F[Unit]
 
+  /** Returns a summary of all registered button, command, and form handlers.
+    * Useful for debugging and verifying that expected handlers are registered.
+    */
+  def listHandlers(): F[HandlerSummary]
+
   def start(botToken: SlackBotToken, appToken: Option[SlackAppToken] = None): F[Unit]
 }

@@ -395,4 +395,14 @@ case class FormId[T](value: String)
 case class FormSubmission[T](payload: ViewSubmissionPayload, values: T) {
   def userId: UserId   = payload.user.id
   def metadata: String = payload.view.private_metadata.getOrElse("")
+
+  /** Decode the form's private_metadata as typed value M.
+    * Throws if metadata cannot be decoded (closed-world assumption: metadata was set via openFormTyped).
+    */
+  def typedMetadata[M: io.circe.Decoder]: M =
+    io.circe.parser.decode[M](metadata) match {
+      case Right(m)  => m
+      case Left(err) =>
+        throw new RuntimeException(s"Failed to decode form metadata: ${err.getMessage}. Was this form opened with openFormTyped?")
+    }
 }

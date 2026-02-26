@@ -121,6 +121,17 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def onError(handler: Throwable => F[Unit]): F[Unit] =
     errorHandlerRef.update(_ => handler)
 
+  override def listHandlers(): F[HandlerSummary] =
+    for {
+      buttons  <- handlersRef.get
+      commands <- commandHandlersRef.get
+      forms    <- formHandlersRef.get
+    } yield HandlerSummary(
+      buttons = buttons.keys.map(_.value).toSet,
+      commands = commands.keys.map(_.value).toSet,
+      forms = forms.keys.map(_.value).toSet,
+    )
+
   override def shutdown(): F[Unit] =
     monad.eval(shutdownSignal.set(true))
 
@@ -245,6 +256,16 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
     }
   }
+
+  override def openFormTyped[T, M: io.circe.Encoder](
+      triggerId: TriggerId,
+      formId: FormId[T],
+      title: String,
+      metadata: M,
+      submitLabel: String = "Submit",
+      initialValues: InitialValues[T] = InitialValues.of[T],
+  ): F[Unit] =
+    openForm(triggerId, formId, title, submitLabel, initialValues, io.circe.Encoder[M].apply(metadata).noSpaces)
 
   private def withClient[A](f: SlackClient[F] => F[A]): F[A] =
     clientRef.get.flatMap {
