@@ -44,6 +44,7 @@ private[slack] class SlackGatewayImpl[F[_]](
 ) extends SlackGateway[F]
     with SlackSetup[F] {
 
+  private val logger                  = org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway")
   private given monad: MonadError[F] = backend.monad
 
   // TODO: Handlers accumulate indefinitely by design. Buttons/commands/forms are registered once
@@ -257,8 +258,8 @@ private[slack] class SlackGatewayImpl[F[_]](
 
   private def dispatchPayload[A: Decoder](json: Json, handler: A => F[Unit]): F[Unit] =
     json.as[A] match {
-      case Right(a) => handler(a)
-      case Left(_)  => monad.unit(())
+      case Right(a)  => handler(a)
+      case Left(err) => monad.blocking(logger.warn(s"Failed to decode payload: ${err.getMessage}"))
     }
 
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
