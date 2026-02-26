@@ -24,7 +24,7 @@ object AllInputs extends IOApp.Simple {
                         }
         prefilledBtn <- slack.registerButton[String](openPrefilled(slack, form, _))
         _            <- slack.registerCommand[String]("all-inputs", "Open all-inputs form") { cmd =>
-                          slack.openForm(cmd.triggerId, form, "All Inputs", "").as(CommandResponse.Silent)
+                          slack.openForm(cmd.triggerId, form, "All Inputs").as(CommandResponse.Silent)
                         }
         _            <- slack.validateSetup("AllInputs", "/tmp/slack-manifest.yml")
         fiber        <- slack.start(token, Some(appToken)).start
@@ -92,6 +92,7 @@ object AllInputs extends IOApp.Simple {
       richText: Option[RichTextBlock],
   ) derives FormDef
 
+  //> could be MetadataCodec
   private def encodeMessageId(msg: MessageId): String =
     s"${msg.channel.value}:${msg.ts.value}"
 

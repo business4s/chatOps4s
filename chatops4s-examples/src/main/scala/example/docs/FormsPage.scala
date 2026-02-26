@@ -18,7 +18,7 @@ private object FormsPage {
                     }
       _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
                       slack
-                        .openForm(cmd.triggerId, deployForm, "Deploy Service", metadata = "")
+                        .openForm(cmd.triggerId, deployForm, "Deploy Service")
                         .as(CommandResponse.Silent)
                     }
       // end_form_open
@@ -35,7 +35,7 @@ private object FormsPage {
       .set(_.service, "api-gateway")
       .set(_.version, "1.0.0")
       .set(_.dryRun, true)
-    slack.openForm(triggerId, formId, "Deploy Service", metadata = "", initialValues = initial)
+    slack.openForm(triggerId, formId, "Deploy Service", initialValues = initial)
   }
   // end_initial_values
 

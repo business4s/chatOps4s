@@ -948,7 +948,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class DeployForm(service: String, version: String, dryRun: Boolean) derives FormDef
 
         val formId = gateway.registerForm[DeployForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Deploy Service", metadata = "", submitLabel = "Deploy").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Deploy Service", "Deploy").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json = parser.parse(capturedBody.get).toOption.get
@@ -1440,7 +1440,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class DateForm(date: LocalDate) derives FormDef
 
         val formId = gateway.registerForm[DateForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Pick Date", "").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Pick Date").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1470,7 +1470,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class UserForm(user: UserId) derives FormDef
 
         val formId = gateway.registerForm[UserForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Pick User", "").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Pick User").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1500,7 +1500,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         case class EmailForm(email: Email) derives FormDef
 
         val formId = gateway.registerForm[EmailForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Enter Email", "").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Enter Email").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1543,7 +1543,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         ) derives FormDef
 
         val formId = gateway.registerForm[FullForm](_ => IO.unit).unsafeRunSync()
-        gateway.openForm(TriggerId("trigger-123"), formId, "Full Form", "").unsafeRunSync()
+        gateway.openForm(TriggerId("trigger-123"), formId, "Full Form").unsafeRunSync()
 
         capturedBody shouldBe defined
         val json   = parser.parse(capturedBody.get).toOption.get
@@ -1570,6 +1570,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         }
       }
 
+      //> those tests are overly verbose
       "should round-trip typed metadata through openForm and submission" in {
         var capturedBody: Option[String]                    = None
         var capturedSub: Option[FormSubmission[TestMetaForm, DeployMeta]] = None
@@ -1682,6 +1683,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "shutdown" - {
+      //> this doesnt test anything
       "shutdown signal should stop socket loop processing" in {
         val gateway = createGateway()
 

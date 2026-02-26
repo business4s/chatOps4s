@@ -27,7 +27,7 @@ object Main extends IOApp.Simple {
                           if (cmd.args.trim.nonEmpty) base.set(_.service, cmd.args.trim) else base
                         }
                         slack
-                          .openForm(cmd.triggerId, deployForm, "Deploy Service", metadata = "", initialValues = initial)
+                          .openForm(cmd.triggerId, deployForm, "Deploy Service", initialValues = initial)
                           .as(CommandResponse.Silent)
                       }
         // /status <service> → typed command with CommandParser[ServiceName]

@@ -78,6 +78,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description, resolvedHint)))
   }
 
+  //> Looks wrong, why two variants for String and with-codec while we could simply require MetadataCodec
   override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T, String] => F[Unit]): F[FormId[T, String]] = {
     val id    = FormId[T, String](UUID.randomUUID().toString)
     val entry = FormEntry[F](
@@ -245,6 +246,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
     }
 
+  //> Codec should be captured within FormId
   override def openForm[T, M: MetadataCodec](
       triggerId: TriggerId,
       formId: FormId[T, M],

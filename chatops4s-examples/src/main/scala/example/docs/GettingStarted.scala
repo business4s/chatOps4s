@@ -96,7 +96,7 @@ object InteractiveForms extends IOApp.Simple {
                       }
         _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
                         slack
-                          .openForm(cmd.triggerId, deployForm, "Deploy Service", metadata = "")
+                          .openForm(cmd.triggerId, deployForm, "Deploy Service")
                           .as(CommandResponse.Silent)
                       }
         // end_form_register

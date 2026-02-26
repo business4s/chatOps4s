@@ -16,7 +16,7 @@ trait SlackGateway[F[_]] {
       triggerId: TriggerId,
       formId: FormId[T, M],
       title: String,
-      metadata: M,
+      metadata: M = "",
       submitLabel: String = "Submit",
       initialValues: InitialValues[T] = InitialValues.of[T],
   ): F[Unit]
