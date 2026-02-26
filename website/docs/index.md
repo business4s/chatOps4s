@@ -16,7 +16,7 @@ What you get:
 - **Typed buttons** — handlers receive `ButtonClick[T]` with your value type
 - **Typed commands** — argument parsing derived from case classes
 - **Modal forms** — `derives FormDef` turns a case class into a Slack modal with 15+ field types
-- **Manifest generation** — `verifySetup` generates and checks your Slack app manifest automatically
+- **Manifest generation** — `validateSetup` generates and checks your Slack app manifest automatically
 - **Runtime-agnostic** — built on [sttp](https://sttp.softwaremill.com), works with any backend that supports WebSockets
 - **Standalone Slack client** — a [type-safe, AI-generated Slack API client](/docs/raw-client) you can use independently
 
@@ -39,29 +39,15 @@ You also need an [sttp](https://sttp.softwaremill.com/en/latest/backends/summary
 
 ## Setup Verification
 
-The `verifySetup` call is the recommended way to keep your Slack app configuration in sync with your code. On each run it:
+The `validateSetup` call keeps your Slack app configuration in sync with your code. On first run it generates a manifest file and prints a setup guide with a one-click app creation URL. On subsequent runs it compares the manifest against the file on disk and fails with a diff if they diverge.
 
-1. **First run** — generates a manifest YAML file from your registered handlers and prints a setup guide:
-   - A URL that opens [api.slack.com/apps](https://api.slack.com/apps) with the manifest pre-filled, so you can create the app in one click.
-   - Instructions for installing the app and obtaining tokens.
-2. **Subsequent runs** — compares the generated manifest against the file on disk. If they differ (e.g. you added a new command), it prints a diff and instructions to update your Slack app.
+You never need to manually figure out which OAuth scopes or event subscriptions your app needs — the library derives them from your handler registrations.
 
-You can also customize the generated manifest before it is verified and written to disk:
-
-```scala file=chatops4s-examples/src/main/scala/example/docs/GettingStarted.scala start=start_custom_manifest end=end_custom_manifest
-```
-
-This is useful when your app needs extra settings that are not inferred from registered handlers.
-
-The generated (and optionally customized) manifest can also be used with the [Raw Client](/docs/raw-client) for automated app creation and updates via Slack's `apps.manifest.create` and `apps.manifest.update` APIs.
-
-This means you never need to manually figure out which OAuth scopes or event subscriptions your app needs — the library derives them from your handler registrations. Here's an example of what the generated manifest looks like:
-
-```json file=chatops4s-slack/src/test/resources/snapshots/manifest-with-commands.json
-```
+See [App Management](/docs/app-management) for the full guide, including the programmatic `checkSetup` alternative, custom manifest modification, and fully automated app management via the manifest API.
 
 ## Next Steps
 
 - [Basic Operations](/docs/basic-ops) — sending messages, replies, reactions
 - [Interactions](/docs/interactions/) — slash commands, buttons, forms
+- [App Management](/docs/app-management) — setup verification and manifest API
 - [Raw Client](/docs/raw-client) — the underlying Slack API client

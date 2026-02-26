@@ -26,7 +26,7 @@ object AllInputs extends IOApp.Simple {
         _            <- slack.registerCommand[String]("all-inputs", "Open all-inputs form") { cmd =>
                           slack.openForm(cmd.triggerId, form, "All Inputs").as(CommandResponse.Silent)
                         }
-        _            <- slack.verifySetup("AllInputs", "/tmp/slack-manifest.yml")
+        _            <- slack.validateSetup("AllInputs", "/tmp/slack-manifest.yml")
         fiber        <- slack.start(token, Some(appToken)).start
         _            <- slack.send(
                           channel,

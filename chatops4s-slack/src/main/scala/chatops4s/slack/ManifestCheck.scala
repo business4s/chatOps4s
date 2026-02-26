@@ -11,13 +11,13 @@ object ManifestCheck {
 
   class ManifestChanged(val path: Path, diff: String) extends ManifestException(diff)
 
-  def verify(manifest: String, appName: String, path: Path): Unit = {
+  def check(manifest: String, path: Path): SetupVerification = {
     if (!Files.exists(path)) {
       val parent = path.getParent
       if (parent != null) Files.createDirectories(parent): Unit
       Files.writeString(path, manifest)
-      val url    = createAppUrl(manifest)
-      val guide  =
+      val url   = createAppUrl(manifest)
+      val guide =
         s"""Slack manifest written to $path
            |
            |This looks like a first-time setup. To create your Slack app:
@@ -31,24 +31,25 @@ object ManifestCheck {
            |   bot token: xoxb-...  (from OAuth & Permissions > Bot User OAuth Token)
            |   app token: xapp-...  (from Basic Information > App-Level Tokens, with connections:write scope)
            |""".stripMargin
-      throw new ManifestCreated(path, guide)
+      SetupVerification.Created(path, url, guide)
+    } else {
+      val existing = Files.readString(path)
+      if (existing == manifest) SetupVerification.UpToDate
+      else {
+        Files.writeString(path, manifest)
+        val diff    = buildDiff(existing, manifest)
+        val message =
+          s"""Slack manifest has changed. Updated $path
+             |
+             |Please update your Slack app manifest to match:
+             |  App settings > App Manifest > paste the contents of $path
+             |
+             |Changes:
+             |$diff
+             |""".stripMargin
+        SetupVerification.Changed(path, diff, message)
+      }
     }
-
-    val existing = Files.readString(path)
-    if (existing == manifest) return
-
-    Files.writeString(path, manifest)
-    val diff    = buildDiff(existing, manifest)
-    val message =
-      s"""Slack manifest has changed. Updated $path
-         |
-         |Please update your Slack app manifest to match:
-         |  App settings > App Manifest > paste the contents of $path
-         |
-         |Changes:
-         |$diff
-         |""".stripMargin
-    throw new ManifestChanged(path, message)
   }
 
   def createAppUrl(manifest: String): String = {

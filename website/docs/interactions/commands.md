@@ -52,4 +52,4 @@ You can also provide an explicit usage hint when registering:
 ```scala file=chatops4s-examples/src/main/scala/example/docs/CommandsPage.scala start=start_usage_hint end=end_usage_hint
 ```
 
-Note that usage hints are part of the Slack app manifest — they're not dynamic. If you change a hint, you need to update the manifest in your Slack app settings (the `verifySetup` call will tell you when this is needed).
+Note that usage hints are part of the Slack app manifest — they're not dynamic. If you change a hint, you need to update the manifest in your Slack app settings (the `validateSetup` call will tell you when this is needed).

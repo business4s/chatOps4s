@@ -14,7 +14,7 @@ object SendMessage extends IOApp.Simple {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack <- SlackGateway.create(backend)
-        _     <- slack.verifySetup("MyApp", "slack-manifest.yml")
+        _     <- slack.validateSetup("MyApp", "slack-manifest.yml")
         _     <- slack.start(
                    SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
                    sys.env.get("SLACK_APP_TOKEN").map(SlackAppToken.unsafe),
@@ -31,7 +31,7 @@ object CustomManifestSetup extends IOApp.Simple {
       for {
         slack <- SlackGateway.create(backend)
         // start_custom_manifest
-        _     <- slack.verifySetup(
+        _     <- slack.validateSetup(
                    appName = "MyApp",
                    manifestPath = "slack-manifest.yml",
                    modifier = (m: SlackAppManifest) => m.addOutgoingDomains("api.example.com"),
@@ -68,7 +68,7 @@ object InteractiveButtons extends IOApp.Simple {
                           )
                           .as(CommandResponse.Silent)
                       }
-        _          <- slack.verifySetup("InteractiveButtons", "slack-manifest.yml")
+        _          <- slack.validateSetup("InteractiveButtons", "slack-manifest.yml")
         _          <- slack.start(
                         SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
                         Some(SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))),
@@ -100,7 +100,7 @@ object InteractiveForms extends IOApp.Simple {
                           .as(CommandResponse.Silent)
                       }
         // end_form_register
-        _          <- slack.verifySetup("InteractiveForms", "slack-manifest.yml")
+        _          <- slack.validateSetup("InteractiveForms", "slack-manifest.yml")
         _          <- slack.start(
                         SlackBotToken.unsafe(sys.env("SLACK_BOT_TOKEN")),
                         Some(SlackAppToken.unsafe(sys.env("SLACK_APP_TOKEN"))),
@@ -137,7 +137,7 @@ private object HeroSnippet {
                         )
                         .as(CommandResponse.Silent)
                     }
-      _          <- slack.verifySetup("MyApp", "slack-manifest.yml")
+      _          <- slack.validateSetup("MyApp", "slack-manifest.yml")
       _          <- slack.start(botToken, Some(appToken))
     } yield ()
   // end_hero

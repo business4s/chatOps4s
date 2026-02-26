@@ -38,7 +38,7 @@ object Main extends IOApp.Simple {
         _          <- slack.registerCommand[ScaleArgs]("scale", "Scale a service") { cmd =>
                         IO.pure(CommandResponse.Ephemeral(s"Scaling *${cmd.args.service}* to *${cmd.args.replicas}* replicas."))
                       }
-        _          <- slack.verifySetup("ChatOps4sExample", "slack-manifest.yml")
+        _          <- slack.validateSetup("ChatOps4sExample", "slack-manifest.yml")
         _          <- slack.start(token, Some(appToken))
       } yield ()
     }

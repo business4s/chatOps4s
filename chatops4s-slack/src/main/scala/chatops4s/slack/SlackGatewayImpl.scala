@@ -92,12 +92,20 @@ private[slack] class SlackGatewayImpl[F[_]](
     }
   }
 
-  override def verifySetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[Unit] = {
+  override def checkSetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[SetupVerification] = {
     for {
       m       <- manifest(appName)
       rendered = modifier(m).renderJson
-      _       <- monad.eval(ManifestCheck.verify(rendered, appName, Paths.get(manifestPath)))
-    } yield ()
+      result  <- monad.eval(ManifestCheck.check(rendered, Paths.get(manifestPath)))
+    } yield result
+  }
+
+  override def validateSetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[Unit] = {
+    checkSetup(appName, manifestPath, modifier).flatMap {
+      case SetupVerification.UpToDate   => monad.unit(())
+      case v: SetupVerification.Created => monad.error(new ManifestCheck.ManifestCreated(v.path, v.message))
+      case v: SetupVerification.Changed => monad.error(new ManifestCheck.ManifestChanged(v.path, v.message))
+    }
   }
 
   override def withUserInfoCache(cache: UserInfoCache[F]): F[Unit] =

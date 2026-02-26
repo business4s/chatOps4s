@@ -613,14 +613,68 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
     }
 
-    "verifySetup" - {
+    "checkSetup" - {
+      "should return Created on first run" in {
+        val gateway      = createDisconnectedGateway()
+        val tmpDir       = Files.createTempDirectory("manifest-test")
+        val manifestPath = tmpDir.resolve("slack-manifest.yml")
+
+        val result = gateway.checkSetup("TestApp", manifestPath.toString).unsafeRunSync()
+
+        result shouldBe a[SetupVerification.Created]
+        val created = result.asInstanceOf[SetupVerification.Created]
+        created.path shouldBe manifestPath
+        created.createAppUrl should include("api.slack.com")
+        Files.exists(manifestPath) shouldBe true
+        val content = Files.readString(manifestPath)
+        content should include("TestApp")
+
+        Files.deleteIfExists(manifestPath)
+        Files.deleteIfExists(tmpDir)
+      }
+
+      "should return UpToDate when manifest matches" in {
+        val gateway      = createDisconnectedGateway()
+        val tmpDir       = Files.createTempDirectory("manifest-test")
+        val manifestPath = tmpDir.resolve("slack-manifest.yml")
+
+        val manifest = gateway.manifest("TestApp").unsafeRunSync().renderJson
+        Files.writeString(manifestPath, manifest)
+
+        val result = gateway.checkSetup("TestApp", manifestPath.toString).unsafeRunSync()
+        result shouldBe SetupVerification.UpToDate
+
+        Files.deleteIfExists(manifestPath)
+        Files.deleteIfExists(tmpDir)
+      }
+
+      "should return Changed when manifest differs" in {
+        val gateway      = createDisconnectedGateway()
+        val tmpDir       = Files.createTempDirectory("manifest-test")
+        val manifestPath = tmpDir.resolve("slack-manifest.yml")
+
+        Files.writeString(manifestPath, "old content")
+
+        val result = gateway.checkSetup("TestApp", manifestPath.toString).unsafeRunSync()
+
+        result shouldBe a[SetupVerification.Changed]
+        val changed = result.asInstanceOf[SetupVerification.Changed]
+        changed.path shouldBe manifestPath
+        changed.diff should not be empty
+
+        Files.deleteIfExists(manifestPath)
+        Files.deleteIfExists(tmpDir)
+      }
+    }
+
+    "validateSetup" - {
       "should create manifest file on first run" in {
         val gateway      = createDisconnectedGateway()
         val tmpDir       = Files.createTempDirectory("manifest-test")
         val manifestPath = tmpDir.resolve("slack-manifest.yml")
 
         val ex = intercept[ManifestCheck.ManifestCreated] {
-          gateway.verifySetup("TestApp", manifestPath.toString).unsafeRunSync()
+          gateway.validateSetup("TestApp", manifestPath.toString).unsafeRunSync()
         }
 
         ex.path shouldBe manifestPath
@@ -641,7 +695,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         Files.writeString(manifestPath, manifest)
 
         // Should not throw
-        gateway.verifySetup("TestApp", manifestPath.toString).unsafeRunSync()
+        gateway.validateSetup("TestApp", manifestPath.toString).unsafeRunSync()
 
         Files.deleteIfExists(manifestPath)
         Files.deleteIfExists(tmpDir)
@@ -655,7 +709,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         Files.writeString(manifestPath, "old content")
 
         val ex = intercept[ManifestCheck.ManifestChanged] {
-          gateway.verifySetup("TestApp", manifestPath.toString).unsafeRunSync()
+          gateway.validateSetup("TestApp", manifestPath.toString).unsafeRunSync()
         }
 
         ex.path shouldBe manifestPath
