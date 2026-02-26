@@ -20,6 +20,8 @@ private[slack] object SocketMode {
       retryDelay: Option[F[Unit]] = None,
   ): F[Unit] = {
     given monad: MonadError[F] = backend.monad
+    // TODO: Thread.sleep is intentional -- the library is effect-polymorphic via sttp MonadError[F]
+    // and cannot depend on IO.sleep. Users can provide a custom retryDelay parameter.
     val delay                  = retryDelay.getOrElse(monad.blocking(Thread.sleep(2000)))
 
     val loop: F[socket.DisconnectReason] = for {

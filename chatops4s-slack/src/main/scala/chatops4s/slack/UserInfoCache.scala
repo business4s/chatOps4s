@@ -51,6 +51,8 @@ object UserInfoCache {
         }
       }
 
+    // TODO: Cache eviction uses insertion-order, not LRU. Acceptable for typical workspace sizes
+    // (<1000 users). If scaling needed, consider LRU or external cache.
     def put(userId: UserId, info: users.UserInfo): F[Unit] = {
       val now = clock()
       ref.update { entries =>
