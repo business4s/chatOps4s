@@ -15,5 +15,12 @@ trait SlackSetup[F[_]] {
   def withUserInfoCache(cache: UserInfoCache[F]): F[Unit]
   def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit]
   def onError(handler: Throwable => F[Unit]): F[Unit]
+
+  /** Request graceful shutdown of the socket loop. The loop will stop after
+    * the current envelope is processed. In-flight handlers will complete
+    * naturally. Does not block -- returns immediately.
+    */
+  def shutdown(): F[Unit]
+
   def start(botToken: SlackBotToken, appToken: Option[SlackAppToken] = None): F[Unit]
 }

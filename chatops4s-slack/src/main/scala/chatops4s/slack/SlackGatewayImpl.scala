@@ -45,8 +45,9 @@ private[slack] class SlackGatewayImpl[F[_]](
 ) extends SlackGateway[F]
     with SlackSetup[F] {
 
-  private val logger                  = org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway")
-  private given monad: MonadError[F] = backend.monad
+  private val logger                                               = org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway")
+  private given monad: MonadError[F]                              = backend.monad
+  private val shutdownSignal: java.util.concurrent.atomic.AtomicBoolean = new java.util.concurrent.atomic.AtomicBoolean(false)
 
   // TODO: Handlers accumulate indefinitely by design. Buttons/commands/forms are registered once
   // at startup and reused. If dynamic registration is needed in the future, add TTL or unregister methods.
@@ -120,6 +121,9 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def onError(handler: Throwable => F[Unit]): F[Unit] =
     errorHandlerRef.update(_ => handler)
 
+  override def shutdown(): F[Unit] =
+    monad.eval(shutdownSignal.set(true))
+
   override def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit] =
     idempotencyRef.update(_ => check)
 
@@ -139,7 +143,7 @@ private[slack] class SlackGatewayImpl[F[_]](
                             ),
                           )
                         else if (appToken.isDefined)
-                          SocketMode.runLoop(appToken.get, backend, handleEnvelope)
+                          SocketMode.runLoop(appToken.get, backend, handleEnvelope, shutdownSignal = shutdownSignal)
                         else
                           monad.unit(())
     } yield ()
