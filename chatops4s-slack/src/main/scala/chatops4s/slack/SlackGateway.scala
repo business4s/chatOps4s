@@ -12,6 +12,9 @@ trait SlackGateway[F[_]] {
   def addReaction(messageId: MessageId, emoji: String): F[Unit]
   def removeReaction(messageId: MessageId, emoji: String): F[Unit]
   def sendEphemeral(channel: String, userId: UserId, text: String): F[Unit]
+  /** Open a modal form. The `metadata` string is stored in Slack's `private_metadata` field
+    * and accessible via `FormSubmission.metadata`. For type-safe metadata, use `openFormTyped`.
+    */
   def openForm[T](
       triggerId: TriggerId,
       formId: FormId[T],

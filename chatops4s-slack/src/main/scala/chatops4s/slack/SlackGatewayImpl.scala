@@ -331,7 +331,9 @@ private[slack] class SlackGatewayImpl[F[_]](
         val values = payload.view.state.map(_.values).getOrElse(Map.empty)
         entry.formDef.parse(values) match {
           case Left(error)   =>
-            monad.error(new RuntimeException(s"Form parse error: $error"))
+            monad.error(new RuntimeException(
+              s"Form parse error for form '${callbackId.value}': $error. This usually indicates a mismatch between the FormDef fields and the submitted form state.",
+            ))
           case Right(parsed) =>
             val submission = FormSubmission(payload = payload, values = parsed)
             entry.handler(submission)
