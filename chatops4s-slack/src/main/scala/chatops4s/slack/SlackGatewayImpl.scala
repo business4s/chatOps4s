@@ -1,6 +1,6 @@
 package chatops4s.slack
 
-import chatops4s.slack.api.{ChannelId, ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
+import chatops4s.slack.api.{ChannelId, NonEmptyString, ResponseType, SlackAppToken, SlackBotToken, TriggerId, UserId, users}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import chatops4s.slack.api.manifest.SlackAppManifest
@@ -360,7 +360,7 @@ private[slack] class SlackGatewayImpl[F[_]](
     ButtonElement(
       text = PlainTextObject(text = button.label),
       action_id = button.actionId,
-      value = Some(button.value),
+      value = NonEmptyString(button.value),
     )
 
 }

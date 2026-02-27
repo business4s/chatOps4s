@@ -7,7 +7,7 @@ import chatops4s.slack.{ButtonClick, ButtonId, CommandArgCodec, CommandParser, C
 import chatops4s.slack.api.{SlackAppToken, SlackBotToken}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
 
-object Main extends IOApp.Simple {
+object Deployment extends IOApp.Simple {
 
   private lazy val token    = SlackBotToken.unsafe(sys.env.getOrElse("SLACK_BOT_TOKEN", "xoxb-your-token"))
   private lazy val appToken = SlackAppToken.unsafe(sys.env.getOrElse("SLACK_APP_TOKEN", "xapp-your-app-token"))

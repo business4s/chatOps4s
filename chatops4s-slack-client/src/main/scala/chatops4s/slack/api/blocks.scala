@@ -145,7 +145,7 @@ object blocks {
   case class ButtonElement(
       text: TextObject,
       action_id: String,
-      value: Option[String] = None,
+      value: Option[NonEmptyString] = None,
       url: Option[String] = None,
       style: Option[ButtonStyle] = None,
       confirm: Option[ConfirmationDialogObject] = None,

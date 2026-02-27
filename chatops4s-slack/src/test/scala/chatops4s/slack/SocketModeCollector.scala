@@ -1,7 +1,7 @@
 package chatops4s.slack
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.api.{SlackAppApi, SlackAppToken, SlackBotToken}
+import chatops4s.slack.api.{NonEmptyString, SlackAppApi, SlackAppToken, SlackBotToken}
 import chatops4s.slack.api.socket.*
 import chatops4s.slack.api.blocks.*
 import io.circe.parser
@@ -54,7 +54,7 @@ object SocketModeCollector extends IOApp.Simple {
           ButtonElement(
             text = PlainTextObject(text = "Test Button"),
             action_id = "collector-test-btn",
-            value = Some("test-value"),
+            value = NonEmptyString("test-value"),
           ),
         ),
       ),

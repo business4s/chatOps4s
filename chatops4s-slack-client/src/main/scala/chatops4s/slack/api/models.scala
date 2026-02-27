@@ -51,6 +51,14 @@ object SlackRefreshToken {
   given Decoder[SlackRefreshToken]                            = Decoder[String].emap(apply)
 }
 
+opaque type NonEmptyString <: String = String
+object NonEmptyString {
+  def apply(value: String): Option[NonEmptyString]        = if (value.isEmpty) None else Some(value)
+  extension (x: NonEmptyString) def value: String         = x
+  given Encoder[NonEmptyString]                           = Encoder[String]
+  given Decoder[NonEmptyString]                           = Decoder[String].emap(s => if (s.isEmpty) Left("expected non-empty string") else Right(s))
+}
+
 opaque type ChannelId = String
 object ChannelId {
   def apply(value: String): ChannelId        = value

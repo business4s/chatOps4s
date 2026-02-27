@@ -92,6 +92,50 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
         result shouldBe MessageId(ChannelId("C123"), Timestamp("1234567890.123"))
       }
 
+      "should omit value field for buttons with empty value" in {
+        var capturedBody: Option[String] = None
+        val backend                      = MockBackend
+          .create()
+          .whenRequestMatches { req =>
+            val matches = req.uri.toString().contains("chat.postMessage")
+            if (matches) {
+              capturedBody = req.body match {
+                case sttp.client4.StringBody(s, _, _) => Some(s)
+                case _                                => None
+              }
+            }
+            matches
+          }
+          .thenRespondAdjust(okPostMessage)
+
+        val gateway    = createGateway(backend)
+        val emptyBtn   = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
+        val nonEmptyId = gateway.registerButton[String](_ => IO.unit).unsafeRunSync()
+
+        gateway
+          .send(
+            "C123",
+            "Deploy?",
+            Seq(
+              emptyBtn.render("Confirm"),
+              Button("Reject", nonEmptyId, "some-value"),
+            ),
+          )
+          .unsafeRunSync()
+
+        capturedBody shouldBe defined
+        val json     = parser.parse(capturedBody.get).toOption.get
+        val blocks   = json.hcursor.downField("blocks").as[List[Json]].toOption.get
+        val actions  = blocks.find(_.hcursor.downField("type").as[String].contains("actions")).get
+        val elements = actions.hcursor.downField("elements").as[List[Json]].toOption.get
+
+        elements.size shouldBe 2
+        // Empty-value button should not have a "value" field
+        elements(0).hcursor.downField("value").as[String] shouldBe a[Left[?, ?]]
+        // Non-empty-value button should have a "value" field
+        elements(1).hcursor.downField("value").as[String] shouldBe Right("some-value")
+      }
+
       "should handle API errors" in {
         val errorBody = """{"ok":false,"error":"invalid_auth"}"""
         val gateway   = createGateway(MockBackend.withPostMessage(errorBody))

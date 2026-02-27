@@ -73,7 +73,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
             ButtonElement(
               text = PlainTextObject("Click Me"),
               action_id = "button-action",
-              value = Some("click_me_123"),
+              value = NonEmptyString("click_me_123"),
               style = Some(ButtonStyle.Primary),
               accessibility_label = Some("Click me button"),
             ),
@@ -142,8 +142,8 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
       val json  = encodeBlock(
         ActionsBlock(
           elements = List(
-            ButtonElement(PlainTextObject("Approve"), "approve-btn", Some("approve"), style = Some(ButtonStyle.Primary)),
-            ButtonElement(PlainTextObject("Reject"), "reject-btn", Some("reject"), style = Some(ButtonStyle.Danger)),
+            ButtonElement(PlainTextObject("Approve"), "approve-btn", NonEmptyString("approve"), style = Some(ButtonStyle.Primary)),
+            ButtonElement(PlainTextObject("Reject"), "reject-btn", NonEmptyString("reject"), style = Some(ButtonStyle.Danger)),
           ),
           block_id = Some("actions1"),
         ),
@@ -551,7 +551,7 @@ class BlocksDeserializationTest extends AnyFreeSpec with Matchers {
         ButtonElement(
           text = PlainTextObject("Delete"),
           action_id = "delete-btn",
-          value = Some("delete"),
+          value = NonEmptyString("delete"),
           style = Some(ButtonStyle.Danger),
           confirm = Some(
             ConfirmationDialogObject(
