@@ -107,3 +107,12 @@ The `IdempotencyCheck` trait is simple to implement, so you can provide your own
 - **Race condition**: If two processes send with the same key simultaneously, both may send before either's message appears in the history scan. The `inMemory` check has the same limitation across instances.
 - **Rate limiting**: The default `slackScan` makes a `conversations.history`/`conversations.replies` call for each send with a key. For high-volume use, prefer `inMemory` or a custom implementation.
 - `update` and `delete` are not affected — they are already naturally idempotent by `MessageId`.
+
+## Error Handling
+
+By default, exceptions thrown in interaction handlers (buttons, commands, forms) are logged and swallowed so the WebSocket connection stays alive. You can replace the default handler with `onError`:
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/BasicOps.scala start=start_on_error end=end_on_error
+```
+
+This is useful for sending errors to an alerting system or logging them in a structured format. The handler replaces any previously set handler.

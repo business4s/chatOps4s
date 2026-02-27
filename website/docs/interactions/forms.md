@@ -81,6 +81,15 @@ You can attach metadata when opening a form, and read it back in the submission 
 
 This is useful for passing context (like which message triggered the form) through the form lifecycle.
 
+## Custom Field Types
+
+For field types beyond the built-in list, provide a `FieldCodec` instance. The most common case is a static select menu mapped to a custom enum:
+
+```scala file=chatops4s-examples/src/main/scala/example/docs/FormsPage.scala start=start_static_select end=end_static_select
+```
+
+The same pattern works for `FieldCodec.radioButtons`, `FieldCodec.checkboxes`, `FieldCodec.multiStaticSelect`, and `FieldCodec.externalSelect`.
+
 ## AllInputs Example
 
 The [AllInputs example](https://github.com/business4s/chatops4s/blob/main/chatops4s-examples/src/main/scala/example/AllInputs.scala) demonstrates every supported field type in a single form, including pre-filled initial values. It's a good reference for seeing all the available input types in action.
