@@ -56,15 +56,15 @@ object AllInputs extends IOApp.Simple {
       s"*Date:* ${f.date.map(_.toString).getOrElse("_empty_")}",
       s"*Time:* ${f.time.map(_.toString).getOrElse("_empty_")}",
       s"*Datetime:* ${f.datetime.map(_.toString).getOrElse("_empty_")}",
-      s"*User:* ${f.user.map(id => s"<@${id.value}>").getOrElse("_empty_")}",
-      s"*Users:* ${f.users.filter(_.nonEmpty).map(_.map(id => s"<@${id.value}>").mkString(", ")).getOrElse("_empty_")}",
-      s"*Channel:* ${f.channel.map(id => s"<#${id.value}>").getOrElse("_empty_")}",
-      s"*Channels:* ${f.channels.filter(_.nonEmpty).map(_.map(id => s"<#${id.value}>").mkString(", ")).getOrElse("_empty_")}",
+      s"*User:* ${f.user.map(_.mention).getOrElse("_empty_")}",
+      s"*Users:* ${f.users.filter(_.nonEmpty).map(_.map(_.mention).mkString(", ")).getOrElse("_empty_")}",
+      s"*Channel:* ${f.channel.map(_.mention).getOrElse("_empty_")}",
+      s"*Channels:* ${f.channels.filter(_.nonEmpty).map(_.map(_.mention).mkString(", ")).getOrElse("_empty_")}",
       s"*Conversation:* ${f.conversation.map(_.value).getOrElse("_empty_")}",
       s"*Conversations:* ${f.conversations.filter(_.nonEmpty).map(_.map(_.value).mkString(", ")).getOrElse("_empty_")}",
       s"*Rich text:* ${f.richText.map(_.elements.mkString(", ")).getOrElse("_empty_")}",
     )
-    val message = s"<@${submission.userId.value}> submitted:\n${lines.mkString("\n")}"
+    val message = s"${submission.userId.mention} submitted:\n${lines.mkString("\n")}"
     submission.metadata match {
       case Some(parentMsg) => slack.reply(parentMsg, message).void
       case None            => slack.send(channel, message).void

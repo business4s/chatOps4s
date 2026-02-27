@@ -55,7 +55,7 @@ object Deployment extends IOApp.Simple {
     val label     = s"*${form.service}* *${form.version}*$dryRunStr"
     val sv        = ServiceVersion(form.service, form.version)
     for {
-      msg  <- slack.send(channel, s"<@${submission.userId}> requested deploy of $label")
+      msg  <- slack.send(channel, s"${submission.userId.mention} requested deploy of $label")
       _    <- slack.addReaction(msg, "hourglass_flowing_sand")
       resp <- slack.reply(
                 msg,
@@ -74,7 +74,7 @@ object Deployment extends IOApp.Simple {
     click.threadId.traverse_ { parent =>
       val (service, version) = ServiceVersion.unapply(click.value)
       for {
-        _ <- slack.update(click.messageId, s":white_check_mark: *Approved* by <@${click.userId}>")
+        _ <- slack.update(click.messageId, s":white_check_mark: *Approved* by ${click.userId.mention}")
         _ <- slack.reply(parent, s"Deploying *$service* *$version* to production...")
         _ <- IO.sleep(3.seconds)
         _ <- slack.reply(parent, s"Deploy of *$service* *$version* completed.")
@@ -86,7 +86,7 @@ object Deployment extends IOApp.Simple {
   private def onReject(slack: SlackGateway[IO])(click: ButtonClick[ServiceVersion]): IO[Unit] =
     click.threadId.traverse_ { parent =>
       for {
-        _ <- slack.update(click.messageId, s":x: *Rejected* by <@${click.userId}>")
+        _ <- slack.update(click.messageId, s":x: *Rejected* by ${click.userId.mention}")
         _ <- slack.removeReaction(parent, "hourglass_flowing_sand")
         _ <- slack.addReaction(parent, "x")
       } yield ()

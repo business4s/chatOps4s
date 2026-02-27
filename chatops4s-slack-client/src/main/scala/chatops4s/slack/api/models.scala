@@ -53,26 +53,28 @@ object SlackRefreshToken {
 
 opaque type NonEmptyString <: String = String
 object NonEmptyString {
-  def apply(value: String): Option[NonEmptyString]        = if (value.isEmpty) None else Some(value)
-  extension (x: NonEmptyString) def value: String         = x
-  given Encoder[NonEmptyString]                           = Encoder[String]
-  given Decoder[NonEmptyString]                           = Decoder[String].emap(s => if (s.isEmpty) Left("expected non-empty string") else Right(s))
+  def apply(value: String): Option[NonEmptyString] = if (value.isEmpty) None else Some(value)
+  extension (x: NonEmptyString) def value: String  = x
+  given Encoder[NonEmptyString]                    = Encoder[String]
+  given Decoder[NonEmptyString]                    = Decoder[String].emap(s => if (s.isEmpty) Left("expected non-empty string") else Right(s))
 }
 
 opaque type ChannelId = String
 object ChannelId {
-  def apply(value: String): ChannelId        = value
-  extension (x: ChannelId) def value: String = x
-  given Encoder[ChannelId]                   = Encoder[String]
-  given Decoder[ChannelId]                   = Decoder[String]
+  def apply(value: String): ChannelId          = value
+  extension (x: ChannelId) def value: String   = x
+  extension (x: ChannelId) def mention: String = s"<#$x>"
+  given Encoder[ChannelId]                     = Encoder[String]
+  given Decoder[ChannelId]                     = Decoder[String]
 }
 
 opaque type UserId = String
 object UserId {
-  def apply(value: String): UserId        = value
-  extension (x: UserId) def value: String = x
-  given Encoder[UserId]                   = Encoder[String]
-  given Decoder[UserId]                   = Decoder[String]
+  def apply(value: String): UserId          = value
+  extension (x: UserId) def value: String   = x
+  extension (x: UserId) def mention: String = s"<@$x>"
+  given Encoder[UserId]                     = Encoder[String]
+  given Decoder[UserId]                     = Decoder[String]
 }
 
 opaque type TeamId = String

@@ -51,10 +51,10 @@ object InteractiveButtons extends IOApp.Simple {
       for {
         slack      <- SlackGateway.create(backend)
         approveBtn <- slack.registerButton[String] { click =>
-                        slack.update(click.messageId, s"Approved by <@${click.userId}>").void
+                        slack.update(click.messageId, s"Approved by ${click.userId.mention}").void
                       }
         rejectBtn  <- slack.registerButton[String] { click =>
-                        slack.update(click.messageId, s"Rejected by <@${click.userId}>").void
+                        slack.update(click.messageId, s"Rejected by ${click.userId.mention}").void
                       }
         _          <- slack.registerCommand[String]("deploy", "Deploy to production") { _ =>
                         slack
@@ -120,10 +120,10 @@ private object HeroSnippet {
     for {
       slack      <- SlackGateway.create(backend)
       approveBtn <- slack.registerButton[String] { click =>
-                      slack.update(click.messageId, s"Approved by <@${click.userId}>").void
+                      slack.update(click.messageId, s"Approved by ${click.userId.mention}").void
                     }
       rejectBtn  <- slack.registerButton[String] { click =>
-                      slack.update(click.messageId, s"Rejected by <@${click.userId}>").void
+                      slack.update(click.messageId, s"Rejected by ${click.userId.mention}").void
                     }
       _          <- slack.registerCommand[String]("deploy", "Deploy to production") { _ =>
                       slack

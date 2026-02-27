@@ -8,7 +8,7 @@ private object ButtonsPage {
   // start_register_button
   def registerButton(slack: SlackGateway[IO] & SlackSetup[IO]): IO[ButtonId[String]] =
     slack.registerButton[String] { click =>
-      slack.update(click.messageId, s"Approved by <@${click.userId}>").void
+      slack.update(click.messageId, s"Approved by ${click.userId.mention}").void
     }
   // end_register_button
 
@@ -61,7 +61,7 @@ private object ButtonsPage {
   def removeButtons(slack: SlackGateway[IO] & SlackSetup[IO]): IO[ButtonId[String]] =
     slack.registerButton[String] { click =>
       // update replaces the message, removing buttons
-      slack.update(click.messageId, s"Approved by <@${click.userId}>").void
+      slack.update(click.messageId, s"Approved by ${click.userId.mention}").void
     }
   // end_remove_buttons
 }
