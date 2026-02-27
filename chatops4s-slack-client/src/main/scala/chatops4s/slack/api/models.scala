@@ -37,7 +37,7 @@ object SlackConfigToken {
   def unsafe(value: String): SlackConfigToken                = value
   extension (x: SlackConfigToken) def value: String          = x
   given Encoder[SlackConfigToken]                            = Encoder[String]
-  given Decoder[SlackConfigToken]                            = Decoder[String]
+  given Decoder[SlackConfigToken]                            = Decoder[String].emap(apply)
 }
 
 opaque type SlackRefreshToken = String
@@ -48,7 +48,7 @@ object SlackRefreshToken {
   def unsafe(value: String): SlackRefreshToken                = value
   extension (x: SlackRefreshToken) def value: String          = x
   given Encoder[SlackRefreshToken]                            = Encoder[String]
-  given Decoder[SlackRefreshToken]                            = Decoder[String]
+  given Decoder[SlackRefreshToken]                            = Decoder[String].emap(apply)
 }
 
 opaque type ChannelId = String

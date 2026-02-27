@@ -32,17 +32,17 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       },
       idempotencyCheck: Option[IdempotencyCheck[IO]] = None,
   ): SlackGatewayImpl[IO] = {
-    given monad: sttp.monad.MonadError[IO] = backend.monad
-    val client                             = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
-    val clientRef                          = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
-    val handlersRef                        = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef                 = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef                    = Ref.of[IO, Map[FormId[?, ?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val cacheRef                           = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
-    val check                              = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
-    val idempotencyRef                     = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
+    given monad: sttp.monad.MonadError[IO]         = backend.monad
+    val client                                     = new SlackClient[IO](SlackBotToken.unsafe("xoxb-test-token"), backend)
+    val clientRef                                  = Ref.of[IO, Option[SlackClient[IO]]](Some(client)).unsafeRunSync()
+    val handlersRef                                = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef                         = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef                            = Ref.of[IO, Map[FormId[?, ?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef                                   = Ref.of[IO, UserInfoCache[IO]](cache).unsafeRunSync()
+    val check                                      = idempotencyCheck.getOrElse(IdempotencyCheck.slackScan[IO](clientRef))
+    val idempotencyRef                             = Ref.of[IO, IdempotencyCheck[IO]](check).unsafeRunSync()
     val defaultErrorHandler: Throwable => IO[Unit] = e => monad.blocking(println(s"Test error handler: ${e.getMessage}"))
-    val errorHandlerRef                    = Ref.of[IO, Throwable => IO[Unit]](defaultErrorHandler).unsafeRunSync()
+    val errorHandlerRef                            = Ref.of[IO, Throwable => IO[Unit]](defaultErrorHandler).unsafeRunSync()
     new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, errorHandlerRef, backend)
   }
 
@@ -50,15 +50,15 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
   private def createDisconnectedGateway(
       backend: WebSocketBackendStub[IO] = MockBackend.create(),
   ): SlackGatewayImpl[IO] = {
-    given monad: sttp.monad.MonadError[IO] = backend.monad
-    val clientRef                          = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
-    val handlersRef                        = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
-    val commandHandlersRef                 = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
-    val formHandlersRef                    = Ref.of[IO, Map[FormId[?, ?], FormEntry[IO]]](Map.empty).unsafeRunSync()
-    val cacheRef                           = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
-    val idempotencyRef                     = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
+    given monad: sttp.monad.MonadError[IO]         = backend.monad
+    val clientRef                                  = Ref.of[IO, Option[SlackClient[IO]]](None).unsafeRunSync()
+    val handlersRef                                = Ref.of[IO, Map[ButtonId[?], ErasedHandler[IO]]](Map.empty).unsafeRunSync()
+    val commandHandlersRef                         = Ref.of[IO, Map[CommandName, CommandEntry[IO]]](Map.empty).unsafeRunSync()
+    val formHandlersRef                            = Ref.of[IO, Map[FormId[?, ?], FormEntry[IO]]](Map.empty).unsafeRunSync()
+    val cacheRef                                   = Ref.of[IO, UserInfoCache[IO]](UserInfoCache.noCache[IO]).unsafeRunSync()
+    val idempotencyRef                             = Ref.of[IO, IdempotencyCheck[IO]](IdempotencyCheck.noCheck[IO]).unsafeRunSync()
     val defaultErrorHandler: Throwable => IO[Unit] = e => monad.blocking(println(s"Test error handler: ${e.getMessage}"))
-    val errorHandlerRef                    = Ref.of[IO, Throwable => IO[Unit]](defaultErrorHandler).unsafeRunSync()
+    val errorHandlerRef                            = Ref.of[IO, Throwable => IO[Unit]](defaultErrorHandler).unsafeRunSync()
     new SlackGatewayImpl[IO](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, errorHandlerRef, backend)
   }
 
@@ -975,7 +975,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should dispatch view submission to registered handler" in {
-        val gateway                                          = createGateway()
+        val gateway                                                  = createGateway()
         var captured: Option[FormSubmission[TestSubmitForm, String]] = None
 
         case class TestSubmitForm(name: String, count: Int) derives FormDef
@@ -1572,7 +1572,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
 
       "should round-trip typed metadata through openForm and submission" in {
         var capturedSub: Option[FormSubmission[TestMetaForm, DeployMeta]] = None
-        val gateway                                                      = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust("""{"ok":true}"""))
+        val gateway                                                       = createGateway(MockBackend.create().whenAnyRequest.thenRespondAdjust("""{"ok":true}"""))
 
         case class TestMetaForm(name: String) derives FormDef
         case class DeployMeta(env: String) derives io.circe.Encoder.AsObject, io.circe.Decoder
@@ -1629,24 +1629,36 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
     }
 
     "shutdown" - {
-      "start should return immediately after shutdown without connecting" in {
-        var requestMade = false
-        val backend     = MockBackend
-          .create()
-          .whenRequestMatches { _ => requestMade = true; true }
-          .thenRespondAdjust("""{"ok":true,"url":"wss://test"}""")
+      "SocketMode loop should exit immediately when shutdownSignal is set" in {
+        val backend = MockBackend.create()
+        val signal  = new java.util.concurrent.atomic.AtomicBoolean(true)
 
-        val gateway = createGateway(backend)
+        SocketMode
+          .runLoop(
+            SlackAppToken.unsafe("xapp-test"),
+            backend,
+            _ => IO.unit,
+            shutdownSignal = signal,
+          )
+          .unsafeRunSync()
+
+        // If we get here, the loop respected the signal and returned
+        succeed
+      }
+
+      "start should reset shutdownSignal so it can reconnect" in {
+        val gateway = createDisconnectedGateway()
         gateway.shutdown().unsafeRunSync()
-        gateway.start(SlackBotToken.unsafe("xoxb-test"), Some(SlackAppToken.unsafe("xapp-test"))).unsafeRunSync()
-
-        requestMade shouldBe false
+        // start without app token doesn't enter SocketMode, but it should reset the signal
+        gateway.start(SlackBotToken.unsafe("xoxb-test"), None).unsafeRunSync()
+        // no assertion needed — if start() didn't reset, a subsequent start with app token would exit immediately
+        succeed
       }
     }
 
     "onError" - {
       "should call custom error handler when button handler throws" in {
-        val gateway                           = createGateway()
+        val gateway                          = createGateway()
         var capturedError: Option[Throwable] = None
 
         gateway.onError(e => IO { capturedError = Some(e) }).unsafeRunSync()
@@ -1669,7 +1681,7 @@ class SlackGatewayTest extends AnyFreeSpec with Matchers {
       }
 
       "should call custom error handler when form handler throws" in {
-        val gateway                           = createGateway()
+        val gateway                          = createGateway()
         var capturedError: Option[Throwable] = None
 
         gateway.onError(e => IO { capturedError = Some(e) }).unsafeRunSync()

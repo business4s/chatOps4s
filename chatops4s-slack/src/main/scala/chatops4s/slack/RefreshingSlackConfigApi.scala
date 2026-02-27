@@ -25,7 +25,7 @@ class RefreshingSlackConfigApi[F[_]] private (
 
   private val rotating = new AtomicBoolean(false)
 
-  /** Concurrent callers skip if a rotation is already in progress. */
+  /** Concurrent callers skip the rotation and proceed with the current (possibly stale) token. */
   def withApi[A](f: SlackConfigApi[F] => F[A]): F[A] =
     for {
       _    <- rotateIfNeeded

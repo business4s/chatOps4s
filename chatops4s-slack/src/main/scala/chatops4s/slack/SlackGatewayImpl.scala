@@ -47,8 +47,8 @@ private[slack] class SlackGatewayImpl[F[_]](
 ) extends SlackGateway[F]
     with SlackSetup[F] {
 
-  private val logger                                               = org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway")
-  private given monad: MonadError[F]                              = backend.monad
+  private val logger                                                    = org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway")
+  private given monad: MonadError[F]                                    = backend.monad
   private val shutdownSignal: java.util.concurrent.atomic.AtomicBoolean = new java.util.concurrent.atomic.AtomicBoolean(false)
 
   // TODO: Handlers accumulate indefinitely by design. Buttons/commands/forms are registered once
@@ -145,6 +145,7 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def start(botToken: SlackBotToken, appToken: Option[SlackAppToken]): F[Unit] = {
     val client = new SlackClient[F](botToken, backend)
     for {
+      _              <- monad.eval(shutdownSignal.set(false))
       _              <- clientRef.update(_ => Some(client))
       handlers       <- handlersRef.get
       commands       <- commandHandlersRef.get
@@ -326,9 +327,11 @@ private[slack] class SlackGatewayImpl[F[_]](
         val values = payload.view.state.map(_.values).getOrElse(Map.empty)
         entry.formDef.parse(values) match {
           case Left(error)   =>
-            monad.error(new RuntimeException(
-              s"Form parse error for form '${callbackId.value}': $error. This usually indicates a mismatch between the FormDef fields and the submitted form state.",
-            ))
+            monad.error(
+              new RuntimeException(
+                s"Form parse error for form '${callbackId.value}': $error. This usually indicates a mismatch between the FormDef fields and the submitted form state.",
+              ),
+            )
           case Right(parsed) =>
             val rawMeta     = payload.view.private_metadata.getOrElse("")
             val decodedMeta = entry.decodeMetadata(rawMeta)

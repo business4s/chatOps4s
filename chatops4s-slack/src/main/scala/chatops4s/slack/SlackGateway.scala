@@ -29,7 +29,7 @@ object SlackGateway {
   def create[F[_]](
       backend: WebSocketBackend[F],
   ): F[SlackGateway[F] & SlackSetup[F]] = {
-    given monad: sttp.monad.MonadError[F] = backend.monad
+    given monad: sttp.monad.MonadError[F]         = backend.monad
     val defaultErrorHandler: Throwable => F[Unit] = e =>
       monad.blocking(org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway").error("Handler error", e))
     for {
@@ -43,7 +43,8 @@ object SlackGateway {
       idempotencyRef     <- Ref.of[F, IdempotencyCheck[F]](defaultCheck)
       errorHandlerRef    <- Ref.of[F, Throwable => F[Unit]](defaultErrorHandler)
     } yield {
-      val gateway = new SlackGatewayImpl[F](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, errorHandlerRef, backend)
+      val gateway =
+        new SlackGatewayImpl[F](clientRef, handlersRef, commandHandlersRef, formHandlersRef, cacheRef, idempotencyRef, errorHandlerRef, backend)
       gateway: SlackGateway[F] & SlackSetup[F]
     }
   }
