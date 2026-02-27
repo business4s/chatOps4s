@@ -90,6 +90,13 @@ private object BasicOps {
       // end_idempotent_reply
     } yield ()
 
+  def errorHandler(slack: SlackGateway[IO] & SlackSetup[IO]): IO[Unit] =
+    // start_on_error
+    slack.onError { error =>
+      IO.println(s"Handler error: ${error.getMessage}")
+    }
+  // end_on_error
+
   def customIdempotencyCheck(slack: SlackGateway[IO] & SlackSetup[IO], backend: WebSocketBackend[IO]): IO[Unit] = {
     given sttp.monad.MonadError[IO] = backend.monad
     for {

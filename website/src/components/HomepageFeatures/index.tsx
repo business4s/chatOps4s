@@ -9,11 +9,11 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
     {
-        title: "Minimal & Opinionated",
+        title: "Minimal",
         description: (
             <>
-                Pre-selects the feature set exposed by Slack to minimize mental overhead. One way to do buttons,
-                commands, and forms — no decision fatigue.
+                The full API fits on one trait. One way to do buttons, commands, and forms. Sane defaults and minimal
+                mental overhead. With sttp and circe as only dependencies.
             </>
         ),
     },
@@ -27,11 +27,11 @@ const FeatureList: FeatureItem[] = [
         ),
     },
     {
-        title: "Zero Infrastructure",
+        title: "High-Level",
         description: (
             <>
-                Runs over Socket Mode — no public URLs, no HTTP servers, no ingress.
-                Built on sttp, works with any compatible backend.
+                Allows to create real-world apps with minimal effort. Adds features such as idempotency, user
+                cache or app management approach.
             </>
         ),
     },

@@ -1,7 +1,8 @@
 package example.docs
 
 import cats.effect.IO
-import chatops4s.slack.{CommandResponse, FormDef, FormId, InitialValues, SlackGateway, SlackSetup}
+import chatops4s.slack.{CommandResponse, FieldCodec, FormDef, FormId, InitialValues, SlackGateway, SlackSetup}
+import chatops4s.slack.api.blocks.{BlockOption, PlainTextObject}
 
 private object FormsPage {
 
@@ -58,4 +59,17 @@ private object FormsPage {
     } yield ()
   }
   // end_form_metadata
+
+  // start_static_select
+  enum Environment { case Staging, Production }
+
+  given FieldCodec[Environment] = FieldCodec.staticSelect(
+    List(
+      BlockOption(PlainTextObject("Staging"), "staging")       -> Environment.Staging,
+      BlockOption(PlainTextObject("Production"), "production") -> Environment.Production,
+    ),
+  )
+
+  case class DeployFormWithEnv(service: String, environment: Environment) derives FormDef
+  // end_static_select
 }
