@@ -1,7 +1,7 @@
 package example.docs
 
 import cats.effect.IO
-import chatops4s.slack.{CommandResponse, FormDef, FormId, InitialValues, MetadataCodec, SlackGateway, SlackSetup}
+import chatops4s.slack.{CommandResponse, FormDef, FormId, InitialValues, SlackGateway, SlackSetup}
 
 private object FormsPage {
 
@@ -12,7 +12,7 @@ private object FormsPage {
   def formOperations(slack: SlackGateway[IO] & SlackSetup[IO], channel: String): IO[Unit] =
     for {
       // start_form_open
-      deployForm <- slack.registerForm[DeployForm] { submission =>
+      deployForm <- slack.registerForm[DeployForm, String] { submission =>
                       val form = submission.values
                       slack.send(channel, s"Deploying ${form.service} ${form.version}").void
                     }
@@ -45,7 +45,7 @@ private object FormsPage {
       channel: String,
   ): IO[Unit] = {
     for {
-      deployForm <- slack.registerForm[DeployForm] { submission =>
+      deployForm <- slack.registerForm[DeployForm, String] { submission =>
                       val meta = submission.metadata // your metadata string
                       val form = submission.values
                       slack.send(channel, s"[$meta] Deploying ${form.service}").void

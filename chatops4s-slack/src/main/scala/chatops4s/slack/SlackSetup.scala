@@ -13,11 +13,7 @@ trait SlackSetup[F[_]] {
       handler: Command[T] => F[CommandResponse],
   ): F[Unit]
 
-  def registerForm[T: FormDef](handler: FormSubmission[T, String] => F[Unit]): F[FormId[T, String]]
-
-  def registerFormT[T: FormDef, M: {io.circe.Encoder, io.circe.Decoder}](
-      handler: FormSubmission[T, M] => F[Unit],
-  ): F[FormId[T, M]]
+  def registerForm[T: FormDef, M: MetadataCodec](handler: FormSubmission[T, M] => F[Unit]): F[FormId[T, M]]
 
   def manifest(appName: String): F[SlackAppManifest]
   def checkSetup(appName: String, manifestPath: String, modifier: SlackAppManifest => SlackAppManifest = identity): F[SetupVerification]
@@ -28,7 +24,6 @@ trait SlackSetup[F[_]] {
   /** Replaces any previously set handler. */
   def onError(handler: Throwable => F[Unit]): F[Unit]
 
-  /** Does not block -- returns immediately. */
   def shutdown(): F[Unit]
 
   def listHandlers(): F[HandlerSummary]

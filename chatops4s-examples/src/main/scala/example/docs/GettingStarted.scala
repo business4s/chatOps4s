@@ -90,7 +90,7 @@ object InteractiveForms extends IOApp.Simple {
       for {
         slack      <- SlackGateway.create(backend)
         // start_form_register
-        deployForm <- slack.registerForm[DeployForm] { submission =>
+        deployForm <- slack.registerForm[DeployForm, String] { submission =>
                         val form = submission.values
                         slack.send(channel, s"Deploying ${form.service} ${form.version}").void
                       }

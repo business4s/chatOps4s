@@ -1,7 +1,7 @@
 package example
 
 import cats.effect.{IO, IOApp}
-import chatops4s.slack.{ButtonClick, CommandResponse, FormDef, FormId, FormSubmission, InitialValues, MessageId, SlackGateway, Url}
+import chatops4s.slack.{ButtonClick, CommandResponse, FormDef, FormId, FormSubmission, InitialValues, MessageId, MetadataCodec, SlackGateway, Url}
 import chatops4s.slack.api.{ChannelId, ConversationId, Email, SlackAppToken, SlackBotToken, Timestamp, UserId}
 import chatops4s.slack.api.blocks.{RichTextBlock, RichTextSection, RichTextText}
 import sttp.client4.httpclient.fs2.HttpClientFs2Backend
@@ -18,13 +18,13 @@ object AllInputs extends IOApp.Simple {
     HttpClientFs2Backend.resource[IO]().use { backend =>
       for {
         slack        <- SlackGateway.create(backend)
-        form         <- slack.registerForm[AllInputsForm](onSubmit(slack))
+        form         <- slack.registerForm[AllInputsForm, Option[MessageId]](onSubmit(slack))
         openBtn      <- slack.registerButton[String] { click =>
-                          slack.openForm(click.triggerId, form, "All Inputs", encodeMessageId(click.messageId))
+                          slack.openForm(click.triggerId, form, "All Inputs", Some(click.messageId))
                         }
         prefilledBtn <- slack.registerButton[String](openPrefilled(slack, form, _))
         _            <- slack.registerCommand[String]("all-inputs", "Open all-inputs form") { cmd =>
-                          slack.openForm(cmd.triggerId, form, "All Inputs").as(CommandResponse.Silent)
+                          slack.openForm(cmd.triggerId, form, "All Inputs", None).as(CommandResponse.Silent)
                         }
         _            <- slack.validateSetup("AllInputs", "/tmp/slack-manifest.yml")
         fiber        <- slack.start(token, Some(appToken)).start
@@ -37,14 +37,14 @@ object AllInputs extends IOApp.Simple {
       } yield ()
     }
 
-  private def openPrefilled(slack: SlackGateway[IO], form: FormId[AllInputsForm, String], click: ButtonClick[String]): IO[Unit] = {
+  private def openPrefilled(slack: SlackGateway[IO], form: FormId[AllInputsForm, Option[MessageId]], click: ButtonClick[String]): IO[Unit] = {
     for {
       initialValues <- prefilled(slack, click)
-      _             <- slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", encodeMessageId(click.messageId), initialValues = initialValues)
+      _             <- slack.openForm(click.triggerId, form, "All Inputs (Prefilled)", Some(click.messageId), initialValues = initialValues)
     } yield ()
   }
 
-  private def onSubmit(slack: SlackGateway[IO])(submission: FormSubmission[AllInputsForm, String]): IO[Unit] = {
+  private def onSubmit(slack: SlackGateway[IO])(submission: FormSubmission[AllInputsForm, Option[MessageId]]): IO[Unit] = {
     val f       = submission.values
     val lines   = List(
       s"*Text:* ${f.text.getOrElse("_empty_")}",
@@ -65,11 +65,9 @@ object AllInputs extends IOApp.Simple {
       s"*Rich text:* ${f.richText.map(_.elements.mkString(", ")).getOrElse("_empty_")}",
     )
     val message = s"<@${submission.userId.value}> submitted:\n${lines.mkString("\n")}"
-    if (submission.metadata.nonEmpty) {
-      val parentMsg = decodeMessageId(submission.metadata)
-      slack.reply(parentMsg, message).void
-    } else {
-      slack.send(channel, message).void
+    submission.metadata match {
+      case Some(parentMsg) => slack.reply(parentMsg, message).void
+      case None            => slack.send(channel, message).void
     }
   }
 
@@ -92,13 +90,15 @@ object AllInputs extends IOApp.Simple {
       richText: Option[RichTextBlock],
   ) derives FormDef
 
-  //> could be MetadataCodec
-  private def encodeMessageId(msg: MessageId): String =
-    s"${msg.channel.value}:${msg.ts.value}"
-
-  private def decodeMessageId(s: String): MessageId = {
-    val Array(ch, ts) = s.split(":", 2): @unchecked
-    MessageId(ChannelId(ch), Timestamp(ts))
+  private given MetadataCodec[Option[MessageId]] with {
+    def encode(value: Option[MessageId]): String =
+      value.fold("")(msg => s"${msg.channel.value}:${msg.ts.value}")
+    def decode(raw: String): Option[MessageId]   =
+      if (raw.isEmpty) None
+      else {
+        val Array(ch, ts) = raw.split(":", 2): @unchecked
+        Some(MessageId(ChannelId(ch), Timestamp(ts)))
+      }
   }
 
   private def prefilled(slack: SlackGateway[IO], click: ButtonClick[String]): IO[InitialValues[AllInputsForm]] =

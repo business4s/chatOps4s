@@ -31,6 +31,7 @@ private[slack] case class CommandEntry[F[_]](
 private[slack] case class FormEntry[F[_]](
     formDef: FormDef[Any],
     handler: FormSubmission[Any, Any] => F[Unit],
+    encodeMetadata: Any => String,
     decodeMetadata: String => Any,
 )
 
@@ -78,29 +79,15 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description, resolvedHint)))
   }
 
-  //> Looks wrong, why two variants for String and with-codec while we could simply require MetadataCodec
-  override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T, String] => F[Unit]): F[FormId[T, String]] = {
-    val id    = FormId[T, String](UUID.randomUUID().toString)
-    val entry = FormEntry[F](
-      formDef = fd.asInstanceOf[FormDef[Any]],
-      handler = handler.asInstanceOf[FormSubmission[Any, Any] => F[Unit]],
-      decodeMetadata = identity,
-    )
-    formHandlersRef.update(_ + (id -> entry)).as(id)
-  }
-
-  override def registerFormT[T: {FormDef as fd}, M: {io.circe.Encoder, io.circe.Decoder as dec}](
+  override def registerForm[T: {FormDef as fd}, M: {MetadataCodec as mc}](
       handler: FormSubmission[T, M] => F[Unit],
   ): F[FormId[T, M]] = {
     val id    = FormId[T, M](UUID.randomUUID().toString)
     val entry = FormEntry[F](
       formDef = fd.asInstanceOf[FormDef[Any]],
       handler = handler.asInstanceOf[FormSubmission[Any, Any] => F[Unit]],
-      decodeMetadata = raw =>
-        io.circe.parser.decode[M](raw)(using dec) match {
-          case Right(m)  => m
-          case Left(err) => throw new RuntimeException(s"Failed to decode form metadata: ${err.getMessage}")
-        },
+      encodeMetadata = (v: Any) => mc.encode(v.asInstanceOf[M]),
+      decodeMetadata = (raw: String) => mc.decode(raw),
     )
     formHandlersRef.update(_ + (id -> entry)).as(id)
   }
@@ -246,8 +233,7 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
     }
 
-  //> Codec should be captured within FormId
-  override def openForm[T, M: MetadataCodec](
+  override def openForm[T, M](
       triggerId: TriggerId,
       formId: FormId[T, M],
       title: String,
@@ -261,7 +247,7 @@ private[slack] class SlackGatewayImpl[F[_]](
         case Some(entry) =>
           withClient { client =>
             val viewBlocks = entry.formDef.buildBlocks(initialValues.toMap)
-            val encoded    = summon[MetadataCodec[M]].encode(metadata)
+            val encoded    = entry.encodeMetadata(metadata)
             val view       = View(
               `type` = ViewType.Modal,
               callback_id = Some(formId.value),
