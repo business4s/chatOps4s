@@ -19,3 +19,6 @@ target/
 .metals/
 .bloop/
 metals.sbt
+
+### Planning ###
+.planning/

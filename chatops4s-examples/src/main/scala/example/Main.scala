@@ -19,7 +19,7 @@ object Main extends IOApp.Simple {
         slack      <- SlackGateway.create(backend)
         approveBtn <- slack.registerButton[ServiceVersion](onApprove(slack))
         rejectBtn  <- slack.registerButton[ServiceVersion](onReject(slack))
-        deployForm <- slack.registerForm[DeployForm](onDeploySubmit(slack, approveBtn, rejectBtn))
+        deployForm <- slack.registerForm[DeployForm, String](onDeploySubmit(slack, approveBtn, rejectBtn))
         // /deploy [service] → opens a form, pre-populating service name if provided
         _          <- slack.registerCommand[String]("deploy", "Deploy a service") { cmd =>
                         val initial = {
@@ -49,7 +49,7 @@ object Main extends IOApp.Simple {
       slack: SlackGateway[IO],
       approveBtn: ButtonId[ServiceVersion],
       rejectBtn: ButtonId[ServiceVersion],
-  )(submission: FormSubmission[DeployForm]): IO[Unit] = {
+  )(submission: FormSubmission[DeployForm, String]): IO[Unit] = {
     val form      = submission.values
     val dryRunStr = if (form.dryRun) " (dry run)" else ""
     val label     = s"*${form.service}* *${form.version}*$dryRunStr"

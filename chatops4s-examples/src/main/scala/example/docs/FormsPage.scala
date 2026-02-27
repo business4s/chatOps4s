@@ -12,7 +12,7 @@ private object FormsPage {
   def formOperations(slack: SlackGateway[IO] & SlackSetup[IO], channel: String): IO[Unit] =
     for {
       // start_form_open
-      deployForm <- slack.registerForm[DeployForm] { submission =>
+      deployForm <- slack.registerForm[DeployForm, String] { submission =>
                       val form = submission.values
                       slack.send(channel, s"Deploying ${form.service} ${form.version}").void
                     }
@@ -28,7 +28,7 @@ private object FormsPage {
   def withInitialValues(
       slack: SlackGateway[IO],
       triggerId: chatops4s.slack.api.TriggerId,
-      formId: FormId[DeployForm],
+      formId: FormId[DeployForm, String],
   ): IO[Unit] = {
     val initial = InitialValues
       .of[DeployForm]
@@ -45,14 +45,14 @@ private object FormsPage {
       channel: String,
   ): IO[Unit] = {
     for {
-      deployForm <- slack.registerForm[DeployForm] { submission =>
+      deployForm <- slack.registerForm[DeployForm, String] { submission =>
                       val meta = submission.metadata // your metadata string
                       val form = submission.values
                       slack.send(channel, s"[$meta] Deploying ${form.service}").void
                     }
       _          <- slack.registerCommand[String]("deploy-form", "Open deployment form") { cmd =>
                       slack
-                        .openForm(cmd.triggerId, deployForm, "Deploy", metadata = s"${cmd.channelId}:requested")
+                        .openForm(cmd.triggerId, deployForm, "Deploy", s"${cmd.channelId}:requested")
                         .as(CommandResponse.Silent)
                     }
     } yield ()

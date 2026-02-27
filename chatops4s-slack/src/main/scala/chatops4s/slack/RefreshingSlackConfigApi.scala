@@ -6,15 +6,9 @@ import sttp.monad.MonadError
 import sttp.monad.syntax.*
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicBoolean
 
-/** A wrapper around [[SlackConfigApi]] that automatically rotates the config token when it is near expiry.
-  *
-  * Config tokens (`xoxe.xoxp-`) expire after 12 hours. This class tracks the `exp` claim from the last `tooling.tokens.rotate` response and triggers
-  * a rotation when the token is within `refreshMargin` of expiry (default: 5 minutes).
-  *
-  * On the very first call — when no expiry is known — a rotation is triggered to establish the expiry baseline.
-  *
-  * Use [[withApi]] to obtain a [[SlackConfigApi]] with a fresh token:
+/** Automatically rotates the config token when it is near expiry.
   * {{{
   * refreshing.withApi { api =>
   *   api.apps.manifest.validate(...)
@@ -29,7 +23,9 @@ class RefreshingSlackConfigApi[F[_]] private (
     clock: () => Instant,
 )(using monad: MonadError[F]) {
 
-  /** Obtain a [[SlackConfigApi]] with a valid (rotated if necessary) token and run `f`. */
+  private val rotating = new AtomicBoolean(false)
+
+  /** Concurrent callers skip the rotation and proceed with the current (possibly stale) token. */
   def withApi[A](f: SlackConfigApi[F] => F[A]): F[A] =
     for {
       _    <- rotateIfNeeded
@@ -37,16 +33,26 @@ class RefreshingSlackConfigApi[F[_]] private (
       a    <- f(new SlackConfigApi[F](backend, pair.configToken))
     } yield a
 
-  /** Force an immediate token rotation regardless of expiry. */
-  def forceRotate(): F[Unit] = rotate()
+  def forceRotate(): F[Unit] = guardedRotate()
 
   private def rotateIfNeeded: F[Unit] =
     expRef.get.flatMap {
-      case None      => rotate()
+      case None      => guardedRotate()
       case Some(exp) =>
         val now = clock()
-        if !now.plus(refreshMargin).isBefore(exp) then rotate()
+        if !now.plus(refreshMargin).isBefore(exp) then guardedRotate()
         else monad.unit(())
+    }
+
+  private def guardedRotate(): F[Unit] =
+    monad.eval(rotating.compareAndSet(false, true)).flatMap {
+      case false => monad.unit(()) // Another call is already rotating, skip
+      case true  =>
+        rotate()
+          .flatMap(_ => monad.eval(rotating.set(false)))
+          .handleError { case e =>
+            monad.eval(rotating.set(false)).flatMap(_ => monad.error(e))
+          }
     }
 
   private def rotate(): F[Unit] =

@@ -7,11 +7,15 @@ private type Block    = chatops4s.slack.api.blocks.Block
 private type View     = chatops4s.slack.api.blocks.View
 private type ViewType = chatops4s.slack.api.blocks.ViewType
 
+private def maskToken(value: String): String =
+  if (value.length <= 8) "***"
+  else s"${value.take(4)}***${value.takeRight(4)}"
+
 opaque type SlackBotToken = String
 object SlackBotToken {
   def apply(value: String): Either[String, SlackBotToken] =
     if value.startsWith("xoxb-") then Right(value)
-    else Left(s"SlackBotToken must start with 'xoxb-', got: ${value.take(10)}...")
+    else Left(s"SlackBotToken must start with 'xoxb-', got: ${maskToken(value)}")
   def unsafe(value: String): SlackBotToken                = value
   extension (x: SlackBotToken) def value: String          = x
 }
@@ -20,7 +24,7 @@ opaque type SlackAppToken = String
 object SlackAppToken {
   def apply(value: String): Either[String, SlackAppToken] =
     if value.startsWith("xapp-") then Right(value)
-    else Left(s"SlackAppToken must start with 'xapp-', got: ${value.take(10)}...")
+    else Left(s"SlackAppToken must start with 'xapp-', got: ${maskToken(value)}")
   def unsafe(value: String): SlackAppToken                = value
   extension (x: SlackAppToken) def value: String          = x
 }
@@ -29,22 +33,22 @@ opaque type SlackConfigToken = String
 object SlackConfigToken {
   def apply(value: String): Either[String, SlackConfigToken] =
     if value.startsWith("xoxe.xoxp-") then Right(value)
-    else Left(s"SlackConfigToken must start with 'xoxe.xoxp-', got: ${value.take(15)}...")
+    else Left(s"SlackConfigToken must start with 'xoxe.xoxp-', got: ${maskToken(value)}")
   def unsafe(value: String): SlackConfigToken                = value
   extension (x: SlackConfigToken) def value: String          = x
   given Encoder[SlackConfigToken]                            = Encoder[String]
-  given Decoder[SlackConfigToken]                            = Decoder[String]
+  given Decoder[SlackConfigToken]                            = Decoder[String].emap(apply)
 }
 
 opaque type SlackRefreshToken = String
 object SlackRefreshToken {
   def apply(value: String): Either[String, SlackRefreshToken] =
     if value.startsWith("xoxe-") then Right(value)
-    else Left(s"SlackRefreshToken must start with 'xoxe-', got: ${value.take(10)}...")
+    else Left(s"SlackRefreshToken must start with 'xoxe-', got: ${maskToken(value)}")
   def unsafe(value: String): SlackRefreshToken                = value
   extension (x: SlackRefreshToken) def value: String          = x
   given Encoder[SlackRefreshToken]                            = Encoder[String]
-  given Decoder[SlackRefreshToken]                            = Decoder[String]
+  given Decoder[SlackRefreshToken]                            = Decoder[String].emap(apply)
 }
 
 opaque type ChannelId = String
@@ -179,7 +183,7 @@ object SlackResponse {
   given [T: Decoder]: Decoder[SlackResponse[T]] = Decoder.instance { cursor =>
     cursor.get[Boolean]("ok").flatMap {
       case true  => cursor.as[T].map(Ok(_))
-      case false => cursor.getOrElse[String]("error")("unknown").map(Err(_))
+      case false => cursor.getOrElse[String]("error")("unknown_error").map(Err(_))
     }
   }
 }

@@ -24,19 +24,19 @@ Forms (Slack modals) let you collect structured input from users. ChatOps4s deri
 ```scala file=chatops4s-examples/src/main/scala/example/docs/FormsPage.scala start=start_form_open end=end_form_open
 ```
 
-`registerForm` returns a `FormId[T]` that you pass to `openForm`. You can open forms from:
+`registerForm` returns a `FormId[T, M]` that you pass to `openForm`. You can open forms from:
 - A slash command handler (using `cmd.triggerId`)
 - A button click handler (using `click.triggerId`)
 
 ## Form Submission Context
 
-The handler receives a `FormSubmission[T]` with:
+The handler receives a `FormSubmission[T, M]` with:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `values` | `T` | The parsed form values as your case class |
 | `userId` | `UserId` | Who submitted the form |
-| `metadata` | `String` | Custom metadata string (set when opening the form) |
+| `metadata` | `M` | Custom metadata (set when opening the form, `String` by default) |
 
 ## Supported Field Types
 
@@ -74,7 +74,7 @@ The `.set` method uses a field selector lambda for type-safe access — the comp
 
 ## Form Metadata
 
-You can attach a metadata string when opening a form, and read it back in the submission handler:
+You can attach metadata when opening a form, and read it back in the submission handler. By default metadata is a `String`, but you can use any type that has a `MetadataCodec` (including all Circe-encodable types):
 
 ```scala file=chatops4s-examples/src/main/scala/example/docs/FormsPage.scala start=start_form_metadata end=end_form_metadata
 ```

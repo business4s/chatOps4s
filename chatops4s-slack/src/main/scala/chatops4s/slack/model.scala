@@ -161,3 +161,10 @@ object CommandResponse {
   case class InChannel(text: String) extends CommandResponse
   case object Silent                 extends CommandResponse
 }
+
+/** Summary of all registered handlers, useful for debugging and introspection. */
+case class HandlerSummary(
+    buttons: Set[String],
+    commands: Set[String],
+    forms: Set[String],
+)

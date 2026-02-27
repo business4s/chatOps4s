@@ -30,22 +30,29 @@ private[slack] case class CommandEntry[F[_]](
 
 private[slack] case class FormEntry[F[_]](
     formDef: FormDef[Any],
-    handler: FormSubmission[Any] => F[Unit],
+    handler: FormSubmission[Any, Any] => F[Unit],
+    encodeMetadata: Any => String,
+    decodeMetadata: String => Any,
 )
 
 private[slack] class SlackGatewayImpl[F[_]](
     clientRef: Ref[F, Option[SlackClient[F]]],
     handlersRef: Ref[F, Map[ButtonId[?], ErasedHandler[F]]],
     commandHandlersRef: Ref[F, Map[CommandName, CommandEntry[F]]],
-    formHandlersRef: Ref[F, Map[FormId[?], FormEntry[F]]],
+    formHandlersRef: Ref[F, Map[FormId[?, ?], FormEntry[F]]],
     cacheRef: Ref[F, UserInfoCache[F]],
     idempotencyRef: Ref[F, IdempotencyCheck[F]],
+    errorHandlerRef: Ref[F, Throwable => F[Unit]],
     backend: WebSocketBackend[F],
 ) extends SlackGateway[F]
     with SlackSetup[F] {
 
-  private given monad: MonadError[F] = backend.monad
+  private val logger                                                    = org.slf4j.LoggerFactory.getLogger("chatops4s.slack.SlackGateway")
+  private given monad: MonadError[F]                                    = backend.monad
+  private val shutdownSignal: java.util.concurrent.atomic.AtomicBoolean = new java.util.concurrent.atomic.AtomicBoolean(false)
 
+  // TODO: Handlers accumulate indefinitely by design. Buttons/commands/forms are registered once
+  // at startup and reused. If dynamic registration is needed in the future, add TTL or unregister methods.
   override def registerButton[T <: String](handler: ButtonClick[T] => F[Unit]): F[ButtonId[T]] = {
     val id     = ButtonId[T](UUID.randomUUID().toString)
     val erased = handler.asInstanceOf[ErasedHandler[F]]
@@ -72,11 +79,15 @@ private[slack] class SlackGatewayImpl[F[_]](
     commandHandlersRef.update(_ + (normalized -> CommandEntry(erased, description, resolvedHint)))
   }
 
-  override def registerForm[T: {FormDef as fd}](handler: FormSubmission[T] => F[Unit]): F[FormId[T]] = {
-    val id    = FormId[T](UUID.randomUUID().toString)
+  override def registerForm[T: {FormDef as fd}, M: {MetadataCodec as mc}](
+      handler: FormSubmission[T, M] => F[Unit],
+  ): F[FormId[T, M]] = {
+    val id    = FormId[T, M](UUID.randomUUID().toString)
     val entry = FormEntry[F](
       formDef = fd.asInstanceOf[FormDef[Any]],
-      handler = handler.asInstanceOf[FormSubmission[Any] => F[Unit]],
+      handler = handler.asInstanceOf[FormSubmission[Any, Any] => F[Unit]],
+      encodeMetadata = (v: Any) => mc.encode(v.asInstanceOf[M]),
+      decodeMetadata = (raw: String) => mc.decode(raw),
     )
     formHandlersRef.update(_ + (id -> entry)).as(id)
   }
@@ -111,12 +122,30 @@ private[slack] class SlackGatewayImpl[F[_]](
   override def withUserInfoCache(cache: UserInfoCache[F]): F[Unit] =
     cacheRef.update(_ => cache)
 
+  override def onError(handler: Throwable => F[Unit]): F[Unit] =
+    errorHandlerRef.update(_ => handler)
+
+  override def listHandlers(): F[HandlerSummary] =
+    for {
+      buttons  <- handlersRef.get
+      commands <- commandHandlersRef.get
+      forms    <- formHandlersRef.get
+    } yield HandlerSummary(
+      buttons = buttons.keys.map(_.value).toSet,
+      commands = commands.keys.map(_.value).toSet,
+      forms = forms.keys.map(_.value).toSet,
+    )
+
+  override def shutdown(): F[Unit] =
+    monad.eval(shutdownSignal.set(true))
+
   override def withIdempotencyCheck(check: IdempotencyCheck[F]): F[Unit] =
     idempotencyRef.update(_ => check)
 
   override def start(botToken: SlackBotToken, appToken: Option[SlackAppToken]): F[Unit] = {
     val client = new SlackClient[F](botToken, backend)
     for {
+      _              <- monad.eval(shutdownSignal.set(false))
       _              <- clientRef.update(_ => Some(client))
       handlers       <- handlersRef.get
       commands       <- commandHandlersRef.get
@@ -130,7 +159,7 @@ private[slack] class SlackGatewayImpl[F[_]](
                             ),
                           )
                         else if (appToken.isDefined)
-                          SocketMode.runLoop(appToken.get, backend, handleEnvelope)
+                          SocketMode.runLoop(appToken.get, backend, handleEnvelope, shutdownSignal = shutdownSignal)
                         else
                           monad.unit(())
     } yield ()
@@ -205,13 +234,13 @@ private[slack] class SlackGatewayImpl[F[_]](
       }
     }
 
-  override def openForm[T](
+  override def openForm[T, M](
       triggerId: TriggerId,
-      formId: FormId[T],
+      formId: FormId[T, M],
       title: String,
+      metadata: M,
       submitLabel: String = "Submit",
       initialValues: InitialValues[T] = InitialValues.of[T],
-      metadata: String = "",
   ): F[Unit] = {
     formHandlersRef.get.flatMap { forms =>
       forms.get(formId) match {
@@ -219,13 +248,14 @@ private[slack] class SlackGatewayImpl[F[_]](
         case Some(entry) =>
           withClient { client =>
             val viewBlocks = entry.formDef.buildBlocks(initialValues.toMap)
+            val encoded    = entry.encodeMetadata(metadata)
             val view       = View(
               `type` = ViewType.Modal,
               callback_id = Some(formId.value),
               title = PlainTextObject(text = title),
               submit = Some(PlainTextObject(text = submitLabel)),
               blocks = viewBlocks,
-              private_metadata = if (metadata.nonEmpty) Some(metadata) else None,
+              private_metadata = if (encoded.nonEmpty) Some(encoded) else None,
             )
             client.openView(triggerId, view)
           }
@@ -239,8 +269,8 @@ private[slack] class SlackGatewayImpl[F[_]](
       case None    => monad.error(new RuntimeException("Not connected. Call start() first."))
     }
 
-  private[slack] def handleEnvelope(envelope: Envelope): F[Unit] =
-    envelope.`type` match {
+  private[slack] def handleEnvelope(envelope: Envelope): F[Unit] = {
+    val dispatch = envelope.`type` match {
       case EnvelopeType.Interactive   =>
         envelope.payload.traverse_ { json =>
           val payloadType = json.hcursor.downField("type").as[String].getOrElse("")
@@ -250,11 +280,15 @@ private[slack] class SlackGatewayImpl[F[_]](
       case EnvelopeType.SlashCommands => envelope.payload.traverse_(dispatchPayload[SlashCommandPayload](_, handleSlashCommandPayload))
       case _                          => monad.unit(())
     }
+    dispatch.handleError { case e =>
+      errorHandlerRef.get.flatMap(handler => handler(e))
+    }
+  }
 
   private def dispatchPayload[A: Decoder](json: Json, handler: A => F[Unit]): F[Unit] =
     json.as[A] match {
-      case Right(a) => handler(a)
-      case Left(_)  => monad.unit(())
+      case Right(a)  => handler(a)
+      case Left(err) => monad.blocking(logger.warn(s"Failed to decode payload: ${err.getMessage}"))
     }
 
   private[slack] def handleInteractionPayload(payload: InteractionPayload): F[Unit] = {
@@ -287,15 +321,21 @@ private[slack] class SlackGatewayImpl[F[_]](
   }
 
   private[slack] def handleViewSubmissionPayload(payload: ViewSubmissionPayload): F[Unit] = {
-    val callbackId = FormId[Any](payload.view.callback_id.getOrElse(""))
+    val callbackId = FormId[Any, Any](payload.view.callback_id.getOrElse(""))
     formHandlersRef.get.flatMap { forms =>
       forms.get(callbackId).traverse_ { entry =>
         val values = payload.view.state.map(_.values).getOrElse(Map.empty)
         entry.formDef.parse(values) match {
           case Left(error)   =>
-            monad.error(new RuntimeException(s"Form parse error: $error"))
+            monad.error(
+              new RuntimeException(
+                s"Form parse error for form '${callbackId.value}': $error. This usually indicates a mismatch between the FormDef fields and the submitted form state.",
+              ),
+            )
           case Right(parsed) =>
-            val submission = FormSubmission(payload = payload, values = parsed)
+            val rawMeta     = payload.view.private_metadata.getOrElse("")
+            val decodedMeta = entry.decodeMetadata(rawMeta)
+            val submission  = FormSubmission(payload = payload, values = parsed, metadata = decodedMeta)
             entry.handler(submission)
         }
       }

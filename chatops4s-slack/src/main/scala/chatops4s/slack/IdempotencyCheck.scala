@@ -39,6 +39,8 @@ object IdempotencyCheck {
       new InMemoryIdempotencyCheck[F](ref, ttl, maxEntries, clock)
     }
 
+  // TODO: slackScan fetches up to 100 messages per check. For high-volume channels,
+  // prefer IdempotencyCheck.inMemory.
   private[slack] def slackScan[F[_]](
       clientRef: Ref[F, Option[SlackClient[F]]],
       scanLimit: Int = 100,

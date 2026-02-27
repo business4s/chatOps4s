@@ -16,8 +16,8 @@ object ManifestCheck {
       val parent = path.getParent
       if (parent != null) Files.createDirectories(parent): Unit
       Files.writeString(path, manifest)
-      val url   = createAppUrl(manifest)
-      val guide =
+      val url    = createAppUrl(manifest)
+      val guide  =
         s"""Slack manifest written to $path
            |
            |This looks like a first-time setup. To create your Slack app:
