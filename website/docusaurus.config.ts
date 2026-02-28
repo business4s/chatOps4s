@@ -63,6 +63,11 @@ const config: Config = {
           label: "Docs",
         },
         {
+          href: "https://bit.ly/business4s-discord",
+          label: "Discord",
+          position: "right",
+        },
+        {
           href: "https://github.com/business4s/chatops4s",
           label: "GitHub",
           position: "right",

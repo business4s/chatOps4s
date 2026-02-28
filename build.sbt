@@ -49,8 +49,14 @@ lazy val `chatops4s-examples` = (project in file("chatops4s-examples"))
   )
   .dependsOn(`chatops4s-slack`)
 
+lazy val stableVersion = taskKey[String]("stableVersion")
+stableVersion := {
+  if (isVersionStable.value && !isSnapshot.value) version.value
+  else previousStableVersion.value.getOrElse("unreleased")
+}
+
 lazy val commonSettings = Seq(
-  scalaVersion  := "3.7.1",
+  scalaVersion  := "3.8.1",
   scalacOptions ++= Seq(
     "-no-indent",
     "-Xmax-inlines",
@@ -78,5 +84,14 @@ lazy val commonSettings = Seq(
     ),
   ),
   versionScheme := Some("semver-spec"),
-  version       := "0.1.0-SNAPSHOT",
 )
+
+ThisBuild / publishTo := {
+  val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+  if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
+  else localStaging.value
+}
+
+Global / onChangedBuildSource := ReloadOnSourceChanges
+
+addCommandAlias("prePR", List("compile", "Test / compile", "test", "scalafmtAll").mkString(";", ";", ""))
